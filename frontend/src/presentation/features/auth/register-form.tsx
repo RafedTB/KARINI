@@ -30,67 +30,83 @@ export function RegisterForm() {
   }
 
   return (
-    <div className="mx-auto max-w-md rounded-3xl border border-[var(--line)] bg-white/50 p-8 shadow-sm">
-      <p className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">Get started</p>
-      <h1 className="mt-2 font-serif text-3xl">Create your account</h1>
-      <p className="mt-2 text-sm text-[var(--muted)]">Join Karini as a student and build your learning library.</p>
+    <div className="mx-auto max-w-md animate-fade-in-up">
+      <div className="glass-card p-8">
+        {/* Icon */}
+        <div
+          className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl"
+          style={{ background: "linear-gradient(135deg, rgba(236,72,153,0.12), rgba(99,102,241,0.12))", border: "1px solid rgba(236,72,153,0.2)" }}
+        >
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+            <circle cx="8.5" cy="7" r="4" />
+            <line x1="20" y1="8" x2="20" y2="14" />
+            <line x1="23" y1="11" x2="17" y2="11" />
+          </svg>
+        </div>
 
-      <form className="mt-8 space-y-4" onSubmit={onSubmit}>
-        <label className="block text-sm">
-          Username
-          <input
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            className="mt-1 w-full rounded-xl border border-[var(--line)] bg-white px-3 py-2.5"
-            placeholder="How should we call you?"
-          />
-        </label>
-        <label className="block text-sm">
-          Email
-          <input
-            required
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="mt-1 w-full rounded-xl border border-[var(--line)] bg-white px-3 py-2.5"
-            placeholder="you@example.com"
-          />
-        </label>
-        <label className="block text-sm">
-          Password
-          <input
-            required
-            minLength={6}
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="mt-1 w-full rounded-xl border border-[var(--line)] bg-white px-3 py-2.5"
-            placeholder="At least 6 characters"
-          />
-        </label>
+        <h1 className="mt-5 text-center font-serif text-3xl" style={{ color: "var(--ink)" }}>
+          Create your account
+        </h1>
+        <p className="mt-2 text-center text-sm" style={{ color: "var(--muted)" }}>
+          Join Karini as a student and build your learning library.
+        </p>
 
-        {notice ? (
-          <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800" role="status">
-            {notice}
-          </p>
-        ) : null}
-        {error ? (
-          <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">
-            {error}
-          </p>
-        ) : null}
+        <form className="mt-8 space-y-5" onSubmit={onSubmit}>
+          <label className="block text-sm" style={{ color: "var(--ink-soft)" }}>
+            Username
+            <input
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              className="input-field mt-1.5"
+              placeholder="How should we call you?"
+            />
+          </label>
+          <label className="block text-sm" style={{ color: "var(--ink-soft)" }}>
+            Email
+            <input
+              required
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="input-field mt-1.5"
+              placeholder="you@example.com"
+            />
+          </label>
+          <label className="block text-sm" style={{ color: "var(--ink-soft)" }}>
+            Password
+            <input
+              required
+              minLength={6}
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="input-field mt-1.5"
+              placeholder="At least 6 characters"
+            />
+          </label>
 
-        <Button type="submit" disabled={busy} className="w-full">
-          {busy ? "Creating account…" : "Create account"}
-        </Button>
-      </form>
+          {notice ? (
+            <p className="alert-success" role="status">{notice}</p>
+          ) : null}
+          {error ? (
+            <p className="alert-error" role="alert">{error}</p>
+          ) : null}
 
-      <p className="mt-6 text-center text-sm text-[var(--muted)]">
-        Already have an account?{" "}
-        <Link href="/login" className="text-[var(--ink)] underline-offset-2 hover:underline">
-          Sign in
-        </Link>
-      </p>
+          <Button type="submit" disabled={busy} className="w-full">
+            {busy ? "Creating account…" : "Create account"}
+          </Button>
+        </form>
+
+        <div className="section-divider my-6" />
+
+        <p className="text-center text-sm" style={{ color: "var(--muted)" }}>
+          Already have an account?{" "}
+          <Link href="/login" className="gradient-text font-medium">
+            Sign in
+          </Link>
+        </p>
+      </div>
     </div>
   );
 }

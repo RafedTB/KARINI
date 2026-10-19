@@ -4,11 +4,22 @@ import { MembershipPlansView } from "@/presentation/features/memberships/members
 export default function MembershipPage() {
   return (
     <RequireAuth>
-      <div>
-        <p className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">Membership</p>
-        <h1 className="mt-2 font-serif text-3xl">Choose your plan</h1>
-        <p className="mt-2 max-w-2xl text-sm text-[var(--muted)]">
-          Students purchase tiers with credits. Gold and platinum unlock live archive content.
+      <div className="animate-fade-in-up">
+        <p
+          className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs uppercase tracking-[0.2em]"
+          style={{
+            color: "var(--gold)",
+            background: "var(--gold-soft)",
+            border: "1px solid rgba(217, 119, 6, 0.25)",
+          }}
+        >
+          Membership
+        </p>
+        <h1 className="mt-4 font-serif text-3xl md:text-4xl" style={{ color: "var(--ink)" }}>
+          Choose your <span className="gradient-text-warm">plan</span>
+        </h1>
+        <p className="mt-2 max-w-2xl text-sm" style={{ color: "var(--muted)" }}>
+          Upgrade with credits to unlock premium content. Gold and platinum tiers include full live archive access.
         </p>
         <div className="mt-8">
           <MembershipPlansView />

@@ -29,58 +29,73 @@ export function LoginForm() {
   }
 
   return (
-    <div className="mx-auto max-w-md rounded-3xl border border-[var(--line)] bg-white/50 p-8 shadow-sm">
-      <p className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">Welcome back</p>
-      <h1 className="mt-2 font-serif text-3xl">Sign in to Karini</h1>
-      <p className="mt-2 text-sm text-[var(--muted)]">
-        Access your courses, exercises, and membership library.
-      </p>
+    <div className="mx-auto max-w-md animate-fade-in-up">
+      <div className="glass-card p-8">
+        {/* Icon */}
+        <div
+          className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl"
+          style={{ background: "var(--accent-glow)", border: "1px solid rgba(99,102,241,0.2)" }}
+        >
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
+            <polyline points="10 17 15 12 10 7" />
+            <line x1="15" y1="12" x2="3" y2="12" />
+          </svg>
+        </div>
 
-      <form className="mt-8 space-y-4" onSubmit={onSubmit}>
-        <label className="block text-sm">
-          Email
-          <input
-            required
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="mt-1 w-full rounded-xl border border-[var(--line)] bg-white px-3 py-2.5"
-            placeholder="you@example.com"
-          />
-        </label>
-        <label className="block text-sm">
-          Password
-          <input
-            required
-            minLength={6}
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="mt-1 w-full rounded-xl border border-[var(--line)] bg-white px-3 py-2.5"
-            placeholder="At least 6 characters"
-          />
-        </label>
+        <h1 className="mt-5 text-center font-serif text-3xl" style={{ color: "var(--ink)" }}>
+          Welcome back
+        </h1>
+        <p className="mt-2 text-center text-sm" style={{ color: "var(--muted)" }}>
+          Sign in to access your courses and library.
+        </p>
 
-        {error ? (
-          <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">
-            {error}
-          </p>
-        ) : null}
+        <form className="mt-8 space-y-5" onSubmit={onSubmit}>
+          <label className="block text-sm" style={{ color: "var(--ink-soft)" }}>
+            Email
+            <input
+              required
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="input-field mt-1.5"
+              placeholder="you@example.com"
+            />
+          </label>
+          <label className="block text-sm" style={{ color: "var(--ink-soft)" }}>
+            Password
+            <input
+              required
+              minLength={6}
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="input-field mt-1.5"
+              placeholder="At least 6 characters"
+            />
+          </label>
 
-        <Button type="submit" disabled={busy} className="w-full">
-          {busy ? "Signing in…" : "Sign in"}
-        </Button>
-      </form>
+          {error ? (
+            <p className="alert-error" role="alert">{error}</p>
+          ) : null}
 
-      <p className="mt-6 text-center text-sm text-[var(--muted)]">
-        New here?{" "}
-        <Link href="/register" className="text-[var(--ink)] underline-offset-2 hover:underline">
-          Create an account
-        </Link>
-      </p>
-      <p className="mt-3 text-center text-xs text-[var(--muted)]">
-        Email verification is required before your first sign in.
-      </p>
+          <Button type="submit" disabled={busy} className="w-full">
+            {busy ? "Signing in…" : "Sign in"}
+          </Button>
+        </form>
+
+        <div className="section-divider my-6" />
+
+        <p className="text-center text-sm" style={{ color: "var(--muted)" }}>
+          New here?{" "}
+          <Link href="/register" className="gradient-text font-medium">
+            Create an account
+          </Link>
+        </p>
+        <p className="mt-2 text-center text-xs" style={{ color: "var(--muted)", opacity: 0.7 }}>
+          Email verification is required before your first sign in.
+        </p>
+      </div>
     </div>
   );
 }

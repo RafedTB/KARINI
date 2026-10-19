@@ -4,7 +4,7 @@ import { useState } from "react";
 import type { Course } from "@/domain/entities/course";
 import { coursesService } from "@/application/services/courses-service";
 import { Button } from "@/presentation/components/ui/button";
-import { formatCourseSection } from "@/shared/labels/course-section";
+import { formatCourseSection, courseSectionIcon } from "@/shared/labels/course-section";
 
 type CourseCardProps = {
   course: Course;
@@ -28,38 +28,96 @@ export function CourseCard({ course, token }: CourseCardProps) {
     }
   }
 
+  const sectionColor = getSectionColor(course.section);
+
   return (
-    <article className="flex flex-col rounded-2xl border border-[var(--line)] bg-white/60 p-5">
+    <article
+      className="group glass-card flex flex-col p-6 transition-all duration-300"
+      style={{
+        ["--hover-border" as string]: sectionColor,
+      }}
+      onMouseEnter={(e) => {
+        (e.currentTarget as HTMLElement).style.borderColor = `${sectionColor}40`;
+        (e.currentTarget as HTMLElement).style.transform = "translateY(-2px)";
+      }}
+      onMouseLeave={(e) => {
+        (e.currentTarget as HTMLElement).style.borderColor = "var(--line)";
+        (e.currentTarget as HTMLElement).style.transform = "translateY(0)";
+      }}
+    >
+      {/* Top row: badge + ID */}
       <div className="flex items-start justify-between gap-3">
-        <p className="text-xs uppercase tracking-[0.16em] text-[var(--muted)]">
+        <span
+          className="badge"
+          style={{
+            borderColor: `${sectionColor}30`,
+            background: `${sectionColor}12`,
+            color: sectionColor,
+          }}
+        >
+          {courseSectionIcon(course.section)}{" "}
           {formatCourseSection(course.section)}
-        </p>
-        <span className="font-mono text-xs text-[var(--muted)]">{String(course.id).padStart(2, "0")}</span>
+        </span>
+        <span className="font-mono text-xs" style={{ color: "var(--muted)", opacity: 0.6 }}>
+          #{String(course.id).padStart(2, "0")}
+        </span>
       </div>
-      <h3 className="mt-3 font-serif text-xl">{course.title}</h3>
-      <p className="mt-2 flex-1 text-sm text-[var(--muted)]">
+
+      {/* Title & desc */}
+      <h3 className="mt-4 font-serif text-xl" style={{ color: "var(--ink)" }}>
+        {course.title}
+      </h3>
+      <p className="mt-2 flex-1 text-sm leading-relaxed" style={{ color: "var(--muted)" }}>
         {course.description ?? "Focused learning content for your current season."}
       </p>
 
-      <div className="mt-5">
+      {/* Actions */}
+      <div className="mt-5 pt-4" style={{ borderTop: "1px solid var(--line)" }}>
         {course.youtubeUrl ? (
           <a
             href={course.youtubeUrl}
             target="_blank"
             rel="noreferrer"
-            className="text-sm font-medium underline-offset-2 hover:underline"
+            className="inline-flex items-center gap-2 text-sm font-medium transition-colors duration-200"
+            style={{ color: "var(--accent-soft)" }}
+            onMouseEnter={(e) => { (e.target as HTMLElement).style.color = "var(--accent)"; }}
+            onMouseLeave={(e) => { (e.target as HTMLElement).style.color = "var(--accent-soft)"; }}
           >
-            Watch on YouTube ↗
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <polygon points="5 3 19 12 5 21 5 3" />
+            </svg>
+            Watch on YouTube
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+              <polyline points="15 3 21 3 21 9" />
+              <line x1="10" y1="14" x2="21" y2="3" />
+            </svg>
           </a>
         ) : course.pdfFile ? (
-          <Button type="button" variant="secondary" disabled={busy} onClick={openMagazine}>
-            {busy ? "Opening…" : "Read magazine ↗"}
+          <Button type="button" variant="secondary" disabled={busy} onClick={openMagazine} className="w-full">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+              <polyline points="14 2 14 8 20 8" />
+            </svg>
+            {busy ? "Opening…" : "Read magazine"}
           </Button>
         ) : (
-          <span className="text-sm text-[var(--muted)]">Content coming soon</span>
+          <span className="text-sm" style={{ color: "var(--muted)", opacity: 0.6 }}>
+            Content coming soon
+          </span>
         )}
-        {error ? <p className="mt-2 text-xs text-red-700">{error}</p> : null}
+        {error ? <p className="mt-2 text-xs" style={{ color: "var(--error)" }}>{error}</p> : null}
       </div>
     </article>
   );
+}
+
+function getSectionColor(section: string): string {
+  switch (section) {
+    case "course": return "#6366f1";
+    case "exercise": return "#0d9488";
+    case "magazine": return "#db2777";
+    case "oldlive": return "#d97706";
+    default: return "#6366f1";
+  }
 }
