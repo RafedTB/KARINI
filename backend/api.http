@@ -1,0 +1,202 @@
+@baseUrl = http://localhost:3000
+@token = paste-jwt-token-here
+@userId = 1
+@courseId = 1
+@membership = silver
+@verificationToken = paste-verification-token-here
+@resetPasswordToken = paste-reset-token-here
+@profileImage = paste-profile-image-filename-here
+@magazineFile = paste-magazine-filename-here
+
+### Health / root
+GET {{baseUrl}}/
+
+### Users: register
+POST {{baseUrl}}/api/users/auth/register
+Content-Type: application/json
+
+{
+  "email": "student@example.com",
+  "password": "password123",
+  "username": "student"
+}
+
+### Users: login
+# Copy the token from this response into @token above.
+POST {{baseUrl}}/api/users/auth/login
+Content-Type: application/json
+
+{
+  "email": "student@example.com",
+  "password": "password123"
+}
+
+### Users: current user [authenticated]
+GET {{baseUrl}}/api/users/current-user
+Authorization: Bearer {{token}}
+
+### Users: get all users [superadmin]
+GET {{baseUrl}}/api/users
+Authorization: Bearer {{token}}
+
+### Users: update current user [authenticated]
+PUT {{baseUrl}}/api/users
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "username": "updated-student",
+  "password": "newpassword123"
+}
+
+### Users: assign membership [superadmin]
+PUT {{baseUrl}}/api/users/{{userId}}/membership
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "membership": "{{membership}}"
+}
+
+### Users: add credits [finance or superadmin]
+PUT {{baseUrl}}/api/users/{{userId}}/credits
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "credits": 100
+}
+
+### Users: delete user [authenticated]
+DELETE {{baseUrl}}/api/users/{{userId}}
+Authorization: Bearer {{token}}
+
+### Users: upload profile image [authenticated]
+# Change the file path to an existing image before sending.
+POST {{baseUrl}}/api/users/upload-profile-image
+Authorization: Bearer {{token}}
+Content-Type: multipart/form-data; boundary=profile-image-boundary
+
+--profile-image-boundary
+Content-Disposition: form-data; name="user-image"; filename="profile.jpg"
+Content-Type: image/jpeg
+
+< ./profile.jpg
+--profile-image-boundary--
+
+### Users: remove profile image [authenticated]
+DELETE {{baseUrl}}/api/users/images/remove-profile-image
+Authorization: Bearer {{token}}
+
+### Users: show profile image [authenticated]
+GET {{baseUrl}}/api/users/images/{{profileImage}}
+Authorization: Bearer {{token}}
+
+### Users: verify account
+GET {{baseUrl}}/api/users/verify/{{userId}}/{{verificationToken}}
+
+### Users: forgot password
+POST {{baseUrl}}/api/users/forgot-password
+Content-Type: application/json
+
+{
+  "email": "student@example.com"
+}
+
+### Users: validate reset password link
+GET {{baseUrl}}/api/users/reset-password/{{userId}}/{{resetPasswordToken}}
+
+### Users: reset password
+POST {{baseUrl}}/api/users/reset-password
+Content-Type: application/json
+
+{
+  "newPassword": "newpassword123",
+  "userId": {{userId}},
+  "resetPasswordToken": "{{resetPasswordToken}}"
+}
+
+### Courses: list courses [superadmin, student, instructor]
+GET {{baseUrl}}/api/courses
+Authorization: Bearer {{token}}
+
+### Courses: get course [superadmin, student, instructor]
+GET {{baseUrl}}/api/courses/{{courseId}}
+Authorization: Bearer {{token}}
+
+### Courses: create course [superadmin or instructor]
+POST {{baseUrl}}/api/courses
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "title": "Introduction to Mathematics",
+  "description": "Core mathematics course",
+  "section": "course",
+  "youtubeUrl": "https://www.youtube.com/watch?v=example"
+}
+
+### Courses: upload magazine PDF [superadmin or instructor]
+# Change the file path to an existing PDF before sending.
+POST {{baseUrl}}/api/courses/magazine
+Authorization: Bearer {{token}}
+Content-Type: multipart/form-data; boundary=magazine-boundary
+
+--magazine-boundary
+Content-Disposition: form-data; name="title"
+
+Course Magazine
+--magazine-boundary
+Content-Disposition: form-data; name="description"
+
+Supplementary course material
+--magazine-boundary
+Content-Disposition: form-data; name="section"
+
+magazine
+--magazine-boundary
+Content-Disposition: form-data; name="pdf"; filename="magazine.pdf"
+Content-Type: application/pdf
+
+< ./magazine.pdf
+--magazine-boundary--
+
+### Courses: update course [superadmin or instructor]
+PATCH {{baseUrl}}/api/courses/{{courseId}}
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "title": "Updated Mathematics Course",
+  "description": "Updated course description"
+}
+
+### Courses: delete course [superadmin or instructor]
+DELETE {{baseUrl}}/api/courses/{{courseId}}
+Authorization: Bearer {{token}}
+
+### Courses: download magazine [superadmin, student, instructor]
+GET {{baseUrl}}/api/courses/magazines/{{magazineFile}}
+Authorization: Bearer {{token}}
+
+### Memberships: list prices [superadmin, student, finance]
+GET {{baseUrl}}/api/memberships/prices
+Authorization: Bearer {{token}}
+
+### Memberships: update price [finance or superadmin]
+PUT {{baseUrl}}/api/memberships/{{membership}}/price
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "priceCredits": 250
+}
+
+### Memberships: purchase [student]
+POST {{baseUrl}}/api/memberships/purchase
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "membership": "{{membership}}"
+}

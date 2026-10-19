@@ -31,11 +31,13 @@
 $ npm install
 ```
 
+Create a PostgreSQL database named `karini`, then update the local `.env` file with your PostgreSQL username and password. The application reads its database settings from `DB_HOST`, `DB_PORT`, `DB_USERNAME`, `DB_PASSWORD`, and `DB_NAME`. `DB_SYNCHRONIZE=true` is intended for local development only.
+
 ## Compile and run the project
 
 ```bash
 # development
-$ npm run start
+$ npm run start:dev
 
 # watch mode
 $ npm run start:dev
