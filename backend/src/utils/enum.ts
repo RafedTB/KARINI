@@ -21,6 +21,12 @@ export enum CourseSection {
     OLDLIVE = 'oldlive'
 }
 
+export enum LessonType {
+    TEXT = 'text',
+    VIDEO = 'video',
+    PDF = 'pdf'
+}
+
 export enum CourseSubject {
     MATH = 'math',
     PHYSIQUE = 'physique',

@@ -18,7 +18,19 @@ export class CreateCourseDto {
     @IsOptional()
     subject?: string;
 
+    @IsString()
+    @IsOptional()
+    filiere?: string;
+
+    @IsString()
+    @IsOptional()
+    textContent?: string;
+
     @IsUrl({ protocols: ['http', 'https'] })
     @IsOptional()
     youtubeUrl?: string;
+
+    @IsString()
+    @IsOptional()
+    pdfFile?: string;
 }

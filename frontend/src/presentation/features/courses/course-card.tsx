@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import type { Course } from "@/domain/entities/course";
 import { coursesService } from "@/application/services/courses-service";
 import { Button } from "@/presentation/components/ui/button";
@@ -67,36 +68,52 @@ export function CourseCard({ course, token }: CourseCardProps) {
       <h3 className="mt-4 font-serif text-xl" style={{ color: "var(--ink)" }}>
         {course.title}
       </h3>
-      <p className="mt-2 flex-1 text-sm leading-relaxed" style={{ color: "var(--muted)" }}>
+      <p className="mt-2 flex-1 text-sm leading-relaxed line-clamp-3" style={{ color: "var(--muted)" }}>
         {course.description ?? "Focused learning content for your current season."}
       </p>
 
+      {/* Course format highlights */}
+      <div className="mt-4 flex flex-wrap items-center gap-1.5 text-[11px]">
+        {course.lessons && course.lessons.length > 0 && (
+          <span className="rounded-md px-2 py-0.5 font-bold bg-indigo-50 text-indigo-700">
+            📖 {course.lessons.length} {course.lessons.length === 1 ? "leçon" : "leçons"}
+          </span>
+        )}
+        {course.textContent && (
+          <span className="rounded-md px-2 py-0.5 font-medium bg-teal-50 text-teal-700">
+            📝 Cours écrit
+          </span>
+        )}
+        {course.youtubeUrl && (
+          <span className="rounded-md px-2 py-0.5 font-medium bg-rose-50 text-rose-700">
+            🎬 Vidéo
+          </span>
+        )}
+        {course.pdfFile && (
+          <span className="rounded-md px-2 py-0.5 font-medium bg-pink-50 text-pink-700">
+            📄 PDF
+          </span>
+        )}
+      </div>
+
       {/* Actions */}
       <div className="mt-5 pt-4" style={{ borderTop: "1px solid var(--line)" }}>
-        <div className="flex flex-wrap items-center gap-2.5">
-          {course.youtubeUrl ? (
-            <a
-              href={course.youtubeUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-medium transition-all duration-200"
-              style={{
-                color: "var(--accent)",
-                background: "var(--accent-glow)",
-                border: "1px solid rgba(99, 102, 241, 0.2)",
-              }}
-            >
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <polygon points="5 3 19 12 5 21 5 3" />
-              </svg>
-              Watch Video
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-                <polyline points="15 3 21 3 21 9" />
-                <line x1="10" y1="14" x2="21" y2="3" />
-              </svg>
-            </a>
-          ) : null}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Main Study Link */}
+          <Link
+            href={`/courses/view/${course.id}`}
+            className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition-all duration-200"
+            style={{
+              color: "#ffffff",
+              background: "var(--accent)",
+              boxShadow: "0 2px 8px rgba(99, 102, 241, 0.25)",
+            }}
+          >
+            Commencer le cours
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <polyline points="9 18 15 12 9 6" />
+            </svg>
+          </Link>
 
           {course.pdfFile ? (
             <Button
@@ -104,20 +121,14 @@ export function CourseCard({ course, token }: CourseCardProps) {
               variant="secondary"
               disabled={busy}
               onClick={openMagazine}
-              className="px-3.5 py-2 text-xs"
+              className="px-3 py-2 text-xs"
             >
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
                 <polyline points="14 2 14 8 20 8" />
               </svg>
-              {busy ? "Opening…" : "Read / Download PDF"}
+              {busy ? "…" : "PDF"}
             </Button>
-          ) : null}
-
-          {!course.youtubeUrl && !course.pdfFile ? (
-            <span className="text-xs" style={{ color: "var(--muted)", opacity: 0.6 }}>
-              Content coming soon
-            </span>
           ) : null}
         </div>
         {error ? <p className="mt-2 text-xs" style={{ color: "var(--error)" }}>{error}</p> : null}
