@@ -177,4 +177,50 @@ export class usersService {
     public resetPassword(dto: ResetPasswordDto) {
         return this.authProvider.resetPassword(dto);
     }
+
+    /**
+     * Admin creates a new user with specific role (finance, instructor, student, moderator, parent)
+     */
+    public async adminCreateUser(dto: import("./dto/admin-create-user.dto.js").AdminCreateUserDto) {
+        const existing = await this.userRepository.findOne({ where: { email: dto.email } });
+        if (existing) throw new BadRequestException('User with this email already exists');
+        const hashedPassword = await this.authProvider.HashPassword(dto.password);
+        const newUser = this.userRepository.create({
+            username: dto.username,
+            email: dto.email,
+            password: hashedPassword,
+            userType: dto.userType,
+            membership: dto.membership ?? MembershipType.DEFAULT,
+            credits: dto.credits ?? 0,
+            firstname: dto.firstname ?? '',
+            lastname: dto.lastname ?? '',
+            isAccountVerified: true,
+        });
+        return this.userRepository.save(newUser);
+    }
+
+    /**
+     * Admin updates a user's role, membership, credits, etc.
+     */
+    public async adminUpdateUser(id: number, dto: import("./dto/admin-update-user.dto.js").AdminUpdateUserDto) {
+        const user = await this.getCurrentUser(id);
+        if (dto.username !== undefined) user.username = dto.username;
+        if (dto.email !== undefined) {
+            const existing = await this.userRepository.findOne({ where: { email: dto.email } });
+            if (existing && existing.id !== id) {
+                throw new BadRequestException('Email already in use by another account');
+            }
+            user.email = dto.email;
+        }
+        if (dto.userType !== undefined) user.userType = dto.userType;
+        if (dto.membership !== undefined) user.membership = dto.membership;
+        if (dto.credits !== undefined) user.credits = dto.credits;
+        if (dto.isAccountVerified !== undefined) user.isAccountVerified = dto.isAccountVerified;
+        if (dto.firstname !== undefined) user.firstname = dto.firstname;
+        if (dto.lastname !== undefined) user.lastname = dto.lastname;
+        if (dto.password) {
+            user.password = await this.authProvider.HashPassword(dto.password);
+        }
+        return this.userRepository.save(user);
+    }
 }

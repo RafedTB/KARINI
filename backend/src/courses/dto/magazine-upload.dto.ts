@@ -11,6 +11,10 @@ export class MagazineUploadDto {
     @IsOptional()
     description?: string;
 
+    @IsString()
+    @IsOptional()
+    subject?: string;
+
     @IsEnum(CourseSection)
     section: CourseSection = CourseSection.MAGAZINE;
 }

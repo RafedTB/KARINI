@@ -1,8 +1,8 @@
-import { BadRequestException, Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Res, UploadedFile, UseGuards, UseInterceptors } from "@nestjs/common";
+import { BadRequestException, Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Query, Res, UploadedFile, UseGuards, UseInterceptors } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
 import { diskStorage } from "multer";
 import type { Express, Response } from "express";
-import { ApiBearerAuth, ApiConsumes, ApiTags } from "@nestjs/swagger";
+import { ApiBearerAuth, ApiConsumes, ApiQuery, ApiTags } from "@nestjs/swagger";
 import { CoursesService } from "./courses.service.js";
 import { CreateCourseDto } from "./dto/create-course.dto.js";
 import { MagazineUploadDto } from "./dto/magazine-upload.dto.js";
@@ -10,7 +10,7 @@ import { UpdateCourseDto } from "./dto/update-course.dto.js";
 import { AuthRolesGuard } from "../users/guards/auth-roles.guard.js";
 import { currentUser } from "../users/decorators/current-user.decorator.js";
 import { Roles } from "../users/decorators/user-role.decorator.js";
-import { UserType } from "../utils/enum.js";
+import { CourseSection, UserType } from "../utils/enum.js";
 import type { JWTPayloadType } from "../utils/types.js";
 
 @ApiTags('Courses')
@@ -22,7 +22,15 @@ export class CoursesController {
 
     @Get()
     @Roles(UserType.SUPERADMIN, UserType.STUDENT, UserType.INSTRUCTOR)
-    public findAll(@currentUser() payload: JWTPayloadType) { return this.coursesService.findAll(payload); }
+    @ApiQuery({ name: 'subject', required: false, type: String })
+    @ApiQuery({ name: 'section', required: false, enum: CourseSection })
+    public findAll(
+        @currentUser() payload: JWTPayloadType,
+        @Query('subject') subject?: string,
+        @Query('section') section?: CourseSection,
+    ) {
+        return this.coursesService.findAll(payload, subject, section);
+    }
 
     @Get(':id')
     @Roles(UserType.SUPERADMIN, UserType.STUDENT, UserType.INSTRUCTOR)
@@ -42,7 +50,7 @@ export class CoursesController {
     @ApiConsumes('multipart/form-data')
     public createMagazine(@UploadedFile() file: Express.Multer.File, @Body() dto: MagazineUploadDto, @currentUser() payload: JWTPayloadType) {
         if (!file) throw new BadRequestException('A PDF file is required');
-        return this.coursesService.createMagazine(dto.title, dto.description, file.filename, payload.id);
+        return this.coursesService.createMagazine(dto.title, dto.description, file.filename, payload.id, dto.subject);
     }
 
     @Patch(':id')

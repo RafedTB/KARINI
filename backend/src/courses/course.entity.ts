@@ -15,6 +15,9 @@ export class Course {
     @Column({ type: 'enum', enum: CourseSection })
     section!: CourseSection;
 
+    @Column({ type: 'varchar', length: 50, default: 'math' })
+    subject!: string;
+
     @Column({ type: 'varchar', length: 500, nullable: true })
     youtubeUrl?: string | null;
 

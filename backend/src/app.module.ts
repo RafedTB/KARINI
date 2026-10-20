@@ -7,6 +7,7 @@ import { AppService } from './app.service.js';
 import { UsersModule } from './users/users.module.js';
 import { CoursesModule } from './courses/courses.module.js';
 import { MembershipsModule } from './memberships/memberships.module.js';
+import { SubjectsModule } from './subjects/subjects.module.js';
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
 
@@ -29,6 +30,7 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
     UsersModule,
     CoursesModule,
     MembershipsModule,
+    SubjectsModule,
     // Distributed tracing, auto-correlated logs, request/job metrics, error
     // telemetry, alarms, and more — out of the box. Sign up at https://observe.nestjs.com
     ObserveModule.forRoot({

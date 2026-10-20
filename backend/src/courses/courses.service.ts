@@ -4,7 +4,7 @@ import { Repository } from "typeorm";
 import { Course } from "./course.entity.js";
 import { CreateCourseDto } from "./dto/create-course.dto.js";
 import { UpdateCourseDto } from "./dto/update-course.dto.js";
-import { CourseSection, MembershipType, UserType } from "../utils/enum.js";
+import { CourseSection, CourseSubject, MembershipType, UserType } from "../utils/enum.js";
 import { User } from "../users/user.entity.js";
 import { JWTPayloadType } from "../utils/types.js";
 
@@ -17,16 +17,39 @@ export class CoursesService {
 
     public async create(dto: CreateCourseDto, userId: number) {
         this.validateContent(dto.section, dto.youtubeUrl, undefined);
-        return this.courseRepository.save(this.courseRepository.create({ ...dto, createdById: userId }));
+        return this.courseRepository.save(this.courseRepository.create({
+            ...dto,
+            subject: (dto.subject?.toLowerCase() || CourseSubject.MATH),
+            createdById: userId,
+        }));
     }
 
-    public async createMagazine(title: string, description: string | undefined, pdfFile: string, userId: number) {
-        return this.courseRepository.save(this.courseRepository.create({ title, description, section: CourseSection.MAGAZINE, pdfFile, createdById: userId }));
+    public async createMagazine(title: string, description: string | undefined, pdfFile: string, userId: number, subject?: string) {
+        return this.courseRepository.save(this.courseRepository.create({
+            title,
+            description,
+            section: CourseSection.MAGAZINE,
+            pdfFile,
+            subject: (subject?.toLowerCase() || CourseSubject.MATH),
+            createdById: userId,
+        }));
     }
 
-    public async findAll(payload: JWTPayloadType) {
+    public async findAll(payload: JWTPayloadType, subject?: string, section?: CourseSection) {
         const user = await this.userRepository.findOne({ where: { id: payload.id } });
-        const courses = await this.courseRepository.find({ order: { createdAt: 'DESC' } });
+        const whereClause: Record<string, unknown> = {};
+        if (subject) {
+            whereClause.subject = subject.toLowerCase();
+        }
+        if (section) {
+            whereClause.section = section;
+        }
+
+        const courses = await this.courseRepository.find({
+            where: Object.keys(whereClause).length > 0 ? whereClause : undefined,
+            order: { createdAt: 'DESC' }
+        });
+
         if (user?.userType === UserType.STUDENT && ![MembershipType.GOLD, MembershipType.PLATINUM].includes(user.membership)) {
             return courses.filter((course) => course.section !== CourseSection.OLDLIVE);
         }

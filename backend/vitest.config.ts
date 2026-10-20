@@ -3,7 +3,7 @@ import tsconfigPaths from 'vite-tsconfig-paths';
 
 export default defineConfig({
   // Resolves the path aliases declared in tsconfig.json, including the ones
-  // added by `nest g library`.
+  // added by `nest g Courses`.
   plugins: [tsconfigPaths()],
   test: {
     globals: true,

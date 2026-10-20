@@ -14,6 +14,10 @@ export class CreateCourseDto {
     @IsEnum(CourseSection)
     section!: CourseSection;
 
+    @IsString()
+    @IsOptional()
+    subject?: string;
+
     @IsUrl({ protocols: ['http', 'https'] })
     @IsOptional()
     youtubeUrl?: string;

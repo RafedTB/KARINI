@@ -20,3 +20,17 @@ export enum CourseSection {
   MAGAZINE = "magazine",
   OLDLIVE = "oldlive",
 }
+
+export enum CourseSubject {
+  MATH = "math",
+  PHYSIQUE = "physique",
+  SCIENCE = "science",
+  INFORMATIQUE = "informatique",
+  FRANCAIS = "francais",
+  ANGLAIS = "anglais",
+  ARABE = "arabe",
+  PHILOSOPHIE = "philosophie",
+  ECONOMIE = "economie",
+  HISTOIRE_GEO = "histoire_geo",
+  AUTRE = "autre",
+}

@@ -49,7 +49,7 @@ export function RegisterForm() {
           Create your account
         </h1>
         <p className="mt-2 text-center text-sm" style={{ color: "var(--muted)" }}>
-          Join Karini as a student and build your learning library.
+          Join Karini as a student and build your learning path.
         </p>
 
         <form className="mt-8 space-y-5" onSubmit={onSubmit}>

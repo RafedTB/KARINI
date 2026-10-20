@@ -20,7 +20,7 @@ export function LoginForm() {
     setError("");
     try {
       await login(email, password);
-      router.push("/library");
+      router.push("/courses");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to sign in.");
     } finally {
@@ -47,7 +47,7 @@ export function LoginForm() {
           Welcome back
         </h1>
         <p className="mt-2 text-center text-sm" style={{ color: "var(--muted)" }}>
-          Sign in to access your courses and library.
+          Sign in to access your courses.
         </p>
 
         <form className="mt-8 space-y-5" onSubmit={onSubmit}>

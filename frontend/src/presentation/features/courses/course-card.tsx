@@ -73,39 +73,53 @@ export function CourseCard({ course, token }: CourseCardProps) {
 
       {/* Actions */}
       <div className="mt-5 pt-4" style={{ borderTop: "1px solid var(--line)" }}>
-        {course.youtubeUrl ? (
-          <a
-            href={course.youtubeUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex items-center gap-2 text-sm font-medium transition-colors duration-200"
-            style={{ color: "var(--accent-soft)" }}
-            onMouseEnter={(e) => { (e.target as HTMLElement).style.color = "var(--accent)"; }}
-            onMouseLeave={(e) => { (e.target as HTMLElement).style.color = "var(--accent-soft)"; }}
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <polygon points="5 3 19 12 5 21 5 3" />
-            </svg>
-            Watch on YouTube
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-              <polyline points="15 3 21 3 21 9" />
-              <line x1="10" y1="14" x2="21" y2="3" />
-            </svg>
-          </a>
-        ) : course.pdfFile ? (
-          <Button type="button" variant="secondary" disabled={busy} onClick={openMagazine} className="w-full">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-              <polyline points="14 2 14 8 20 8" />
-            </svg>
-            {busy ? "Opening…" : "Read magazine"}
-          </Button>
-        ) : (
-          <span className="text-sm" style={{ color: "var(--muted)", opacity: 0.6 }}>
-            Content coming soon
-          </span>
-        )}
+        <div className="flex flex-wrap items-center gap-2.5">
+          {course.youtubeUrl ? (
+            <a
+              href={course.youtubeUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-medium transition-all duration-200"
+              style={{
+                color: "var(--accent)",
+                background: "var(--accent-glow)",
+                border: "1px solid rgba(99, 102, 241, 0.2)",
+              }}
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polygon points="5 3 19 12 5 21 5 3" />
+              </svg>
+              Watch Video
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                <polyline points="15 3 21 3 21 9" />
+                <line x1="10" y1="14" x2="21" y2="3" />
+              </svg>
+            </a>
+          ) : null}
+
+          {course.pdfFile ? (
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={busy}
+              onClick={openMagazine}
+              className="px-3.5 py-2 text-xs"
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                <polyline points="14 2 14 8 20 8" />
+              </svg>
+              {busy ? "Opening…" : "Read / Download PDF"}
+            </Button>
+          ) : null}
+
+          {!course.youtubeUrl && !course.pdfFile ? (
+            <span className="text-xs" style={{ color: "var(--muted)", opacity: 0.6 }}>
+              Content coming soon
+            </span>
+          ) : null}
+        </div>
         {error ? <p className="mt-2 text-xs" style={{ color: "var(--error)" }}>{error}</p> : null}
       </div>
     </article>

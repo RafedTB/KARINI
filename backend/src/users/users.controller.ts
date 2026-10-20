@@ -58,6 +58,26 @@ export class UsersController {
         return this.usersService.getAllUsers();
     }
 
+    // POST /api/users/admin/create-user
+    @Post('admin/create-user')
+    @Roles(UserType.SUPERADMIN)
+    @UseGuards(AuthRolesGuard)
+    @ApiBearerAuth()
+    @ApiOperation({ summary: 'Create a user with specific role (Superadmin only)' })
+    public adminCreateUser(@Body() dto: import("./dto/admin-create-user.dto.js").AdminCreateUserDto) {
+        return this.usersService.adminCreateUser(dto);
+    }
+
+    // PUT /api/users/admin/:id
+    @Put('admin/:id')
+    @Roles(UserType.SUPERADMIN)
+    @UseGuards(AuthRolesGuard)
+    @ApiBearerAuth()
+    @ApiOperation({ summary: 'Update any user attributes (Superadmin only)' })
+    public adminUpdateUser(@Param('id', ParseIntPipe) id: number, @Body() dto: import("./dto/admin-update-user.dto.js").AdminUpdateUserDto) {
+        return this.usersService.adminUpdateUser(id, dto);
+    }
+
     // PUT /api/users
     @Put()
     @Roles(UserType.SUPERADMIN, UserType.STUDENT, UserType.INSTRUCTOR, UserType.MODERATOR, UserType.FINANCE, UserType.PARENT)

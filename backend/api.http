@@ -133,6 +133,7 @@ Content-Type: application/json
   "title": "Introduction to Mathematics",
   "description": "Core mathematics course",
   "section": "course",
+  "subject": "math",
   "youtubeUrl": "https://www.youtube.com/watch?v=example"
 }
 

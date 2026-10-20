@@ -8,7 +8,7 @@ import { displayName } from "@/shared/utils/display-name";
 
 const navItems = [
   { href: "/", label: "Home" },
-  { href: "/library", label: "Library" },
+  { href: "/courses", label: "Courses" },
   { href: "/membership", label: "Membership" },
 ];
 
