@@ -87,13 +87,28 @@ export function AppSidebar({ isOpenMobile, onCloseMobile }: AppSidebarProps) {
       : []),
   ];
 
-  const subjectQuickLinks = [
-    { label: "Mathématiques", href: "/courses/math", icon: "📐" },
-    { label: "Physique - Chimie", href: "/courses/physique", icon: "⚡" },
-    { label: "Sciences (SVT)", href: "/courses/science", icon: "🧬" },
-    { label: "Informatique", href: "/courses/informatique", icon: "💻" },
-    { label: "Toutes les matières", href: "/courses", icon: "📚" },
-  ];
+  const isStudent = user.userType === UserType.STUDENT;
+  const isBacInfo = Boolean(
+    user.studentClass &&
+      (/bac.*info/i.test(user.studentClass) ||
+        user.studentClass.toLowerCase() === "bac informatique")
+  );
+
+  const subjectQuickLinks = isStudent && isBacInfo
+    ? [
+        { label: "Algorithmique Avancée", href: "/courses/algo-bac-info", icon: "💻" },
+        { label: "Bases de Données (SQL)", href: "/courses/bdd-bac-info", icon: "🗄️" },
+        { label: "Mathématiques", href: "/courses/math-bac-info", icon: "📐" },
+        { label: "Physique - Chimie", href: "/courses/physique-bac-info", icon: "⚡" },
+        { label: "Toutes les matières", href: "/courses", icon: "📚" },
+      ]
+    : [
+        { label: "Mathématiques", href: "/courses/math", icon: "📐" },
+        { label: "Physique - Chimie", href: "/courses/physique", icon: "⚡" },
+        { label: "Sciences (SVT)", href: "/courses/science", icon: "🧬" },
+        { label: "Informatique", href: "/courses/informatique", icon: "💻" },
+        { label: "Toutes les matières", href: "/courses", icon: "📚" },
+      ];
 
   const isLinkActive = (href: string, exact: boolean) => {
     if (exact) return pathname === href;
@@ -188,7 +203,7 @@ export function AppSidebar({ isOpenMobile, onCloseMobile }: AppSidebarProps) {
         {/* Quick learning sections */}
         <div className="mt-6">
           <p className="px-3 text-[11px] font-semibold uppercase tracking-wider" style={{ color: "var(--muted)" }}>
-            Matières
+            {isStudent && isBacInfo ? "Matières (Bac Info)" : "Matières"}
           </p>
           <div className="mt-2 space-y-0.5">
             {subjectQuickLinks.map((sub) => {

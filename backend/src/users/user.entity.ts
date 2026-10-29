@@ -8,7 +8,7 @@ export class User {
     @PrimaryGeneratedColumn()
     id!: number;
 
-    @Column({ type: 'varchar', length: 25, nullable: true })
+    @Column({ type: 'varchar', length: 50, nullable: true })
     username!: string;
 
     @Column({ type: 'varchar', length: 25, nullable: true })
@@ -44,6 +44,30 @@ export class User {
 
     @Column({ type: 'varchar', nullable: true })
     profileImage?: string | null;
+
+    @Column({ type: 'varchar', length: 30, nullable: true })
+    phoneNumber?: string | null;
+
+    @Column({ type: 'varchar', length: 20, nullable: true })
+    gender?: string | null;
+
+    @Column({ type: 'varchar', length: 100, nullable: true })
+    studentClass?: string | null;
+
+    @Column({ type: 'integer', nullable: true })
+    age?: number | null;
+
+    @Column({ type: 'varchar', length: 30, nullable: true })
+    cin?: string | null;
+
+    @Column({ type: 'varchar', length: 50, nullable: true })
+    parentEmail?: string | null;
+
+    @Column({ type: 'varchar', length: 30, nullable: true })
+    parentPhone?: string | null;
+
+    @Column({ type: 'integer', nullable: true })
+    parentId?: number | null;
 
     @CreateDateColumn({ type: 'timestamp', default: () => CURRENT_TIMESTAMP })
     createdAt!: Date;

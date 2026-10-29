@@ -60,25 +60,44 @@ export function SubjectDetailView({ subjectId }: SubjectDetailViewProps) {
     if (!token) return;
     setLoading(true);
 
-    // Try fetching subject details from backend
-    subjectsService
-      .getBySlug(token, subjectId)
-      .then(setDbSubject)
-      .catch(() => {
-        // Fallback to static info if not in db
-      });
+    // Try fetching subject details from backend dynamically
+    const loadSubjectDetails = async () => {
+      try {
+        const sub = await subjectsService.getBySlug(token, subjectId);
+        setDbSubject(sub);
+        return sub;
+      } catch {
+        const numId = Number(subjectId);
+        if (!isNaN(numId) && numId > 0) {
+          try {
+            const sub = await subjectsService.getById(token, numId);
+            setDbSubject(sub);
+            return sub;
+          } catch {
+            return null;
+          }
+        }
+        return null;
+      }
+    };
 
-    // Fetch courses for this subject
-    coursesService
-      .list(token)
-      .then((data) => {
-        const targetId = subjectId.toLowerCase();
-        const filtered = data.filter((c) => {
-          const itemSubject = (c.subject || "math").toLowerCase();
+    Promise.all([loadSubjectDetails(), coursesService.list(token)])
+      .then(([loadedSub, coursesData]) => {
+        const targetSlug = subjectId.toLowerCase();
+        const subCode = loadedSub?.code?.toLowerCase();
+        const subSlug = loadedSub?.slug?.toLowerCase();
+        const subIdStr = loadedSub ? String(loadedSub.id) : null;
+        const fallbackCode = fallbackSubject?.shortCode?.toLowerCase();
+
+        const filtered = coursesData.filter((c) => {
+          const itemSubject = (c.subject || "").toLowerCase();
           return (
-            itemSubject === targetId ||
-            (fallbackSubject && itemSubject === fallbackSubject.shortCode.toLowerCase()) ||
-            (c.title && c.title.toLowerCase().includes(fallbackSubject?.shortCode.toLowerCase() || ""))
+            itemSubject === targetSlug ||
+            (subSlug && itemSubject === subSlug) ||
+            (subCode && itemSubject === subCode) ||
+            (subIdStr && itemSubject === subIdStr) ||
+            (fallbackCode && itemSubject === fallbackCode) ||
+            (c.title && subCode && c.title.toLowerCase().includes(subCode))
           );
         });
         setCourses(filtered);

@@ -11,6 +11,14 @@ export type User = {
   credits: number;
   isAccountVerified: boolean;
   profileImage?: string | null;
+  phoneNumber?: string | null;
+  gender?: string | null;
+  studentClass?: string | null;
+  age?: number | null;
+  cin?: string | null;
+  parentEmail?: string | null;
+  parentPhone?: string | null;
+  parentId?: number | null;
   createdAt?: string;
   updatedAt?: string;
 };

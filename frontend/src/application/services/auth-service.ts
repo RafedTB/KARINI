@@ -2,6 +2,8 @@ import type { User } from "@/domain/entities/user";
 import { authRepository } from "@/infrastructure/repositories/auth-repository";
 import { authTokenStorage } from "@/infrastructure/storage/auth-token-storage";
 
+import type { RegisterPayload } from "@/infrastructure/repositories/auth-repository";
+
 export type AuthSession = {
   token: string;
   user: User;
@@ -27,8 +29,8 @@ export const authService = {
     return { token: response.accessToken, user };
   },
 
-  async register(email: string, password: string, username: string): Promise<string> {
-    const response = await authRepository.register(email, password, username);
+  async register(payload: RegisterPayload): Promise<string> {
+    const response = await authRepository.register(payload);
     return response.message;
   },
 

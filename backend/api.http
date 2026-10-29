@@ -11,14 +11,35 @@
 ### Health / root
 GET {{baseUrl}}/
 
-### Users: register
+### Users: register (Adult student 18+ with CIN)
 POST {{baseUrl}}/api/users/auth/register
 Content-Type: application/json
 
 {
-  "email": "student@example.com",
+  "email": "student18@example.com",
   "password": "password123",
-  "username": "student"
+  "username": "student_adult",
+  "studentClass": "Bac Informatique",
+  "phoneNumber": "+216 20 123 456",
+  "gender": "Masculin",
+  "age": 19,
+  "cin": "12345678"
+}
+
+### Users: register (Minor student < 18 with Parent Account auto-generation)
+POST {{baseUrl}}/api/users/auth/register
+Content-Type: application/json
+
+{
+  "email": "minor_student@example.com",
+  "password": "password123",
+  "username": "student_minor",
+  "studentClass": "2ème Informatique",
+  "phoneNumber": "+216 98 765 432",
+  "gender": "Féminin",
+  "age": 16,
+  "parentEmail": "parent@example.com",
+  "parentPhone": "+216 22 334 455"
 }
 
 ### Users: login

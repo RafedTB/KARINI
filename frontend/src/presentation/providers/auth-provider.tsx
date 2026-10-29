@@ -12,12 +12,14 @@ import {
 import type { User } from "@/domain/entities/user";
 import { authService } from "@/application/services/auth-service";
 
+import type { RegisterPayload } from "@/infrastructure/repositories/auth-repository";
+
 type AuthContextValue = {
   user: User | null;
   token: string | null;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string, username: string) => Promise<string>;
+  register: (payload: RegisterPayload) => Promise<string>;
   signOut: () => void;
   refreshUser: () => Promise<void>;
   setUser: (user: User | null) => void;
@@ -48,8 +50,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(session.user);
   }, []);
 
-  const register = useCallback(async (email: string, password: string, username: string) => {
-    return authService.register(email, password, username);
+  const register = useCallback(async (payload: RegisterPayload) => {
+    return authService.register(payload);
   }, []);
 
   const signOut = useCallback(() => {

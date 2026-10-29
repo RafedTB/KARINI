@@ -10,6 +10,19 @@ type RegisterResponse = {
   message: string;
 };
 
+export type RegisterPayload = {
+  email: string;
+  password: string;
+  username: string;
+  studentClass: string;
+  phoneNumber: string;
+  gender: string;
+  age: number;
+  cin?: string;
+  parentEmail?: string;
+  parentPhone?: string;
+};
+
 export const authRepository = {
   login(email: string, password: string) {
     return apiClient<LoginResponse>("/api/users/auth/login", {
@@ -18,10 +31,10 @@ export const authRepository = {
     });
   },
 
-  register(email: string, password: string, username: string) {
+  register(payload: RegisterPayload) {
     return apiClient<RegisterResponse>("/api/users/auth/register", {
       method: "POST",
-      json: { email, password, username },
+      json: payload,
     });
   },
 

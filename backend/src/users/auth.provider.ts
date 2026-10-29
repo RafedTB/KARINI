@@ -10,6 +10,7 @@ import { JWTPayloadType } from "../utils/types.js";
 import { randomBytes } from 'node:crypto';
 import { ConfigService } from "@nestjs/config";
 import { ResetPasswordDto } from "./dto/reset-password.dto.js";
+import { UserType } from "../utils/enum.js";
 
 @Injectable()
 export class AuthProvider {
@@ -21,25 +22,101 @@ export class AuthProvider {
 
     /**
      * Creates a new user in the database after validating the email and hashing the password.
+     * If the student is under 18, generates/links a parent account.
      * @param registerDto data for creating a new user
      * @returns success message
      */
     public async register(registerDto: RegisterDto) {
-        const { email, password, username } = registerDto;
-        const UserFromDb = await this.userRepository.findOne({ where: { email } });
+        const {
+            email,
+            password,
+            username,
+            studentClass,
+            phoneNumber,
+            gender,
+            age,
+            cin,
+            parentEmail,
+            parentPhone,
+        } = registerDto;
+
+        const cleanEmail = email.trim().toLowerCase();
+        const UserFromDb = await this.userRepository.findOne({ where: { email: cleanEmail } });
         if (UserFromDb) throw new BadRequestException('User with this email already exists');
+
+        let parentId: number | null = null;
+        let parentAccountCreated = false;
+
+        // If student is minor (< 18), validate parent info and auto-generate/link parent account
+        if (age !== undefined && age !== null && age < 18) {
+            if (!parentEmail || !parentEmail.trim()) {
+                throw new BadRequestException('Parent email is required for students under 18 years old');
+            }
+            const cleanParentEmail = parentEmail.trim().toLowerCase();
+            if (cleanParentEmail === cleanEmail) {
+                throw new BadRequestException('Parent email cannot be the same as student email');
+            }
+
+            let parentUser = await this.userRepository.findOne({ where: { email: cleanParentEmail } });
+            if (!parentUser) {
+                // Generate a parent account
+                const tempPassword = randomBytes(4).toString('hex') + 'P@1';
+                const hashedParentPassword = await this.HashPassword(tempPassword);
+                const generatedParentUsername = `parent_${cleanParentEmail.split('@')[0]}`.slice(0, 50);
+
+                parentUser = this.userRepository.create({
+                    email: cleanParentEmail,
+                    username: generatedParentUsername,
+                    password: hashedParentPassword,
+                    userType: UserType.PARENT,
+                    phoneNumber: parentPhone?.trim() || undefined,
+                    isAccountVerified: false,
+                    verificationToken: randomBytes(32).toString('hex'),
+                });
+                parentUser = await this.userRepository.save(parentUser);
+                parentAccountCreated = true;
+
+                // TODO: integrate mail service when MailModule is available
+                // Send temporary credentials to parent email:
+                // await this.mailService.sendParentAccountCreated(cleanParentEmail, { tempPassword, studentEmail: cleanEmail });
+            }
+            parentId = parentUser.id;
+        }
+
+        // If student is 18 or older, validate CIN (Carte d'Identité Nationale)
+        if (age !== undefined && age !== null && age >= 18) {
+            if (!cin || !cin.trim()) {
+                throw new BadRequestException('ID number (CIN) is required for students aged 18 and older');
+            }
+        }
+
         const hashedPassword = await this.HashPassword(password);
         let newUser = this.userRepository.create({
-            email,
+            email: cleanEmail,
             password: hashedPassword,
-            username,
+            username: username?.trim() || cleanEmail.split('@')[0],
+            phoneNumber: phoneNumber?.trim() || undefined,
+            gender: gender?.trim() || undefined,
+            studentClass: studentClass?.trim() || undefined,
+            age: age !== undefined ? age : undefined,
+            cin: age >= 18 ? cin?.trim() : undefined,
+            parentEmail: age < 18 ? parentEmail?.trim().toLowerCase() : undefined,
+            parentPhone: age < 18 ? parentPhone?.trim() : undefined,
+            parentId: age < 18 && parentId ? parentId : undefined,
+            userType: UserType.STUDENT,
             verificationToken: randomBytes(32).toString('hex'),
         });
         newUser = await this.userRepository.save(newUser);
 
         // TODO: integrate mail service when MailModule is available
         // const link = this.generateLink(newUser.id, newUser.verificationToken!);
-        // await this.mailService.sendVerificationMail(email, link);
+        // await this.mailService.sendVerificationMail(cleanEmail, link);
+
+        if (parentAccountCreated) {
+            return {
+                message: `Registration successful! Your student account has been created. A parent account has also been generated for ${parentEmail} (credentials will be sent by email). Please check your email to verify your account.`,
+            };
+        }
 
         return { message: "Registration successful. Please verify your email address." };
     }

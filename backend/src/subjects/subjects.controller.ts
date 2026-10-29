@@ -9,25 +9,51 @@ import { UserType } from "../utils/enum.js";
 import { currentUser } from "../users/decorators/current-user.decorator.js";
 import type { JWTPayloadType } from "../utils/types.js";
 
+import { usersService } from "../users/users.service.js";
+
 @ApiTags('Subjects')
 @ApiBearerAuth()
 @Controller('api/subjects')
 @UseGuards(AuthRolesGuard)
 export class SubjectsController {
-    constructor(private readonly subjectsService: SubjectsService) {}
+    constructor(
+        private readonly subjectsService: SubjectsService,
+        private readonly usersService: usersService,
+    ) {}
 
     @Get()
     @Roles(UserType.SUPERADMIN, UserType.STUDENT, UserType.INSTRUCTOR, UserType.FINANCE, UserType.MODERATOR, UserType.PARENT)
     @ApiQuery({ name: 'filiere', required: false, type: String })
     @ApiOperation({ summary: 'Get all subjects, optionally filtered by filière' })
-    public findAll(@Query('filiere') filiere?: string) {
+    public async findAll(
+        @Query('filiere') filiere?: string,
+        @currentUser() payload?: JWTPayloadType,
+    ) {
+        if (payload?.userType === UserType.STUDENT) {
+            const user = await this.usersService.getCurrentUser(payload.id);
+            if (user?.studentClass) {
+                const sClass = user.studentClass.trim();
+                const isBacInfo = /bac.*info/i.test(sClass) || sClass.toLowerCase() === 'bac informatique';
+                const targetFiliere = isBacInfo ? 'Bac Informatique' : sClass;
+                return this.subjectsService.findAll(targetFiliere);
+            }
+        }
         return this.subjectsService.findAll(filiere);
     }
 
     @Get('meta/filieres')
     @Roles(UserType.SUPERADMIN, UserType.STUDENT, UserType.INSTRUCTOR, UserType.FINANCE, UserType.MODERATOR, UserType.PARENT)
     @ApiOperation({ summary: 'Get all distinct filières list' })
-    public getFilieres() {
+    public async getFilieres(@currentUser() payload?: JWTPayloadType) {
+        if (payload?.userType === UserType.STUDENT) {
+            const user = await this.usersService.getCurrentUser(payload.id);
+            if (user?.studentClass) {
+                const sClass = user.studentClass.trim();
+                const isBacInfo = /bac.*info/i.test(sClass) || sClass.toLowerCase() === 'bac informatique';
+                const targetFiliere = isBacInfo ? 'Bac Informatique' : sClass;
+                return [targetFiliere];
+            }
+        }
         return this.subjectsService.getFilieres();
     }
 

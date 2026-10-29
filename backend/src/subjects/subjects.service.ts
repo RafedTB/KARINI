@@ -115,9 +115,6 @@ export class SubjectsService implements OnModuleInit {
     }
 
     private async seedDefaultsIfEmpty() {
-        const count = await this.subjectRepository.count();
-        if (count > 0) return;
-
         const defaultSubjects: Partial<Subject>[] = [
             // 2ème Informatique
             {
@@ -245,10 +242,68 @@ export class SubjectsService implements OnModuleInit {
                 color: '#6366f1',
                 topics: 'Exponentielle, Logarithme, Probabilités, Matrices',
             },
+            {
+                name: 'Physique - Chimie',
+                code: 'PHYSIQUE-BAC',
+                slug: 'physique-bac-info',
+                filiere: 'Bac Informatique',
+                category: 'Sciences Physiques',
+                description: 'Dipôles RC, RL et RLC, ondes mécaniques, réactions acido-basiques et électrolyse.',
+                icon: 'physique',
+                color: '#7c3aed',
+                topics: 'Dipôles RC/RL/RLC, Ondes, Acide-Base, Électrolyse',
+            },
+            {
+                name: 'TIC & Technologies du Web',
+                code: 'TIC-BAC',
+                slug: 'tic-bac-info',
+                filiere: 'Bac Informatique',
+                category: 'Technologies',
+                description: 'Développement web fullstack, JavaScript moderne, API REST et architecture réseau.',
+                icon: 'informatique',
+                color: '#0ea5e9',
+                topics: 'JavaScript, Architecture Réseau, Sécurité, APIs',
+            },
+            {
+                name: 'Français',
+                code: 'FR-BAC',
+                slug: 'francais-bac-info',
+                filiere: 'Bac Informatique',
+                category: 'Lettres & Langues',
+                description: 'Méthodologie de l essai argumentatif, analyse textuelle et thématiques littéraires.',
+                icon: 'francais',
+                color: '#e11d48',
+                topics: 'Essai argumentatif, Analyse de texte, Thèmes littéraires',
+            },
+            {
+                name: 'Anglais',
+                code: 'ANG-BAC',
+                slug: 'anglais-bac-info',
+                filiere: 'Bac Informatique',
+                category: 'Langues Vivantes',
+                description: 'Reading comprehension, technological innovations, advanced vocabulary and formal writing.',
+                icon: 'anglais',
+                color: '#d97706',
+                topics: 'Reading comprehension, Writing tasks, Technology & Innovation',
+            },
+            {
+                name: 'Philosophie',
+                code: 'PHILO-BAC',
+                slug: 'philo-bac-info',
+                filiere: 'Bac Informatique',
+                category: 'Sciences Humaines',
+                description: 'La science et la technique, l État et la justice, la liberté et la condition humaine.',
+                icon: 'philosophie',
+                color: '#64748b',
+                topics: 'Science & Technique, Morale & Politique, Liberté',
+            },
         ];
 
         for (const s of defaultSubjects) {
-            await this.subjectRepository.save(this.subjectRepository.create(s));
+            const exists = await this.subjectRepository.findOne({ where: { slug: s.slug } });
+            if (!exists) {
+                await this.subjectRepository.save(this.subjectRepository.create(s));
+            }
         }
     }
 }
