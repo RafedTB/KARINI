@@ -29,6 +29,7 @@ export function CourseDetailStudyView({ courseId }: CourseDetailStudyViewProps) 
   const [course, setCourse] = useState<Course | null>(null);
   const [selectedLessonId, setSelectedLessonId] = useState<number | null>(null);
   const [viewingCoursePdf, setViewingCoursePdf] = useState(false);
+  const [viewingCourseVideo, setViewingCourseVideo] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [pdfBusy, setPdfBusy] = useState(false);
@@ -46,6 +47,8 @@ export function CourseDetailStudyView({ courseId }: CourseDetailStudyViewProps) 
         setCourse(data);
         if (data.lessons && data.lessons.length > 0) {
           setSelectedLessonId(data.lessons[0].id);
+        } else if (data.videoFile || data.youtubeUrl) {
+          setViewingCourseVideo(true);
         } else if (data.pdfFile) {
           setViewingCoursePdf(true);
         }
@@ -139,31 +142,38 @@ export function CourseDetailStudyView({ courseId }: CourseDetailStudyViewProps) 
     }
   };
 
-  // Convert regular YouTube link to embed link
+  // Convert regular YouTube / Vimeo link to embed link
   const getEmbedYoutubeUrl = (url?: string | null) => {
     if (!url) return null;
     try {
       if (url.includes("/embed/")) return url;
       const u = new URL(url);
-      if (u.hostname === "youtu.be") {
+      const host = u.hostname.replace(/^www\./, "");
+      if (host === "youtu.be") {
         const id = u.pathname.replace(/^\//, "").split("/")[0];
-        return `https://www.youtube.com/embed/${id}`;
+        return `https://www.youtube-nocookie.com/embed/${id}`;
       }
-      if (u.pathname.startsWith("/live/")) {
-        const id = u.pathname.replace("/live/", "").split("/")[0];
-        return `https://www.youtube.com/embed/${id}`;
+      if (host === "youtube.com" || host === "m.youtube.com") {
+        if (u.pathname.startsWith("/live/")) {
+          const id = u.pathname.replace("/live/", "").split("/")[0];
+          return `https://www.youtube-nocookie.com/embed/${id}`;
+        }
+        if (u.pathname.startsWith("/shorts/")) {
+          const id = u.pathname.replace("/shorts/", "").split("/")[0];
+          return `https://www.youtube-nocookie.com/embed/${id}`;
+        }
+        const v = u.searchParams.get("v");
+        if (v) {
+          return `https://www.youtube-nocookie.com/embed/${v}`;
+        }
       }
-      if (u.pathname.startsWith("/shorts/")) {
-        const id = u.pathname.replace("/shorts/", "").split("/")[0];
-        return `https://www.youtube.com/embed/${id}`;
+      if (host.includes("vimeo.com")) {
+        const id = u.pathname.split("/").filter(Boolean).pop();
+        if (id) return `https://player.vimeo.com/video/${id}`;
       }
-      const v = u.searchParams.get("v");
-      if (v) {
-        return `https://www.youtube.com/embed/${v}`;
-      }
-      return url;
+      return null;
     } catch {
-      return url;
+      return null;
     }
   };
 
@@ -279,11 +289,53 @@ export function CourseDetailStudyView({ courseId }: CourseDetailStudyViewProps) 
 
             {/* Lessons List */}
             <div className="mt-4 space-y-2 max-h-[520px] overflow-y-auto pr-1">
+              {/* Standalone Course Video button if present */}
+              {(course.videoFile || course.youtubeUrl) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setViewingCourseVideo(true);
+                    setViewingCoursePdf(false);
+                    setSelectedLessonId(null);
+                  }}
+                  className={`w-full text-left p-3 rounded-2xl transition-all duration-200 flex items-center justify-between border cursor-pointer ${
+                    viewingCourseVideo
+                      ? "border-indigo-400 bg-indigo-50/90 shadow-xs"
+                      : "border-slate-200 bg-white hover:bg-slate-50"
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl text-xs bg-indigo-100 text-indigo-700 font-bold">
+                      {isFreeStudent ? "🔒" : "🎬"}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <span className="text-xs font-bold text-slate-800 block truncate">
+                        Vidéo de la ressource {isFreeStudent ? "🔒" : ""}
+                      </span>
+                      <span className="text-[10px] text-slate-500">
+                        {isFreeStudent ? "Réservé aux abonnés" : "Visionner la vidéo"}
+                      </span>
+                    </div>
+                  </div>
+                  {viewingCourseVideo ? (
+                    <span className="h-2 w-2 rounded-full bg-indigo-600 shrink-0" />
+                  ) : (
+                    <span className="text-[11px] font-semibold text-indigo-600 shrink-0">
+                      {isFreeStudent ? "🔒" : "Regarder →"}
+                    </span>
+                  )}
+                </button>
+              )}
+
               {/* Standalone Course Polycopié PDF button if present */}
               {course.pdfFile && (
                 <button
                   type="button"
-                  onClick={() => setViewingCoursePdf(true)}
+                  onClick={() => {
+                    setViewingCoursePdf(true);
+                    setViewingCourseVideo(false);
+                    setSelectedLessonId(null);
+                  }}
                   className={`w-full text-left p-3 rounded-2xl transition-all duration-200 flex items-center justify-between border cursor-pointer ${
                     viewingCoursePdf
                       ? "border-rose-400 bg-rose-50/90 shadow-xs"
@@ -314,7 +366,7 @@ export function CourseDetailStudyView({ courseId }: CourseDetailStudyViewProps) 
               )}
 
               {lessons.map((lesson, idx) => {
-                const isSelected = !viewingCoursePdf && activeLesson?.id === lesson.id;
+                const isSelected = !viewingCoursePdf && !viewingCourseVideo && activeLesson?.id === lesson.id;
                 const isLessonLocked = isFreeStudent && (lesson.type === LessonType.VIDEO || lesson.type === LessonType.PDF);
                 return (
                   <button
@@ -323,6 +375,7 @@ export function CourseDetailStudyView({ courseId }: CourseDetailStudyViewProps) 
                     onClick={() => {
                       setSelectedLessonId(lesson.id);
                       setViewingCoursePdf(false);
+                      setViewingCourseVideo(false);
                     }}
                     className="w-full text-left p-3 rounded-2xl transition-all duration-200 flex items-center justify-between border cursor-pointer"
                     style={{
@@ -422,6 +475,69 @@ export function CourseDetailStudyView({ courseId }: CourseDetailStudyViewProps) 
                 </div>
               )}
             </div>
+          ) : viewingCourseVideo && (course.videoFile || course.youtubeUrl) ? (
+            /* VIEW D: Course Main Video */
+            <div className="space-y-4">
+              <div className="border-b pb-3" style={{ borderColor: "var(--line)" }}>
+                <span className="text-xs font-bold uppercase tracking-wider text-indigo-600 font-mono">
+                  Vidéo principale • {course.title}
+                </span>
+                <h1 className="mt-1 font-serif text-2xl sm:text-3xl font-bold" style={{ color: "var(--ink)" }}>
+                  {course.title}
+                </h1>
+              </div>
+
+              {isFreeStudent ? (
+                <LockedMediaCard
+                  type="video"
+                  title={course.title}
+                  description="Le visionnage de cette vidéo pédagogique est réservé aux élèves ayant souscrit à une formule Silver, Gold ou Platinum."
+                />
+              ) : course.videoFile ? (
+                <div className="relative w-full overflow-hidden rounded-2xl aspect-video bg-black shadow-md flex items-center justify-center">
+                  <video
+                    controls
+                    playsInline
+                    preload="metadata"
+                    className="h-full w-full object-contain"
+                    src={`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000"}/api/courses/videos/${encodeURIComponent(course.videoFile)}?token=${encodeURIComponent(token || "")}`}
+                  >
+                    Votre navigateur ne prend pas en charge la lecture de vidéos.
+                  </video>
+                </div>
+              ) : course.youtubeUrl && getEmbedYoutubeUrl(course.youtubeUrl) ? (
+                <div className="relative w-full overflow-hidden rounded-2xl aspect-video bg-black shadow-md">
+                  <iframe
+                    src={getEmbedYoutubeUrl(course.youtubeUrl) || ""}
+                    title={course.title}
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                    className="absolute inset-0 h-full w-full border-0"
+                  />
+                </div>
+              ) : course.youtubeUrl ? (
+                <div className="p-8 rounded-2xl bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200 text-center">
+                  <span className="text-3xl block mb-2">🔴</span>
+                  <h4 className="font-serif text-lg font-bold text-slate-800">Lien Direct / Session</h4>
+                  <p className="text-xs text-slate-600 mt-1 mb-4">Cliquez sur le lien ci-dessous pour rejoindre ou visionner ce direct.</p>
+                  <a
+                    href={course.youtubeUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn-primary text-xs font-bold inline-flex items-center gap-2 px-5 py-2.5 rounded-xl shadow-sm"
+                  >
+                    Accéder au direct ↗
+                  </a>
+                </div>
+              ) : null}
+
+              {course.description && (
+                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-xs leading-relaxed text-slate-700">
+                  <p className="font-semibold text-slate-900 mb-1">Résumé pédagogique :</p>
+                  {course.description}
+                </div>
+              )}
+            </div>
           ) : activeLesson ? (
             /* VIEW B: Active Lesson Content */
             <div className="space-y-6">
@@ -449,16 +565,44 @@ export function CourseDetailStudyView({ courseId }: CourseDetailStudyViewProps) 
                       title={activeLesson.title}
                       description="Le visionnage des explications vidéo des professeurs est réservé aux élèves ayant souscrit à une formule Silver, Gold ou Platinum."
                     />
-                  ) : activeLesson.youtubeUrl ? (
-                    <div className="relative w-full overflow-hidden rounded-2xl aspect-video bg-black shadow-md">
-                      <iframe
-                        src={getEmbedYoutubeUrl(activeLesson.youtubeUrl) || ""}
-                        title={activeLesson.title}
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                        allowFullScreen
-                        className="absolute inset-0 h-full w-full border-0"
-                      />
+                  ) : activeLesson.videoFile ? (
+                    <div className="relative w-full overflow-hidden rounded-2xl aspect-video bg-black shadow-md flex items-center justify-center">
+                      <video
+                        controls
+                        playsInline
+                        preload="metadata"
+                        className="h-full w-full object-contain"
+                        src={`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000"}/api/courses/videos/${encodeURIComponent(activeLesson.videoFile)}?token=${encodeURIComponent(token || "")}`}
+                      >
+                        Votre navigateur ne prend pas en charge la lecture de vidéos.
+                      </video>
                     </div>
+                  ) : activeLesson.youtubeUrl ? (
+                    getEmbedYoutubeUrl(activeLesson.youtubeUrl) ? (
+                      <div className="relative w-full overflow-hidden rounded-2xl aspect-video bg-black shadow-md">
+                        <iframe
+                          src={getEmbedYoutubeUrl(activeLesson.youtubeUrl) || ""}
+                          title={activeLesson.title}
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                          allowFullScreen
+                          className="absolute inset-0 h-full w-full border-0"
+                        />
+                      </div>
+                    ) : (
+                      <div className="p-8 rounded-2xl bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200 text-center">
+                        <span className="text-3xl block mb-2">🔴</span>
+                        <h4 className="font-serif text-lg font-bold text-slate-800">Lien Direct / Session</h4>
+                        <p className="text-xs text-slate-600 mt-1 mb-4">Cliquez sur le lien ci-dessous pour rejoindre ou visionner ce contenu.</p>
+                        <a
+                          href={activeLesson.youtubeUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="btn-primary text-xs font-bold inline-flex items-center gap-2 px-5 py-2.5 rounded-xl shadow-sm"
+                        >
+                          Accéder au lien direct ↗
+                        </a>
+                      </div>
+                    )
                   ) : (
                     <div className="p-12 text-center text-xs text-slate-400 rounded-2xl border border-dashed">
                       Vidéo en cours d&apos;intégration pour cette leçon.
@@ -535,6 +679,28 @@ export function CourseDetailStudyView({ courseId }: CourseDetailStudyViewProps) 
                 </div>
               )}
 
+              {course.videoFile && (
+                isFreeStudent ? (
+                  <LockedMediaCard
+                    type="video"
+                    title={course.title}
+                    description="La vidéo de cette ressource est réservée aux élèves abonnés Silver, Gold et Platinum."
+                  />
+                ) : (
+                  <div className="relative w-full overflow-hidden rounded-2xl aspect-video bg-black shadow-md flex items-center justify-center">
+                    <video
+                      controls
+                      playsInline
+                      preload="metadata"
+                      className="h-full w-full object-contain"
+                      src={`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000"}/api/courses/videos/${encodeURIComponent(course.videoFile)}?token=${encodeURIComponent(token || "")}`}
+                    >
+                      Votre navigateur ne prend pas en charge la lecture de vidéos.
+                    </video>
+                  </div>
+                )
+              )}
+
               {course.youtubeUrl && (
                 isFreeStudent ? (
                   <LockedMediaCard
@@ -542,7 +708,7 @@ export function CourseDetailStudyView({ courseId }: CourseDetailStudyViewProps) 
                     title={course.title}
                     description="La vidéo de ce cours est réservée aux élèves abonnés Silver, Gold et Platinum."
                   />
-                ) : (
+                ) : getEmbedYoutubeUrl(course.youtubeUrl) ? (
                   <div className="relative w-full overflow-hidden rounded-2xl aspect-video bg-black">
                     <iframe
                       src={getEmbedYoutubeUrl(course.youtubeUrl) || ""}
@@ -550,6 +716,20 @@ export function CourseDetailStudyView({ courseId }: CourseDetailStudyViewProps) 
                       allowFullScreen
                       className="absolute inset-0 h-full w-full border-0"
                     />
+                  </div>
+                ) : (
+                  <div className="p-8 rounded-2xl bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200 text-center">
+                    <span className="text-3xl block mb-2">🔴</span>
+                    <h4 className="font-serif text-lg font-bold text-slate-800">Lien Direct / Session</h4>
+                    <p className="text-xs text-slate-600 mt-1 mb-4">Cliquez sur le lien ci-dessous pour rejoindre ou visionner ce direct.</p>
+                    <a
+                      href={course.youtubeUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn-primary text-xs font-bold inline-flex items-center gap-2 px-5 py-2.5 rounded-xl shadow-sm"
+                    >
+                      Accéder au direct ↗
+                    </a>
                   </div>
                 )
               )}

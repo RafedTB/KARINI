@@ -32,5 +32,9 @@ export class CreateCourseDto {
 
     @IsString()
     @IsOptional()
+    videoFile?: string;
+
+    @IsString()
+    @IsOptional()
     pdfFile?: string;
 }

@@ -1,10 +1,10 @@
 import { CourseSection } from "@/domain/enums";
 
 export const courseSectionLabel: Record<CourseSection, string> = {
-  [CourseSection.COURSE]: "Course",
-  [CourseSection.EXERCISE]: "Exercise",
-  [CourseSection.MAGAZINE]: "Magazine",
-  [CourseSection.OLDLIVE]: "Live archive",
+  [CourseSection.COURSE]: "Cours Vidéo",
+  [CourseSection.EXERCISE]: "Exercice PDF",
+  [CourseSection.MAGAZINE]: "Magazine PDF",
+  [CourseSection.OLDLIVE]: "Direct",
 };
 
 export function formatCourseSection(section: string): string {
@@ -13,10 +13,10 @@ export function formatCourseSection(section: string): string {
 
 export function courseSectionIcon(section: string): string {
   switch (section) {
-    case CourseSection.COURSE: return "▶";
-    case CourseSection.EXERCISE: return "✎";
-    case CourseSection.MAGAZINE: return "📄";
-    case CourseSection.OLDLIVE: return "📡";
+    case CourseSection.COURSE: return "🎬";
+    case CourseSection.EXERCISE: return "✍️";
+    case CourseSection.MAGAZINE: return "📑";
+    case CourseSection.OLDLIVE: return "🔴";
     default: return "•";
   }
 }

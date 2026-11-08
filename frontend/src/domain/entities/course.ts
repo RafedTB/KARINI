@@ -11,6 +11,7 @@ export type Course = {
   filiere?: string | null;
   textContent?: string | null;
   youtubeUrl?: string | null;
+  videoFile?: string | null;
   pdfFile?: string | null;
   createdById?: number;
   instructor?: Partial<User> | null;

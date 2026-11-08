@@ -124,7 +124,7 @@ export function AppHeader({ onToggleMobileNav }: AppHeaderProps) {
               href="/teacher"
               className="hidden sm:inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold bg-indigo-600 text-white shadow-xs hover:bg-indigo-700 transition-colors"
             >
-              <span>+</span> Nouveau cours
+              <span>+</span> Nouvelle ressource
             </Link>
           </>
         )}

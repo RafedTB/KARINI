@@ -11,6 +11,7 @@ import type { Subject } from "@/domain/entities/subject";
 import { CourseSection, LessonType, UserType } from "@/domain/enums";
 import { PageLoader } from "@/presentation/components/ui/page-loader";
 import { Button } from "@/presentation/components/ui/button";
+import { formatCourseSection, courseSectionIcon } from "@/shared/labels/course-section";
 
 export function TeacherStudioView() {
   const { token, user } = useAuth();
@@ -42,6 +43,7 @@ export function TeacherStudioView() {
     filiere: "2ème Informatique",
     textContent: "",
     youtubeUrl: "",
+    videoFile: "",
     pdfFile: "",
   });
 
@@ -51,14 +53,18 @@ export function TeacherStudioView() {
     type: LessonType.VIDEO,
     textContent: "",
     youtubeUrl: "",
+    videoFile: "",
     pdfFile: "",
     durationMinutes: 15,
     orderIndex: 1,
   });
 
   const [selectedPdfFile, setSelectedPdfFile] = useState<File | null>(null);
+  const [selectedVideoFile, setSelectedVideoFile] = useState<File | null>(null);
+  const [selectedLessonVideoFile, setSelectedLessonVideoFile] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [uploadingFile, setUploadingFile] = useState(false);
+  const [uploadingVideo, setUploadingVideo] = useState(false);
 
   const isTeacherOrAdmin =
     user?.userType === UserType.INSTRUCTOR || user?.userType === UserType.SUPERADMIN;
@@ -270,7 +276,23 @@ export function TeacherStudioView() {
     }
   };
 
-  // Create / Update Course
+  // Handle Video Upload from PC
+  const handleVideoUpload = async (file: File) => {
+    if (!token) return null;
+    try {
+      setUploadingVideo(true);
+      const res = await coursesService.uploadVideo(token, file);
+      showNotification(`Vidéo téléversée depuis votre PC : ${res.originalName}`);
+      return res.filename;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erreur lors de l'envoi de la vidéo.");
+      return null;
+    } finally {
+      setUploadingVideo(false);
+    }
+  };
+
+  // Create / Update Resource
   const handleSaveCourse = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!token) return;
@@ -278,10 +300,16 @@ export function TeacherStudioView() {
       setSubmitting(true);
       setError("");
 
-      let uploadedFilename = courseForm.pdfFile;
+      let uploadedPdfFilename = courseForm.pdfFile;
       if (selectedPdfFile) {
         const uploaded = await handlePdfUpload(selectedPdfFile);
-        if (uploaded) uploadedFilename = uploaded;
+        if (uploaded) uploadedPdfFilename = uploaded;
+      }
+
+      let uploadedVideoFilename = courseForm.videoFile;
+      if (selectedVideoFile) {
+        const uploaded = await handleVideoUpload(selectedVideoFile);
+        if (uploaded) uploadedVideoFilename = uploaded;
       }
 
       if (editingCourse) {
@@ -293,9 +321,10 @@ export function TeacherStudioView() {
           filiere: courseForm.filiere,
           textContent: courseForm.textContent || undefined,
           youtubeUrl: courseForm.youtubeUrl || undefined,
-          pdfFile: uploadedFilename || undefined,
+          videoFile: uploadedVideoFilename || undefined,
+          pdfFile: uploadedPdfFilename || undefined,
         });
-        showNotification("Cours mis à jour avec succès !");
+        showNotification("Ressource mise à jour avec succès !");
       } else {
         await coursesService.createCourse(token, {
           title: courseForm.title,
@@ -305,14 +334,16 @@ export function TeacherStudioView() {
           filiere: courseForm.filiere,
           textContent: courseForm.textContent || undefined,
           youtubeUrl: courseForm.youtubeUrl || undefined,
-          pdfFile: uploadedFilename || undefined,
+          videoFile: uploadedVideoFilename || undefined,
+          pdfFile: uploadedPdfFilename || undefined,
         });
-        showNotification("Nouveau cours créé avec succès !");
+        showNotification("Nouvelle ressource créée avec succès !");
       }
 
       setShowCourseModal(false);
       setEditingCourse(null);
       setSelectedPdfFile(null);
+      setSelectedVideoFile(null);
       setCourseForm({
         title: "",
         description: "",
@@ -321,11 +352,12 @@ export function TeacherStudioView() {
         filiere: "2ème Informatique",
         textContent: "",
         youtubeUrl: "",
+        videoFile: "",
         pdfFile: "",
       });
       loadData();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erreur lors de l'enregistrement du cours.");
+      setError(err instanceof Error ? err.message : "Erreur lors de l'enregistrement de la ressource.");
     } finally {
       setSubmitting(false);
     }
@@ -333,10 +365,10 @@ export function TeacherStudioView() {
 
   const handleDeleteCourse = async (id: number, title: string) => {
     if (!token) return;
-    if (!confirm(`Supprimer définitivement le cours "${title}" ainsi que toutes ses leçons ?`)) return;
+    if (!confirm(`Supprimer définitivement la ressource "${title}" ainsi que toutes ses leçons ?`)) return;
     try {
       await coursesService.deleteCourse(token, id);
-      showNotification(`Cours "${title}" supprimé.`);
+      showNotification(`Ressource "${title}" supprimée.`);
       loadData();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erreur lors de la suppression.");
@@ -351,10 +383,16 @@ export function TeacherStudioView() {
       setSubmitting(true);
       setError("");
 
-      let uploadedFilename = lessonForm.pdfFile;
+      let uploadedPdfFilename = lessonForm.pdfFile;
       if (selectedPdfFile && lessonForm.type === LessonType.PDF) {
         const uploaded = await handlePdfUpload(selectedPdfFile);
-        if (uploaded) uploadedFilename = uploaded;
+        if (uploaded) uploadedPdfFilename = uploaded;
+      }
+
+      let uploadedLessonVideoFilename = lessonForm.videoFile;
+      if (selectedLessonVideoFile && lessonForm.type === LessonType.VIDEO) {
+        const uploaded = await handleVideoUpload(selectedLessonVideoFile);
+        if (uploaded) uploadedLessonVideoFilename = uploaded;
       }
 
       if (editingLesson) {
@@ -364,7 +402,8 @@ export function TeacherStudioView() {
           type: lessonForm.type,
           textContent: lessonForm.textContent || undefined,
           youtubeUrl: lessonForm.youtubeUrl || undefined,
-          pdfFile: uploadedFilename || undefined,
+          videoFile: uploadedLessonVideoFilename || undefined,
+          pdfFile: uploadedPdfFilename || undefined,
           durationMinutes: Number(lessonForm.durationMinutes),
           orderIndex: Number(lessonForm.orderIndex),
         });
@@ -377,7 +416,8 @@ export function TeacherStudioView() {
           type: lessonForm.type,
           textContent: lessonForm.textContent || undefined,
           youtubeUrl: lessonForm.youtubeUrl || undefined,
-          pdfFile: uploadedFilename || undefined,
+          videoFile: uploadedLessonVideoFilename || undefined,
+          pdfFile: uploadedPdfFilename || undefined,
           durationMinutes: Number(lessonForm.durationMinutes),
           orderIndex: Number(lessonForm.orderIndex),
         });
@@ -385,12 +425,14 @@ export function TeacherStudioView() {
       }
 
       setSelectedPdfFile(null);
+      setSelectedLessonVideoFile(null);
       setLessonForm({
         title: "",
         description: "",
         type: LessonType.VIDEO,
         textContent: "",
         youtubeUrl: "",
+        videoFile: "",
         pdfFile: "",
         durationMinutes: 15,
         orderIndex: (activeCourseForLessons.lessons?.length || 0) + 2,
@@ -500,10 +542,10 @@ export function TeacherStudioView() {
             <span>🎓</span> Espace Enseignant / Teacher Studio
           </div>
           <h1 className="mt-2 font-serif text-3xl sm:text-4xl font-bold" style={{ color: "var(--ink)" }}>
-            Mes Cours & <span className="gradient-text">Leçons Pédagogiques</span>
+            Mes Ressources & <span className="gradient-text">Cours Pédagogiques</span>
           </h1>
           <p className="mt-1 text-sm" style={{ color: "var(--muted)" }}>
-            Publiez des cours complets avec leçons interactives (texte écrit, vidéos explicatives, documents PDF).
+            Publiez vos ressources éducatives : cours vidéo depuis votre PC, exercices PDF, magazines PDF et directs.
           </p>
         </div>
 
@@ -534,6 +576,8 @@ export function TeacherStudioView() {
               (user?.teachingSubjects?.[0] ? user.teachingSubjects[0].toLowerCase() : "math");
 
             setEditingCourse(null);
+            setSelectedVideoFile(null);
+            setSelectedPdfFile(null);
             setCourseForm({
               title: "",
               description: "",
@@ -542,6 +586,7 @@ export function TeacherStudioView() {
               filiere: initialFil,
               textContent: "",
               youtubeUrl: "",
+              videoFile: "",
               pdfFile: "",
             });
             setShowCourseModal(true);
@@ -552,7 +597,7 @@ export function TeacherStudioView() {
             <line x1="12" y1="5" x2="12" y2="19" />
             <line x1="5" y1="12" x2="19" y2="12" />
           </svg>
-          + Créer un nouveau cours
+          + Nouvelle ressource
         </Button>
       </div>
 
@@ -715,8 +760,9 @@ export function TeacherStudioView() {
               <div>
                 {/* Header pills */}
                 <div className="flex items-center justify-between gap-2">
-                  <span className="rounded-full px-2.5 py-0.5 text-[11px] font-bold uppercase font-mono bg-indigo-50 text-indigo-700 border border-indigo-100">
-                    {c.section}
+                  <span className="rounded-full px-2.5 py-0.5 text-[11px] font-bold uppercase font-mono bg-indigo-50 text-indigo-700 border border-indigo-100 flex items-center gap-1">
+                    <span>{courseSectionIcon(c.section)}</span>
+                    <span>{formatCourseSection(c.section)}</span>
                   </span>
                   <span className="text-[11px] font-semibold text-slate-500">
                     {c.filiere || "Générale"} • {(c.subject || "math").toUpperCase()}
@@ -733,9 +779,14 @@ export function TeacherStudioView() {
 
                 {/* Content formats badges */}
                 <div className="mt-4 flex flex-wrap items-center gap-1.5 text-[11px]">
-                  {c.youtubeUrl && (
+                  {c.videoFile && (
+                    <span className="rounded-md px-2 py-0.5 bg-indigo-50 text-indigo-700 font-medium">
+                      📹 Vidéo PC
+                    </span>
+                  )}
+                  {c.youtubeUrl && !c.videoFile && (
                     <span className="rounded-md px-2 py-0.5 bg-rose-50 text-rose-700 font-medium">
-                      🎬 Vidéo directe
+                      🎬 Vidéo / Direct
                     </span>
                   )}
                   {c.pdfFile && (
@@ -745,7 +796,7 @@ export function TeacherStudioView() {
                   )}
                   {c.textContent && (
                     <span className="rounded-md px-2 py-0.5 bg-teal-50 text-teal-700 font-medium">
-                      📝 Cours écrit
+                      📝 Notes / Texte
                     </span>
                   )}
                   <span className="rounded-md px-2 py-0.5 bg-slate-100 text-slate-700 font-bold">
@@ -767,6 +818,7 @@ export function TeacherStudioView() {
                       type: LessonType.VIDEO,
                       textContent: "",
                       youtubeUrl: "",
+                      videoFile: "",
                       pdfFile: "",
                       durationMinutes: 15,
                       orderIndex: (c.lessons?.length || 0) + 1,
@@ -791,6 +843,8 @@ export function TeacherStudioView() {
                       type="button"
                       onClick={() => {
                         setEditingCourse(c);
+                        setSelectedVideoFile(null);
+                        setSelectedPdfFile(null);
                         setCourseForm({
                           title: c.title,
                           description: c.description || "",
@@ -799,6 +853,7 @@ export function TeacherStudioView() {
                           filiere: c.filiere || "2ème Informatique",
                           textContent: c.textContent || "",
                           youtubeUrl: c.youtubeUrl || "",
+                          videoFile: c.videoFile || "",
                           pdfFile: c.pdfFile || "",
                         });
                         setShowCourseModal(true);
@@ -825,23 +880,23 @@ export function TeacherStudioView() {
       {filteredCourses.length === 0 && (
         <div className="glass-card p-12 text-center rounded-3xl" style={{ borderStyle: "dashed" }}>
           <p className="font-serif text-xl font-bold" style={{ color: "var(--ink)" }}>
-            Aucun cours trouvé
+            Aucune ressource trouvée
           </p>
           <p className="mt-1 text-sm" style={{ color: "var(--muted)" }}>
-            Commencez par ajouter votre premier cours ou modifiez vos filtres de recherche.
+            Commencez par ajouter votre première ressource ou modifiez vos filtres de recherche.
           </p>
           <Button
             type="button"
             onClick={() => setShowCourseModal(true)}
             className="mt-5 text-xs font-bold"
           >
-            + Créer mon premier cours
+            + Ajouter ma première ressource
           </Button>
         </div>
       )}
 
       {/* ==================================================== */}
-      {/* MODAL 1: CRÉER / MODIFIER UN COURS */}
+      {/* MODAL 1: AJOUTER / MODIFIER UNE RESSOURCE */}
       {/* ==================================================== */}
       {showCourseModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm animate-fade-in-up">
@@ -856,10 +911,10 @@ export function TeacherStudioView() {
             <div className="flex items-center justify-between pb-4 border-b" style={{ borderColor: "var(--line)" }}>
               <div>
                 <h2 className="font-serif text-2xl font-bold" style={{ color: "var(--ink)" }}>
-                  {editingCourse ? "Modifier le cours" : "Créer un nouveau cours"}
+                  {editingCourse ? "Modifier la ressource" : "Ajouter une nouvelle ressource"}
                 </h2>
                 <p className="text-xs" style={{ color: "var(--muted)" }}>
-                  Définissez le sujet, la filière et la description du cours.
+                  Définissez le type (cours vidéo, exercice PDF, magazine PDF, direct), la matière et la classe.
                 </p>
               </div>
               <button
@@ -960,17 +1015,17 @@ export function TeacherStudioView() {
                 </div>
               </div>
 
-              {/* Section */}
+              {/* Type de ressource (4 Types) */}
               <div>
-                <label className="block text-xs font-semibold mb-1" style={{ color: "var(--ink)" }}>
-                  Type de section *
+                <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--ink)" }}>
+                  Type de ressource pédagogique *
                 </label>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                   {[
-                    { section: CourseSection.COURSE, label: "Cours", icon: "🎬" },
-                    { section: CourseSection.EXERCISE, label: "Exercices", icon: "✍️" },
-                    { section: CourseSection.MAGAZINE, label: "Magazine PDF", icon: "📑" },
-                    { section: CourseSection.OLDLIVE, label: "Direct/Archive", icon: "🔴" },
+                    { section: CourseSection.COURSE, label: "Cours Vidéo", icon: "🎬", desc: "Vidéo PC / Streaming" },
+                    { section: CourseSection.EXERCISE, label: "Exercice PDF", icon: "✍️", desc: "Série d'exercices" },
+                    { section: CourseSection.MAGAZINE, label: "Magazine PDF", icon: "📑", desc: "Document complet" },
+                    { section: CourseSection.OLDLIVE, label: "Direct", icon: "🔴", desc: "Session Live / Replay" },
                   ].map((s) => {
                     const active = courseForm.section === s.section;
                     return (
@@ -978,15 +1033,17 @@ export function TeacherStudioView() {
                         key={s.section}
                         type="button"
                         onClick={() => setCourseForm({ ...courseForm, section: s.section })}
-                        className="flex items-center gap-1.5 rounded-xl p-2 text-xs font-semibold transition-all border"
+                        className="flex flex-col items-start gap-1 rounded-2xl p-3 text-left transition-all border cursor-pointer"
                         style={{
-                          background: active ? "var(--accent-glow)" : "transparent",
+                          background: active ? "var(--accent-glow)" : "rgba(15,23,42,0.02)",
                           borderColor: active ? "var(--accent)" : "var(--line)",
-                          color: active ? "var(--accent)" : "var(--ink)",
                         }}
                       >
-                        <span>{s.icon}</span>
-                        <span>{s.label}</span>
+                        <span className="text-xl">{s.icon}</span>
+                        <span className="text-xs font-bold leading-tight" style={{ color: active ? "var(--accent)" : "var(--ink)" }}>
+                          {s.label}
+                        </span>
+                        <span className="text-[10px] text-slate-500 line-clamp-1">{s.desc}</span>
                       </button>
                     );
                   })}
@@ -996,64 +1053,191 @@ export function TeacherStudioView() {
               {/* Description */}
               <div>
                 <label className="block text-xs font-semibold mb-1" style={{ color: "var(--ink)" }}>
-                  Description générale du cours
+                  Description de la ressource
                 </label>
                 <textarea
                   rows={2}
                   value={courseForm.description}
                   onChange={(e) => setCourseForm({ ...courseForm, description: e.target.value })}
-                  placeholder="Objectifs d'apprentissage, prérequis, résumé du chapitre..."
+                  placeholder="Objectifs d'apprentissage, prérequis, résumé du chapitre ou consignes..."
                   className="w-full rounded-xl border px-3 py-2 text-sm outline-none focus:border-indigo-500"
                   style={{ borderColor: "var(--line)" }}
                 />
               </div>
 
-              {/* Optional Text Content */}
-              <div>
-                <label className="block text-xs font-semibold mb-1" style={{ color: "var(--ink)" }}>
-                  Texte / Notes de cours introductives (Optionnel)
-                </label>
-                <textarea
-                  rows={4}
-                  value={courseForm.textContent}
-                  onChange={(e) => setCourseForm({ ...courseForm, textContent: e.target.value })}
-                  placeholder="Rédigez les définitions fondamentales, formules ou explications pour vos élèves..."
-                  className="w-full rounded-xl border px-3 py-2 text-sm outline-none focus:border-indigo-500 font-mono text-xs"
-                  style={{ borderColor: "var(--line)" }}
-                />
-              </div>
+              {/* ========================================================= */}
+              {/* SPECIFIC INPUTS DEPENDING ON THE SELECTED RESOURCE TYPE   */}
+              {/* ========================================================= */}
 
-              {/* Direct Video or PDF */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 rounded-2xl bg-slate-50 border border-slate-200">
-                <div>
-                  <label className="block text-xs font-semibold mb-1 text-slate-800">
-                    Lien Vidéo YouTube direct
-                  </label>
+              {/* TYPE 1: COURS VIDÉO */}
+              {courseForm.section === CourseSection.COURSE && (
+                <div className="rounded-2xl p-4 bg-indigo-50/60 border border-indigo-200/80 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-xs font-bold text-indigo-950 flex items-center gap-1.5">
+                      <span>🎬</span> Vidéo du cours depuis votre PC (Recommandé)
+                    </label>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-700 bg-white px-2 py-0.5 rounded-md border border-indigo-200">
+                      MP4, WebM, MOV
+                    </span>
+                  </div>
+
                   <input
-                    type="url"
-                    value={courseForm.youtubeUrl}
-                    onChange={(e) => setCourseForm({ ...courseForm, youtubeUrl: e.target.value })}
-                    placeholder="https://www.youtube.com/watch?v=..."
-                    className="w-full rounded-xl border bg-white px-3 py-1.5 text-xs outline-none focus:border-indigo-500"
+                    type="file"
+                    accept="video/mp4,video/webm,video/quicktime,video/x-matroska,video/*"
+                    onChange={(e) => setSelectedVideoFile(e.target.files?.[0] || null)}
+                    className="w-full rounded-xl border bg-white px-3 py-2 text-xs file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-indigo-600 file:text-white hover:file:bg-indigo-700 cursor-pointer"
                   />
-                </div>
 
-                <div>
-                  <label className="block text-xs font-semibold mb-1 text-slate-800">
-                    Document PDF direct (Polycope / Série)
-                  </label>
+                  {selectedVideoFile && (
+                    <div className="rounded-xl p-2.5 bg-emerald-50 border border-emerald-200 flex items-center gap-2 text-xs font-semibold text-emerald-800">
+                      <span>✓</span> Fichier vidéo prêt pour l&apos;envoi : <strong>{selectedVideoFile.name}</strong> ({(selectedVideoFile.size / (1024 * 1024)).toFixed(1)} MB)
+                    </div>
+                  )}
+
+                  {courseForm.videoFile && !selectedVideoFile && (
+                    <p className="text-xs text-slate-600">
+                      Fichier vidéo actuel : <span className="font-mono font-semibold text-indigo-900">{courseForm.videoFile}</span>
+                    </p>
+                  )}
+
+                  <div className="pt-2 border-t border-indigo-100">
+                    <label className="block text-xs font-medium text-slate-700 mb-1">
+                      Ou lien vidéo externe (YouTube, etc.)
+                    </label>
+                    <input
+                      type="url"
+                      value={courseForm.youtubeUrl}
+                      onChange={(e) => setCourseForm({ ...courseForm, youtubeUrl: e.target.value })}
+                      placeholder="https://www.youtube.com/watch?v=..."
+                      className="w-full rounded-xl border bg-white px-3 py-1.5 text-xs outline-none focus:border-indigo-500"
+                    />
+                  </div>
+
+                  <div className="pt-2 border-t border-indigo-100">
+                    <label className="block text-xs font-medium text-slate-700 mb-1">
+                      Polycopié ou document PDF d&apos;accompagnement (Optionnel)
+                    </label>
+                    <input
+                      type="file"
+                      accept="application/pdf"
+                      onChange={(e) => setSelectedPdfFile(e.target.files?.[0] || null)}
+                      className="w-full rounded-xl border bg-white px-2 py-1 text-xs file:mr-2 file:py-1 file:px-2 file:rounded-lg file:border-0 file:text-xs file:bg-slate-100 file:text-slate-700"
+                    />
+                    {courseForm.pdfFile && !selectedPdfFile && (
+                      <span className="text-[10px] text-slate-500 mt-1 block">
+                        PDF actuel : {courseForm.pdfFile}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* TYPE 2: EXERCICE PDF */}
+              {courseForm.section === CourseSection.EXERCISE && (
+                <div className="rounded-2xl p-4 bg-teal-50/60 border border-teal-200/80 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-xs font-bold text-teal-950 flex items-center gap-1.5">
+                      <span>✍️</span> Document PDF d&apos;exercice (Série / Énoncé / Corrigé) *
+                    </label>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-teal-700 bg-white px-2 py-0.5 rounded-md border border-teal-200">
+                      PDF obligatoire
+                    </span>
+                  </div>
+
                   <input
                     type="file"
                     accept="application/pdf"
                     onChange={(e) => setSelectedPdfFile(e.target.files?.[0] || null)}
-                    className="w-full rounded-xl border bg-white px-2 py-1 text-xs file:mr-2 file:py-1 file:px-2 file:rounded-lg file:border-0 file:text-xs file:bg-indigo-50 file:text-indigo-700"
+                    className="w-full rounded-xl border bg-white px-3 py-2 text-xs file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-teal-600 file:text-white hover:file:bg-teal-700 cursor-pointer"
                   />
+
+                  {selectedPdfFile && (
+                    <div className="rounded-xl p-2.5 bg-emerald-50 border border-emerald-200 flex items-center gap-2 text-xs font-semibold text-emerald-800">
+                      <span>✓</span> Fichier PDF sélectionné : <strong>{selectedPdfFile.name}</strong> ({(selectedPdfFile.size / (1024 * 1024)).toFixed(1)} MB)
+                    </div>
+                  )}
+
                   {courseForm.pdfFile && !selectedPdfFile && (
-                    <span className="text-[10px] text-slate-500 mt-1 block truncate">
-                      Fichier actuel : {courseForm.pdfFile}
-                    </span>
+                    <p className="text-xs text-slate-600">
+                      Fichier PDF actuel : <span className="font-mono font-semibold text-teal-900">{courseForm.pdfFile}</span>
+                    </p>
                   )}
                 </div>
+              )}
+
+              {/* TYPE 3: MAGAZINE PDF */}
+              {courseForm.section === CourseSection.MAGAZINE && (
+                <div className="rounded-2xl p-4 bg-pink-50/60 border border-pink-200/80 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-xs font-bold text-pink-950 flex items-center gap-1.5">
+                      <span>📑</span> Document Magazine PDF complet *
+                    </label>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-pink-700 bg-white px-2 py-0.5 rounded-md border border-pink-200">
+                      Magazine Flipbook
+                    </span>
+                  </div>
+
+                  <input
+                    type="file"
+                    accept="application/pdf"
+                    onChange={(e) => setSelectedPdfFile(e.target.files?.[0] || null)}
+                    className="w-full rounded-xl border bg-white px-3 py-2 text-xs file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-pink-600 file:text-white hover:file:bg-pink-700 cursor-pointer"
+                  />
+
+                  {selectedPdfFile && (
+                    <div className="rounded-xl p-2.5 bg-emerald-50 border border-emerald-200 flex items-center gap-2 text-xs font-semibold text-emerald-800">
+                      <span>✓</span> Magazine PDF sélectionné : <strong>{selectedPdfFile.name}</strong> ({(selectedPdfFile.size / (1024 * 1024)).toFixed(1)} MB)
+                    </div>
+                  )}
+
+                  {courseForm.pdfFile && !selectedPdfFile && (
+                    <p className="text-xs text-slate-600">
+                      Magazine actuel : <span className="font-mono font-semibold text-pink-900">{courseForm.pdfFile}</span>
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* TYPE 4: DIRECT */}
+              {courseForm.section === CourseSection.OLDLIVE && (
+                <div className="rounded-2xl p-4 bg-amber-50/70 border border-amber-200 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-xs font-bold text-amber-950 flex items-center gap-1.5">
+                      <span>🔴</span> Lien direct de la session / streaming *
+                    </label>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-amber-800 bg-white px-2 py-0.5 rounded-md border border-amber-300">
+                      Direct / Live Stream
+                    </span>
+                  </div>
+
+                  <input
+                    type="url"
+                    required
+                    value={courseForm.youtubeUrl}
+                    onChange={(e) => setCourseForm({ ...courseForm, youtubeUrl: e.target.value })}
+                    placeholder="https://meet.google.com/... ou https://youtube.com/live/..."
+                    className="w-full rounded-xl border bg-white px-3 py-2 text-sm outline-none focus:border-amber-500"
+                  />
+
+                  <p className="text-xs text-slate-600 leading-relaxed">
+                    Les élèves pourront rejoindre ou visionner ce direct directement depuis leur espace.
+                  </p>
+                </div>
+              )}
+
+              {/* Optional Text Content */}
+              <div>
+                <label className="block text-xs font-semibold mb-1" style={{ color: "var(--ink)" }}>
+                  Texte / Notes explicatives de la ressource (Optionnel)
+                </label>
+                <textarea
+                  rows={3}
+                  value={courseForm.textContent}
+                  onChange={(e) => setCourseForm({ ...courseForm, textContent: e.target.value })}
+                  placeholder="Rédigez les définitions fondamentales, formules ou explications complémentaires..."
+                  className="w-full rounded-xl border px-3 py-2 text-sm outline-none focus:border-indigo-500 font-mono text-xs"
+                  style={{ borderColor: "var(--line)" }}
+                />
               </div>
 
               {/* Modal Buttons */}
@@ -1061,8 +1245,16 @@ export function TeacherStudioView() {
                 <Button type="button" variant="secondary" onClick={() => setShowCourseModal(false)} className="text-xs">
                   Annuler
                 </Button>
-                <Button type="submit" disabled={submitting || uploadingFile} className="text-xs font-bold">
-                  {submitting ? "Enregistrement…" : editingCourse ? "Mettre à jour" : "Créer le cours"}
+                <Button type="submit" disabled={submitting || uploadingFile || uploadingVideo} className="text-xs font-bold">
+                  {submitting
+                    ? "Enregistrement…"
+                    : uploadingVideo
+                    ? "Téléversement vidéo en cours…"
+                    : uploadingFile
+                    ? "Téléversement document…"
+                    : editingCourse
+                    ? "Mettre à jour la ressource"
+                    : "Ajouter la ressource"}
                 </Button>
               </div>
             </form>
@@ -1151,12 +1343,15 @@ export function TeacherStudioView() {
                           type="button"
                           onClick={() => {
                             setEditingLesson(lesson);
+                            setSelectedPdfFile(null);
+                            setSelectedLessonVideoFile(null);
                             setLessonForm({
                               title: lesson.title,
                               description: lesson.description || "",
                               type: lesson.type as LessonType,
                               textContent: lesson.textContent || "",
                               youtubeUrl: lesson.youtubeUrl || "",
+                              videoFile: lesson.videoFile || "",
                               pdfFile: lesson.pdfFile || "",
                               durationMinutes: lesson.durationMinutes || 15,
                               orderIndex: lesson.orderIndex,
@@ -1191,12 +1386,15 @@ export function TeacherStudioView() {
                     type="button"
                     onClick={() => {
                       setEditingLesson(null);
+                      setSelectedPdfFile(null);
+                      setSelectedLessonVideoFile(null);
                       setLessonForm({
                         title: "",
                         description: "",
                         type: LessonType.VIDEO,
                         textContent: "",
                         youtubeUrl: "",
+                        videoFile: "",
                         pdfFile: "",
                         durationMinutes: 15,
                         orderIndex: (activeCourseForLessons.lessons?.length || 0) + 1,
@@ -1235,7 +1433,7 @@ export function TeacherStudioView() {
                       onChange={(e) => setLessonForm({ ...lessonForm, type: e.target.value as LessonType })}
                       className="w-full rounded-xl border bg-white px-3 py-2 text-sm outline-none focus:border-indigo-500 font-semibold"
                     >
-                      <option value={LessonType.VIDEO}>🎬 Vidéo YouTube</option>
+                      <option value={LessonType.VIDEO}>🎬 Vidéo (PC ou YouTube)</option>
                       <option value={LessonType.TEXT}>📝 Cours Texte</option>
                       <option value={LessonType.PDF}>📄 Fichier PDF</option>
                     </select>
@@ -1244,18 +1442,41 @@ export function TeacherStudioView() {
 
                 {/* Conditional Fields Based on Lesson Type */}
                 {lessonForm.type === LessonType.VIDEO && (
-                  <div>
-                    <label className="block text-xs font-semibold mb-1 text-slate-800">
-                      Lien Vidéo YouTube *
-                    </label>
-                    <input
-                      type="url"
-                      required
-                      value={lessonForm.youtubeUrl}
-                      onChange={(e) => setLessonForm({ ...lessonForm, youtubeUrl: e.target.value })}
-                      placeholder="https://www.youtube.com/watch?v=..."
-                      className="w-full rounded-xl border bg-white px-3 py-2 text-sm outline-none focus:border-indigo-500"
-                    />
+                  <div className="space-y-3">
+                    <div className="rounded-xl p-3 bg-indigo-50/70 border border-indigo-100 space-y-2">
+                      <label className="block text-xs font-semibold text-slate-800">
+                        📹 Vidéo de la leçon depuis votre PC (Recommandé)
+                      </label>
+                      <input
+                        type="file"
+                        accept="video/*"
+                        onChange={(e) => setSelectedLessonVideoFile(e.target.files?.[0] || null)}
+                        className="w-full rounded-xl border bg-white px-2.5 py-1.5 text-xs file:mr-2 file:py-1 file:px-2 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-indigo-600 file:text-white cursor-pointer"
+                      />
+                      {selectedLessonVideoFile && (
+                        <p className="text-xs text-indigo-700 font-medium">
+                          ✓ Fichier : {selectedLessonVideoFile.name} ({(selectedLessonVideoFile.size / (1024 * 1024)).toFixed(1)} MB)
+                        </p>
+                      )}
+                      {lessonForm.videoFile && !selectedLessonVideoFile && (
+                        <p className="text-[11px] text-slate-600 font-mono">
+                          Fichier actuel : {lessonForm.videoFile}
+                        </p>
+                      )}
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold mb-1 text-slate-800">
+                        Ou lien Vidéo externe (YouTube, etc.)
+                      </label>
+                      <input
+                        type="url"
+                        value={lessonForm.youtubeUrl}
+                        onChange={(e) => setLessonForm({ ...lessonForm, youtubeUrl: e.target.value })}
+                        placeholder="https://www.youtube.com/watch?v=..."
+                        className="w-full rounded-xl border bg-white px-3 py-2 text-sm outline-none focus:border-indigo-500"
+                      />
+                    </div>
                   </div>
                 )}
 
@@ -1325,8 +1546,16 @@ export function TeacherStudioView() {
                 </div>
 
                 <div className="flex items-center justify-end gap-3 pt-2">
-                  <Button type="submit" disabled={submitting || uploadingFile} className="text-xs font-bold">
-                    {submitting ? "Publication en cours…" : editingLesson ? "Mettre à jour la leçon" : "Publier la leçon"}
+                  <Button type="submit" disabled={submitting || uploadingFile || uploadingVideo} className="text-xs font-bold">
+                    {submitting
+                      ? "Publication en cours…"
+                      : uploadingVideo
+                      ? "Téléversement vidéo en cours…"
+                      : uploadingFile
+                      ? "Téléversement document en cours…"
+                      : editingLesson
+                      ? "Mettre à jour la leçon"
+                      : "Publier la leçon"}
                   </Button>
                 </div>
               </form>

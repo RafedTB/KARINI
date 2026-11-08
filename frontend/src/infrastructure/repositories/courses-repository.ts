@@ -10,6 +10,7 @@ export type CreateCourseData = {
   filiere?: string;
   textContent?: string;
   youtubeUrl?: string;
+  videoFile?: string;
   pdfFile?: string;
 };
 
@@ -19,6 +20,7 @@ export type CreateLessonData = {
   type: string;
   textContent?: string;
   youtubeUrl?: string;
+  videoFile?: string;
   pdfFile?: string;
   orderIndex?: number;
   durationMinutes?: number;
@@ -100,6 +102,27 @@ export const coursesRepository = {
       throw new Error(errData?.message || "Échec du téléversement du fichier");
     }
     return res.json();
+  },
+
+  async uploadVideo(token: string, file: File): Promise<{ filename: string; originalName: string; url: string }> {
+    const formData = new FormData();
+    formData.append("video", file);
+    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000"}/api/courses/upload-video`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      body: formData,
+    });
+    if (!res.ok) {
+      const errData = await res.json().catch(() => null);
+      throw new Error(errData?.message || "Échec du téléversement de la vidéo");
+    }
+    return res.json();
+  },
+
+  downloadVideo(token: string, fileName: string) {
+    return apiClientBlob(`/api/courses/videos/${encodeURIComponent(fileName)}`, token);
   },
 
   downloadMagazine(token: string, fileName: string) {

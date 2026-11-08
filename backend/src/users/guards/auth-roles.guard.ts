@@ -23,8 +23,12 @@ export class AuthRolesGuard implements CanActivate {
         if (!roles || roles.length === 0) return true;
 
         const request: Request = context.switchToHttp().getRequest();
-        const [type, token] = request.headers.authorization?.split(" ") ?? [];
-        if (token && type === "Bearer") {
+        const [type, authHeaderToken] = request.headers.authorization?.split(" ") ?? [];
+        const token = (type === "Bearer" && authHeaderToken)
+            ? authHeaderToken
+            : (typeof request.query?.token === 'string' ? request.query.token : null);
+
+        if (token) {
             try {
                 const payload = this.jwtService.verify(token, {
                     secret: this.configService.get<string>('JWT_SECRET')

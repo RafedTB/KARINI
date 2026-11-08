@@ -32,6 +32,7 @@ export class CoursesService {
             filiere: dto.filiere || null,
             textContent: dto.textContent || null,
             pdfFile: dto.pdfFile || null,
+            videoFile: dto.videoFile || null,
             youtubeUrl: dto.youtubeUrl || null,
             createdById: userId,
         }));
@@ -75,12 +76,12 @@ export class CoursesService {
 
         const cleanMembership = (user?.membership || '').toString().toLowerCase().trim();
         const isPaidStudent = ['silver', 'gold', 'platinum'].includes(cleanMembership);
-        const isGoldOrPlatinum = ['gold', 'platinum'].includes(cleanMembership);
+        const isGold = cleanMembership === 'gold';
         const isPlatinum = cleanMembership === 'platinum';
 
         // Filter courses for student based on their class
         // Platinum & Gold students have full access to courses of all filières!
-        if (user?.userType === UserType.STUDENT && user.studentClass && !isPlatinum && !isGoldOrPlatinum) {
+        if (user?.userType === UserType.STUDENT && user.studentClass && !isPlatinum && !isGold) {
             const sClass = user.studentClass.trim();
             const isBacInfo = /bac.*info/i.test(sClass) || sClass.toLowerCase() === 'bac informatique';
             const studentFiliere = isBacInfo ? 'Bac Informatique' : sClass;
@@ -97,7 +98,10 @@ export class CoursesService {
             courses = courses.filter((course) => course.filiere === filiere || course.filiere === 'all' || !course.filiere);
         }
 
-        if (user?.userType === UserType.STUDENT && !isGoldOrPlatinum) {
+        // Section access rule:
+        // CourseSection.OLDLIVE ("archive live") is STRICTLY EXCLUSIVE to Gold members!
+        // Silver, Free, and even Platinum CANNOT see CourseSection.OLDLIVE!
+        if (user?.userType === UserType.STUDENT && !isGold) {
             courses = courses.filter((course) => course.section !== CourseSection.OLDLIVE);
         }
 
@@ -129,13 +133,13 @@ export class CoursesService {
         const user = await this.userRepository.findOne({ where: { id: payload.id } });
         const cleanMembership = (user?.membership || '').toString().toLowerCase().trim();
         const isPaidStudent = ['silver', 'gold', 'platinum'].includes(cleanMembership);
-        const isGoldOrPlatinum = ['gold', 'platinum'].includes(cleanMembership);
+        const isGold = cleanMembership === 'gold';
         const isPlatinum = cleanMembership === 'platinum';
         const isFreeStudent = user?.userType === UserType.STUDENT && !isPaidStudent;
 
         // Access control: student class restriction
         // Platinum and Gold members have full unrestricted access to all courses across all filières!
-        if (user?.userType === UserType.STUDENT && !isGoldOrPlatinum && user.studentClass && course.filiere && course.filiere !== 'all') {
+        if (user?.userType === UserType.STUDENT && !isGold && !isPlatinum && user.studentClass && course.filiere && course.filiere !== 'all') {
             const sClass = user.studentClass.trim();
             const isBacInfo = /bac.*info/i.test(sClass) || sClass.toLowerCase() === 'bac informatique';
             const studentFiliere = isBacInfo ? 'Bac Informatique' : sClass;
@@ -148,18 +152,23 @@ export class CoursesService {
             }
         }
 
+        // Section access rule:
+        // CourseSection.OLDLIVE ("archive live") is STRICTLY EXCLUSIVE to Gold members!
+        // Silver, Free, and even Platinum CANNOT see CourseSection.OLDLIVE!
         if (course.section === CourseSection.OLDLIVE) {
-            if (user?.userType === UserType.STUDENT && !isGoldOrPlatinum) {
-                throw new ForbiddenException('Gold membership or higher is required for old live content');
+            if (user?.userType === UserType.STUDENT && !isGold) {
+                throw new ForbiddenException("L'accès aux archives des directs (Live Archive) est réservé exclusivement aux membres de la formule Gold.");
             }
         }
 
         // Only redact for Free students. Platinum, Gold, and Silver students receive full access!
         if (isFreeStudent) {
             course.youtubeUrl = null;
+            course.videoFile = null;
             if (course.lessons && course.lessons.length > 0) {
                 for (const l of course.lessons) {
                     l.youtubeUrl = null;
+                    l.videoFile = null;
                 }
             }
         }
@@ -247,6 +256,7 @@ export class CoursesService {
             if (isFreeStudent) {
                 for (const l of lessons) {
                     l.youtubeUrl = null;
+                    l.videoFile = null;
                 }
             }
         }
@@ -321,12 +331,16 @@ export class CoursesService {
     private validateContent(section: CourseSection, youtubeUrl?: string | null, pdfFile?: string | null) {
         if (youtubeUrl) {
             try {
-                const hostname = new URL(youtubeUrl).hostname.replace(/^www\./, '');
-                if (!['youtube.com', 'youtu.be', 'm.youtube.com'].includes(hostname)) {
-                    throw new BadRequestException('The video URL must be hosted on YouTube');
+                const url = new URL(youtubeUrl);
+                if (section !== CourseSection.OLDLIVE) {
+                    const hostname = url.hostname.replace(/^www\./, '');
+                    if (!['youtube.com', 'youtu.be', 'm.youtube.com', 'vimeo.com'].includes(hostname)) {
+                        throw new BadRequestException('The video URL must be hosted on YouTube');
+                    }
                 }
             } catch (e) {
-                throw new BadRequestException('Invalid video URL format');
+                if (e instanceof BadRequestException) throw e;
+                throw new BadRequestException('Invalid video or stream URL format');
             }
         }
     }

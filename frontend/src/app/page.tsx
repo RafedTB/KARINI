@@ -73,22 +73,22 @@ const tiers = [
   {
     name: "Silver",
     period: "Abonnement Mensuel",
-    desc: "Expanded access to supplementary exercises and resources.",
-    perks: ["Discounted credit rates", "Exercise solution guides", "Priority updates"],
+    desc: "Accès complet aux cours vidéo, séries d'exercices d'entraînement et magazines PDF.",
+    perks: ["Cours vidéo & explications", "Exercices & corrigés détaillés", "Téléchargement des magazines PDF"],
     badgeClass: "badge-silver",
   },
   {
     name: "Gold",
     period: "Abonnement Mensuel",
-    desc: "Full access including exclusive live masterclass recordings.",
-    perks: ["Full live archive access", "All magazine downloads", "Community forum access"],
+    desc: "Formule d'excellence incluant l'accès exclusif aux archives des directs (Live Archive).",
+    perks: ["Exclusivité : Archives Live (Replays)", "Tous les cours vidéo, exercices & magazines", "Téléchargements illimités"],
     badgeClass: "badge-gold",
   },
   {
     name: "Platinum",
     period: "Souscription Annuelle (Fin au 15 Juin)",
-    desc: "Pass annuel d'excellence jusqu'au 15 juin pour réussir le Bac avec accès direct aux lives.",
-    perks: ["Accès illimité aux Live jusqu'au 15 juin", "Accès complet au catalogue et magazines", "Séances directes avec les enseignants", "Certificats officiels"],
+    desc: "Pass annuel d'excellence jusqu'au 15 juin pour réussir le Bac avec accès direct aux sessions Live.",
+    perks: ["Exclusivité : Sessions Live directes", "Accès complet aux cours vidéo, exercices & magazines", "Séances directes avec les enseignants", "Certificats officiels"],
     badgeClass: "badge-platinum",
   },
 ];
@@ -244,7 +244,7 @@ export default function HomePage() {
                   href="/teacher"
                   className="btn-primary text-xs sm:text-sm font-bold shadow-md rounded-xl"
                 >
-                  <span>+</span> Créer un nouveau cours
+                  <span>+</span> Ajouter une ressource
                 </Link>
                 <Link
                   href="/teacher"

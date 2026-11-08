@@ -348,7 +348,7 @@ export function AppSidebar({ isOpenMobile, onCloseMobile }: AppSidebarProps) {
               onClick={onCloseMobile}
               className="mt-3 block text-center rounded-xl py-1.5 text-xs font-bold transition-all bg-indigo-600 text-white shadow-xs hover:bg-indigo-700"
             >
-              + Nouveau cours
+              + Nouvelle ressource
             </Link>
           </div>
         )}

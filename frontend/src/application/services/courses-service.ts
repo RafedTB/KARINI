@@ -41,6 +41,15 @@ export const coursesService = {
     return coursesRepository.uploadFile(token, file);
   },
 
+  uploadVideo(token: string, file: File) {
+    return coursesRepository.uploadVideo(token, file);
+  },
+
+  async getVideoBlobUrl(token: string, fileName: string): Promise<string> {
+    const blob = await coursesRepository.downloadVideo(token, fileName);
+    return URL.createObjectURL(blob);
+  },
+
   async getPdfBlobUrl(token: string, fileName: string): Promise<string> {
     let blob: Blob;
     try {

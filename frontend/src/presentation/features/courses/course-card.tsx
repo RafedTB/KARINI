@@ -109,7 +109,7 @@ export function CourseCard({ course, token }: CourseCardProps) {
             📝 Cours écrit
           </span>
         )}
-        {course.youtubeUrl && (
+        {(course.videoFile || course.youtubeUrl) && (
           <span className="rounded-md px-2 py-0.5 font-medium bg-rose-50 text-rose-700">
             🎬 Vidéo {isFreeStudent ? "🔒" : ""}
           </span>

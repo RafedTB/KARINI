@@ -25,6 +25,10 @@ export class CreateLessonDto {
 
     @IsString()
     @IsOptional()
+    videoFile?: string;
+
+    @IsString()
+    @IsOptional()
     pdfFile?: string;
 
     @IsInt()

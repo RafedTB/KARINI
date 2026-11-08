@@ -30,6 +30,9 @@ export class Course {
     youtubeUrl?: string | null;
 
     @Column({ type: 'varchar', length: 255, nullable: true })
+    videoFile?: string | null;
+
+    @Column({ type: 'varchar', length: 255, nullable: true })
     pdfFile?: string | null;
 
     @Column({ type: 'integer' })

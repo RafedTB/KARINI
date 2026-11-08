@@ -18,12 +18,48 @@ import { CourseSection, UserType } from "../utils/enum.js";
 import type { JWTPayloadType } from "../utils/types.js";
 
 function getUploadsDir(): string {
-    const primary = join(process.cwd(), 'uploads', 'magazines');
-    if (existsSync(primary)) return primary;
-    const backendFolder = join(process.cwd(), 'backend', 'uploads', 'magazines');
-    if (existsSync(backendFolder)) return backendFolder;
-    mkdirSync(primary, { recursive: true });
-    return primary;
+    const candidates = [
+        join(process.cwd(), 'uploads', 'magazines'),
+        join(process.cwd(), 'backend', 'uploads', 'magazines'),
+        join(process.cwd(), 'backend', 'backend', 'uploads', 'magazines'),
+    ];
+    for (const p of candidates) {
+        if (existsSync(p)) return p;
+    }
+    const target = existsSync(join(process.cwd(), 'backend'))
+        ? join(process.cwd(), 'backend', 'uploads', 'magazines')
+        : join(process.cwd(), 'uploads', 'magazines');
+    mkdirSync(target, { recursive: true });
+    return target;
+}
+
+function getVideosUploadsDir(): string {
+    const candidates = [
+        join(process.cwd(), 'uploads', 'videos'),
+        join(process.cwd(), 'backend', 'uploads', 'videos'),
+        join(process.cwd(), 'backend', 'backend', 'uploads', 'videos'),
+    ];
+    for (const p of candidates) {
+        if (existsSync(p)) return p;
+    }
+    const target = existsSync(join(process.cwd(), 'backend'))
+        ? join(process.cwd(), 'backend', 'uploads', 'videos')
+        : join(process.cwd(), 'uploads', 'videos');
+    mkdirSync(target, { recursive: true });
+    return target;
+}
+
+function findFileInDirs(filename: string, subfolder: string): string | null {
+    const base = basename(filename);
+    const candidates = [
+        join(process.cwd(), 'uploads', subfolder, base),
+        join(process.cwd(), 'backend', 'uploads', subfolder, base),
+        join(process.cwd(), 'backend', 'backend', 'uploads', subfolder, base),
+    ];
+    for (const p of candidates) {
+        if (existsSync(p)) return p;
+    }
+    return null;
 }
 
 @ApiTags('Courses')
@@ -82,6 +118,31 @@ export class CoursesController {
             filename: file.filename,
             originalName: file.originalname,
             url: `/api/courses/materials/${file.filename}`,
+        };
+    }
+
+    @Post('upload-video')
+    @Roles(UserType.SUPERADMIN, UserType.INSTRUCTOR)
+    @UseInterceptors(FileInterceptor('video', {
+        storage: diskStorage({
+            destination: (req, file, cb) => cb(null, getVideosUploadsDir()),
+            filename: (req, file, cb) => cb(null, `${Date.now()}-${file.originalname.replace(/\s+/g, '-')}`)
+        }),
+        fileFilter: (req, file, cb) => {
+            const isVideo = file.mimetype.startsWith('video/') ||
+                ['.mp4', '.webm', '.mov', '.mkv', '.avi'].some(ext => file.originalname.toLowerCase().endsWith(ext));
+            cb(isVideo ? null : new BadRequestException('Seuls les fichiers vidéo (MP4, WebM, MOV, MKV) sont acceptés'), isVideo);
+        },
+        limits: { fileSize: 300 * 1024 * 1024 },
+    }))
+    @ApiConsumes('multipart/form-data')
+    @ApiOperation({ summary: 'Upload a video file for a course or lesson from PC' })
+    public uploadVideo(@UploadedFile() file: Express.Multer.File) {
+        if (!file) throw new BadRequestException('Un fichier vidéo est requis');
+        return {
+            filename: file.filename,
+            originalName: file.originalname,
+            url: `/api/courses/videos/${file.filename}`,
         };
     }
 
@@ -174,8 +235,8 @@ export class CoursesController {
         @Res() res: Response
     ) {
         await this.coursesService.assertMediaAccess(payload.id);
-        const folder = getUploadsDir();
-        return res.sendFile(basename(file), { root: folder });
+        const resolved = findFileInDirs(file, 'magazines') || join(getUploadsDir(), basename(file));
+        return res.sendFile(resolved);
     }
 
     @Get('magazines/:file')
@@ -186,7 +247,20 @@ export class CoursesController {
         @Res() res: Response
     ) {
         await this.coursesService.assertMediaAccess(payload.id);
-        const folder = getUploadsDir();
-        return res.sendFile(basename(file), { root: folder });
+        const resolved = findFileInDirs(file, 'magazines') || join(getUploadsDir(), basename(file));
+        return res.sendFile(resolved);
+    }
+
+    @Get('videos/:file')
+    @Roles(UserType.SUPERADMIN, UserType.STUDENT, UserType.INSTRUCTOR)
+    @ApiOperation({ summary: 'Stream or download an uploaded video file' })
+    public async showVideo(
+        @Param('file') file: string,
+        @currentUser() payload: JWTPayloadType,
+        @Res() res: Response
+    ) {
+        await this.coursesService.assertMediaAccess(payload.id);
+        const resolved = findFileInDirs(file, 'videos') || join(getVideosUploadsDir(), basename(file));
+        return res.sendFile(resolved);
     }
 }

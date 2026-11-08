@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { Course } from "@/domain/entities/course";
-import { CourseSection } from "@/domain/enums";
+import { CourseSection, MembershipType, UserType } from "@/domain/enums";
 import { coursesService } from "@/application/services/courses-service";
 import { subjectsService } from "@/application/services/subjects-service";
 import { CourseCard } from "@/presentation/features/courses/course-card";
@@ -20,9 +20,9 @@ type SubjectDetailViewProps = {
 const SECTION_TABS = [
   { key: "all", label: "Tous les contenus", icon: "📚" },
   { key: CourseSection.COURSE, label: "Cours Vidéo", icon: "🎬" },
-  { key: CourseSection.EXERCISE, label: "Exercices", icon: "✍️" },
+  { key: CourseSection.EXERCISE, label: "Exercices PDF", icon: "✍️" },
   { key: CourseSection.MAGAZINE, label: "Magazines PDF", icon: "📑" },
-  { key: CourseSection.OLDLIVE, label: "Archives Live", icon: "🔴" },
+  { key: CourseSection.OLDLIVE, label: "Direct", icon: "🔴" },
 ] as const;
 
 export function SubjectDetailView({ subjectId }: SubjectDetailViewProps) {
@@ -312,6 +312,8 @@ export function SubjectDetailView({ subjectId }: SubjectDetailViewProps) {
           }}
         >
           {SECTION_TABS.map((tab) => {
+            const isGoldOnlyTab = tab.key === CourseSection.OLDLIVE;
+            const isStudentNonGold = user?.userType === UserType.STUDENT && user?.membership !== MembershipType.GOLD;
             const count = sectionCounts[tab.key] ?? 0;
             const isActive = activeSection === tab.key;
             return (
@@ -329,16 +331,22 @@ export function SubjectDetailView({ subjectId }: SubjectDetailViewProps) {
               >
                 <span>{tab.icon}</span>
                 <span>{tab.label}</span>
-                <span
-                  className="ml-1 rounded-full px-1.5 py-0.2 text-xs"
-                  style={{
-                    backgroundColor: isActive ? subject.accentColor : "rgba(15,23,42,0.08)",
-                    color: isActive ? "#ffffff" : "var(--muted)",
-                    fontWeight: 700,
-                  }}
-                >
-                  {count}
-                </span>
+                {isGoldOnlyTab && isStudentNonGold ? (
+                  <span className="badge text-[9px] px-1.5 py-0.2 bg-amber-100 text-amber-800 border-amber-200">
+                    ⭐ Gold
+                  </span>
+                ) : (
+                  <span
+                    className="ml-1 rounded-full px-1.5 py-0.2 text-xs"
+                    style={{
+                      backgroundColor: isActive ? subject.accentColor : "rgba(15,23,42,0.08)",
+                      color: isActive ? "#ffffff" : "var(--muted)",
+                      fontWeight: 700,
+                    }}
+                  >
+                    {count}
+                  </span>
+                )}
               </button>
             );
           })}
@@ -379,55 +387,77 @@ export function SubjectDetailView({ subjectId }: SubjectDetailViewProps) {
         </div>
       )}
 
-      {/* Affichage: Grid of Course Cards */}
-      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-        {displayedCourses.map((course, i) => (
-          <div key={course.id} className={`animate-fade-in-up stagger-${Math.min(i + 1, 6)}`}>
-            <CourseCard course={course} token={token!} />
+      {/* Gold Gate Banner for Archive Live */}
+      {activeSection === CourseSection.OLDLIVE && user?.userType === UserType.STUDENT && user?.membership !== MembershipType.GOLD ? (
+        <div className="glass-card p-8 sm:p-10 rounded-3xl border border-amber-300/80 bg-gradient-to-r from-amber-50/80 via-yellow-50/50 to-orange-50/40 text-center animate-fade-in my-6">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-500 text-white text-2xl shadow-sm mb-4">
+            ⭐
           </div>
-        ))}
-      </div>
-
-      {/* Empty State when no courses found */}
-      {displayedCourses.length === 0 && (
-        <div
-          className="glass-card px-8 py-16 text-center rounded-3xl"
-          style={{ borderStyle: "dashed" }}
-        >
-          <div
-            className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl"
-            style={{
-              background: subject.lightBg,
-              border: `1px solid ${subject.accentColor}30`,
-            }}
-          >
-            <SubjectIcon subjectId={subject.id} size={30} color={subject.accentColor} />
-          </div>
-
-          <h2 className="mt-5 font-serif text-2xl" style={{ color: "var(--ink)" }}>
-            Aucun contenu disponible pour le moment
-          </h2>
-          <p className="mx-auto mt-2 max-w-md text-sm" style={{ color: "var(--muted)" }}>
-            {activeSection !== "all"
-              ? `Il n'y a pas encore de contenu dans cette section (${activeSection}) pour la matière ${subject.name}.`
-              : `Les professeurs préparent actuellement les cours et exercices de ${subject.name}.`}
+          <h3 className="font-serif text-xl font-bold text-slate-900">
+            Archives Live : Réservées exclusivement aux membres Gold
+          </h3>
+          <p className="mt-2 text-xs sm:text-sm text-slate-600 max-w-lg mx-auto leading-relaxed">
+            Les rediffusions et archives des sessions en direct sont une exclusivité de la formule <strong>Gold</strong>. Les élèves inscrits en formule Standard, Silver ou Platinum ne peuvent pas accéder aux replays des directs.
           </p>
-
-          {activeSection !== "all" && (
-            <button
-              type="button"
-              onClick={() => handleTabChange("all")}
-              className="mt-5 inline-flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-semibold"
-              style={{
-                backgroundColor: subject.lightBg,
-                color: subject.accentColor,
-                border: `1px solid ${subject.accentColor}40`,
-              }}
-            >
-              Voir tous les contenus de {subject.shortCode}
-            </button>
-          )}
+          <div className="mt-6 flex justify-center">
+            <Link href="/membership" className="btn-primary text-xs py-2.5 px-6 font-bold shadow-sm">
+              Passer à la formule Gold ⭐
+            </Link>
+          </div>
         </div>
+      ) : (
+        <>
+          {/* Affichage: Grid of Course Cards */}
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {displayedCourses.map((course, i) => (
+              <div key={course.id} className={`animate-fade-in-up stagger-${Math.min(i + 1, 6)}`}>
+                <CourseCard course={course} token={token!} />
+              </div>
+            ))}
+          </div>
+
+          {/* Empty State when no courses found */}
+          {displayedCourses.length === 0 && (
+            <div
+              className="glass-card px-8 py-16 text-center rounded-3xl"
+              style={{ borderStyle: "dashed" }}
+            >
+              <div
+                className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl"
+                style={{
+                  background: subject.lightBg,
+                  border: `1px solid ${subject.accentColor}30`,
+                }}
+              >
+                <SubjectIcon subjectId={subject.id} size={30} color={subject.accentColor} />
+              </div>
+
+              <h2 className="mt-5 font-serif text-2xl" style={{ color: "var(--ink)" }}>
+                Aucun contenu disponible pour le moment
+              </h2>
+              <p className="mx-auto mt-2 max-w-md text-sm" style={{ color: "var(--muted)" }}>
+                {activeSection !== "all"
+                  ? `Il n'y a pas encore de contenu dans cette section (${activeSection}) pour la matière ${subject.name}.`
+                  : `Les professeurs préparent actuellement les cours et exercices de ${subject.name}.`}
+              </p>
+
+              {activeSection !== "all" && (
+                <button
+                  type="button"
+                  onClick={() => handleTabChange("all")}
+                  className="mt-5 inline-flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-semibold"
+                  style={{
+                    backgroundColor: subject.lightBg,
+                    color: subject.accentColor,
+                    border: `1px solid ${subject.accentColor}40`,
+                  }}
+                >
+                  Voir tous les contenus de {subject.shortCode}
+                </button>
+              )}
+            </div>
+          )}
+        </>
       )}
     </div>
   );
