@@ -30,6 +30,9 @@ export class User {
     @Column({ type: 'enum', enum: MembershipType, default: MembershipType.DEFAULT })
     membership!: MembershipType;
 
+    @Column({ type: 'timestamp', nullable: true })
+    membershipExpiresAt?: Date | null;
+
     @Column({ type: 'integer', default: 0 })
     credits!: number;
 
@@ -53,6 +56,9 @@ export class User {
 
     @Column({ type: 'varchar', length: 100, nullable: true })
     studentClass?: string | null;
+
+    @Column({ type: 'varchar', length: 50, nullable: true, default: 'Standard' })
+    studentGroup?: string | null;
 
     @Column({ type: 'simple-json', nullable: true })
     teachingSubjects?: string[] | null;

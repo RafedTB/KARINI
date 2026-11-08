@@ -8,12 +8,14 @@ export type User = {
   email: string;
   userType: UserType | string;
   membership: MembershipType | string;
+  membershipExpiresAt?: string | null;
   credits: number;
   isAccountVerified: boolean;
   profileImage?: string | null;
   phoneNumber?: string | null;
   gender?: string | null;
   studentClass?: string | null;
+  studentGroup?: string | null;
   teachingSubjects?: string[] | null;
   teachingClasses?: string[] | null;
   age?: number | null;

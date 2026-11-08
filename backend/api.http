@@ -18,7 +18,8 @@ Content-Type: application/json
 {
   "email": "student18@example.com",
   "password": "password123",
-  "username": "student_adult",
+  "firstname": "Ahmed",
+  "lastname": "Trabelsi",
   "studentClass": "Bac Informatique",
   "phoneNumber": "+216 20 123 456",
   "gender": "Masculin",
@@ -33,7 +34,8 @@ Content-Type: application/json
 {
   "email": "minor_student@example.com",
   "password": "password123",
-  "username": "student_minor",
+  "firstname": "Sarra",
+  "lastname": "Ben Salah",
   "studentClass": "2ème Informatique",
   "phoneNumber": "+216 98 765 432",
   "gender": "Féminin",
@@ -255,3 +257,61 @@ Content-Type: application/json
 {
   "membership": "{{membership}}"
 }
+
+
+### Live Sessions: list accessible sessions [superadmin, moderator, instructor, student(platinum)]
+GET {{baseUrl}}/api/live-sessions
+Authorization: Bearer {{token}}
+
+### Live Sessions: get teachers for schedule dropdown [superadmin, moderator, instructor]
+GET {{baseUrl}}/api/live-sessions/teachers
+Authorization: Bearer {{token}}
+
+### Live Sessions: create session [superadmin or moderator]
+POST {{baseUrl}}/api/live-sessions
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "title": "Révision Bac Info: Algorithmique & Graphes",
+  "description": "Séance interactive exclusive Platinum avec questions/réponses en direct.",
+  "classFiliere": "Bac Informatique",
+  "subjectName": "Algorithmique & Programmation",
+  "teacherId": 1,
+  "startTime": "2026-11-15T18:00:00.000Z",
+  "endTime": "2026-11-15T19:30:00.000Z",
+  "meetingUrl": "https://meet.google.com/karini-live-algo"
+}
+
+### Live Sessions: delete session [superadmin or moderator]
+DELETE {{baseUrl}}/api/live-sessions/1
+Authorization: Bearer {{token}}
+
+
+### Live Sessions: list accessible sessions [superadmin, moderator, instructor, student(platinum)]
+GET {{baseUrl}}/api/live-sessions
+Authorization: Bearer {{token}}
+
+### Live Sessions: get teachers for schedule dropdown [superadmin, moderator, instructor]
+GET {{baseUrl}}/api/live-sessions/teachers
+Authorization: Bearer {{token}}
+
+### Live Sessions: create session [superadmin or moderator]
+POST {{baseUrl}}/api/live-sessions
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "title": "Révision Bac Info: Algorithmique & Graphes",
+  "description": "Séance interactive exclusive Platinum avec questions/réponses en direct.",
+  "classFiliere": "Bac Informatique",
+  "subjectName": "Algorithmique & Programmation",
+  "teacherId": 1,
+  "startTime": "2026-11-15T18:00:00.000Z",
+  "endTime": "2026-11-15T19:30:00.000Z",
+  "meetingUrl": "https://meet.google.com/karini-live-algo"
+}
+
+### Live Sessions: delete session [superadmin or moderator]
+DELETE {{baseUrl}}/api/live-sessions/1
+Authorization: Bearer {{token}}

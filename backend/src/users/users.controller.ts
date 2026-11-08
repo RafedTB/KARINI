@@ -58,6 +58,16 @@ export class UsersController {
         return this.usersService.getAllUsers();
     }
 
+    // GET /api/users/students
+    @Get('students')
+    @Roles(UserType.SUPERADMIN, UserType.MODERATOR)
+    @UseGuards(AuthRolesGuard)
+    @ApiBearerAuth()
+    @ApiOperation({ summary: 'Get all students for class & group assignment (Superadmin and Moderator)' })
+    public getStudents() {
+        return this.usersService.getStudents();
+    }
+
     // POST /api/users/admin/create-user
     @Post('admin/create-user')
     @Roles(UserType.SUPERADMIN)
@@ -86,6 +96,19 @@ export class UsersController {
     @ApiOperation({ summary: 'Update the current user profile' })
     public updateUser(@currentUser() payload: JWTPayloadType, @Body() updateUserDto: UpdateUserDto) {
         return this.usersService.updateUser(payload.id, updateUserDto);
+    }
+
+    // PUT /api/users/:id/student-assignment
+    @Put(':id/student-assignment')
+    @Roles(UserType.SUPERADMIN, UserType.MODERATOR)
+    @UseGuards(AuthRolesGuard)
+    @ApiBearerAuth()
+    @ApiOperation({ summary: 'Attach a student to a class and group (Superadmin and Moderator)' })
+    public assignStudentClassAndGroup(
+        @Param('id', ParseIntPipe) id: number,
+        @Body() body: { studentClass?: string; studentGroup?: string },
+    ) {
+        return this.usersService.assignStudentClassAndGroup(id, body.studentClass, body.studentGroup);
     }
 
     // PUT /api/users/:id/membership

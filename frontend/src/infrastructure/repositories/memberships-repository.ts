@@ -2,8 +2,8 @@ import type { MembershipPlan, PurchaseMembershipResult } from "@/domain/entities
 import { apiClient } from "@/infrastructure/http/api-client";
 
 export const membershipsRepository = {
-  listPlans(token: string) {
-    return apiClient<MembershipPlan[]>("/api/memberships/prices", { token });
+  listPlans(token?: string) {
+    return apiClient<MembershipPlan[]>("/api/memberships/prices", token ? { token } : {});
   },
 
   purchase(token: string, membership: string) {

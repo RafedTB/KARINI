@@ -3,6 +3,8 @@ import { FileInterceptor } from "@nestjs/platform-express";
 import { diskStorage } from "multer";
 import type { Express, Response } from "express";
 import { ApiBearerAuth, ApiConsumes, ApiOperation, ApiQuery, ApiTags } from "@nestjs/swagger";
+import { join, basename } from "node:path";
+import { existsSync, mkdirSync } from "node:fs";
 import { CoursesService } from "./courses.service.js";
 import { CreateCourseDto } from "./dto/create-course.dto.js";
 import { MagazineUploadDto } from "./dto/magazine-upload.dto.js";
@@ -14,6 +16,15 @@ import { currentUser } from "../users/decorators/current-user.decorator.js";
 import { Roles } from "../users/decorators/user-role.decorator.js";
 import { CourseSection, UserType } from "../utils/enum.js";
 import type { JWTPayloadType } from "../utils/types.js";
+
+function getUploadsDir(): string {
+    const primary = join(process.cwd(), 'uploads', 'magazines');
+    if (existsSync(primary)) return primary;
+    const backendFolder = join(process.cwd(), 'backend', 'uploads', 'magazines');
+    if (existsSync(backendFolder)) return backendFolder;
+    mkdirSync(primary, { recursive: true });
+    return primary;
+}
 
 @ApiTags('Courses')
 @ApiBearerAuth()
@@ -57,7 +68,7 @@ export class CoursesController {
     @Roles(UserType.SUPERADMIN, UserType.INSTRUCTOR)
     @UseInterceptors(FileInterceptor('file', {
         storage: diskStorage({
-            destination: './uploads/magazines',
+            destination: (req, file, cb) => cb(null, getUploadsDir()),
             filename: (req, file, cb) => cb(null, `${Date.now()}-${file.originalname.replace(/\s+/g, '-')}`)
         }),
         fileFilter: (req, file, cb) => cb(file.mimetype === 'application/pdf' ? null : new BadRequestException('Only PDF files are allowed'), file.mimetype === 'application/pdf'),
@@ -77,14 +88,17 @@ export class CoursesController {
     @Post('magazine')
     @Roles(UserType.SUPERADMIN, UserType.INSTRUCTOR)
     @UseInterceptors(FileInterceptor('pdf', {
-        storage: diskStorage({ destination: './uploads/magazines', filename: (req, file, cb) => cb(null, `${Date.now()}-${file.originalname.replace(/\s+/g, '-')}`) }),
+        storage: diskStorage({
+            destination: (req, file, cb) => cb(null, getUploadsDir()),
+            filename: (req, file, cb) => cb(null, `${Date.now()}-${file.originalname.replace(/\s+/g, '-')}`)
+        }),
         fileFilter: (req, file, cb) => cb(file.mimetype === 'application/pdf' ? null : new BadRequestException('Only PDF files are allowed'), file.mimetype === 'application/pdf'),
         limits: { fileSize: 20 * 1024 * 1024 },
     }))
     @ApiConsumes('multipart/form-data')
     public createMagazine(@UploadedFile() file: Express.Multer.File, @Body() dto: MagazineUploadDto, @currentUser() payload: JWTPayloadType) {
         if (!file) throw new BadRequestException('A PDF file is required');
-        return this.coursesService.createMagazine(dto.title, dto.description, file.filename, payload.id, dto.subject);
+        return this.coursesService.createMagazine(dto.title, dto.description, file.filename, payload.id, dto.subject, dto.filiere);
     }
 
     @Patch(':id')
@@ -144,20 +158,35 @@ export class CoursesController {
     @Get(':courseId/lessons')
     @Roles(UserType.SUPERADMIN, UserType.STUDENT, UserType.INSTRUCTOR)
     @ApiOperation({ summary: 'Get all lessons for a course' })
-    public getCourseLessons(@Param('courseId', ParseIntPipe) courseId: number) {
-        return this.coursesService.getCourseLessons(courseId);
+    public getCourseLessons(
+        @Param('courseId', ParseIntPipe) courseId: number,
+        @currentUser() payload: JWTPayloadType
+    ) {
+        return this.coursesService.getCourseLessons(courseId, payload);
     }
 
     @Get('materials/:file')
     @Roles(UserType.SUPERADMIN, UserType.STUDENT, UserType.INSTRUCTOR)
     @ApiOperation({ summary: 'Download or view a PDF lesson/material file' })
-    public showMaterial(@Param('file') file: string, @Res() res: Response) {
-        return res.sendFile(file, { root: './uploads/magazines' });
+    public async showMaterial(
+        @Param('file') file: string,
+        @currentUser() payload: JWTPayloadType,
+        @Res() res: Response
+    ) {
+        await this.coursesService.assertMediaAccess(payload.id);
+        const folder = getUploadsDir();
+        return res.sendFile(basename(file), { root: folder });
     }
 
     @Get('magazines/:file')
     @Roles(UserType.SUPERADMIN, UserType.STUDENT, UserType.INSTRUCTOR)
-    public showMagazine(@Param('file') file: string, @Res() res: Response) {
-        return res.sendFile(file, { root: './uploads/magazines' });
+    public async showMagazine(
+        @Param('file') file: string,
+        @currentUser() payload: JWTPayloadType,
+        @Res() res: Response
+    ) {
+        await this.coursesService.assertMediaAccess(payload.id);
+        const folder = getUploadsDir();
+        return res.sendFile(basename(file), { root: folder });
     }
 }

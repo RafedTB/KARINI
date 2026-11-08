@@ -26,6 +26,8 @@ export function AppHeader({ onToggleMobileNav }: AppHeaderProps) {
     if (pathname.startsWith("/teacher")) return "Studio Pédagogique Enseignant";
     if (pathname.startsWith("/admin")) return "Administration Karini";
     if (pathname.startsWith("/membership")) return "Formules & Abonnements";
+    if (pathname.startsWith("/live")) return "Sessions Live & Masterclasses";
+    if (pathname.startsWith("/moderator")) return "Gestion des Élèves & Groupes Live";
     if (pathname === "/") {
       if (isSuperadmin) return "Console Superadmin";
       if (isInstructor) return "Espace Enseignant";

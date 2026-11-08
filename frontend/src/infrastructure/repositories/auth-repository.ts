@@ -13,7 +13,9 @@ type RegisterResponse = {
 export type RegisterPayload = {
   email: string;
   password: string;
-  username: string;
+  firstname?: string;
+  lastname?: string;
+  username?: string;
   studentClass: string;
   phoneNumber: string;
   gender: string;

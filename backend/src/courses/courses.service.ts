@@ -37,10 +37,10 @@ export class CoursesService {
         }));
     }
 
-    public async createMagazine(title: string, description: string | undefined, pdfFile: string, userId: number, subject?: string) {
+    public async createMagazine(title: string, description: string | undefined, pdfFile: string, userId: number, subject?: string, filiere?: string) {
         const creator = await this.userRepository.findOne({ where: { id: userId } });
         if (creator?.userType === UserType.INSTRUCTOR) {
-            this.validateInstructorTeaching(creator, subject, undefined);
+            this.validateInstructorTeaching(creator, subject, filiere);
         }
 
         return this.courseRepository.save(this.courseRepository.create({
@@ -49,6 +49,7 @@ export class CoursesService {
             section: CourseSection.MAGAZINE,
             pdfFile,
             subject: (subject?.toLowerCase() || CourseSubject.MATH),
+            filiere: filiere || null,
             createdById: userId,
         }));
     }
@@ -72,8 +73,14 @@ export class CoursesService {
             order: { createdAt: 'DESC' }
         });
 
+        const cleanMembership = (user?.membership || '').toString().toLowerCase().trim();
+        const isPaidStudent = ['silver', 'gold', 'platinum'].includes(cleanMembership);
+        const isGoldOrPlatinum = ['gold', 'platinum'].includes(cleanMembership);
+        const isPlatinum = cleanMembership === 'platinum';
+
         // Filter courses for student based on their class
-        if (user?.userType === UserType.STUDENT && user.studentClass) {
+        // Platinum & Gold students have full access to courses of all filières!
+        if (user?.userType === UserType.STUDENT && user.studentClass && !isPlatinum && !isGoldOrPlatinum) {
             const sClass = user.studentClass.trim();
             const isBacInfo = /bac.*info/i.test(sClass) || sClass.toLowerCase() === 'bac informatique';
             const studentFiliere = isBacInfo ? 'Bac Informatique' : sClass;
@@ -90,7 +97,7 @@ export class CoursesService {
             courses = courses.filter((course) => course.filiere === filiere || course.filiere === 'all' || !course.filiere);
         }
 
-        if (user?.userType === UserType.STUDENT && ![MembershipType.GOLD, MembershipType.PLATINUM].includes(user.membership)) {
+        if (user?.userType === UserType.STUDENT && !isGoldOrPlatinum) {
             courses = courses.filter((course) => course.section !== CourseSection.OLDLIVE);
         }
 
@@ -120,9 +127,15 @@ export class CoursesService {
         }
 
         const user = await this.userRepository.findOne({ where: { id: payload.id } });
+        const cleanMembership = (user?.membership || '').toString().toLowerCase().trim();
+        const isPaidStudent = ['silver', 'gold', 'platinum'].includes(cleanMembership);
+        const isGoldOrPlatinum = ['gold', 'platinum'].includes(cleanMembership);
+        const isPlatinum = cleanMembership === 'platinum';
+        const isFreeStudent = user?.userType === UserType.STUDENT && !isPaidStudent;
 
         // Access control: student class restriction
-        if (user?.userType === UserType.STUDENT && user.studentClass && course.filiere && course.filiere !== 'all') {
+        // Platinum and Gold members have full unrestricted access to all courses across all filières!
+        if (user?.userType === UserType.STUDENT && !isGoldOrPlatinum && user.studentClass && course.filiere && course.filiere !== 'all') {
             const sClass = user.studentClass.trim();
             const isBacInfo = /bac.*info/i.test(sClass) || sClass.toLowerCase() === 'bac informatique';
             const studentFiliere = isBacInfo ? 'Bac Informatique' : sClass;
@@ -136,10 +149,21 @@ export class CoursesService {
         }
 
         if (course.section === CourseSection.OLDLIVE) {
-            if (user?.userType === UserType.STUDENT && ![MembershipType.GOLD, MembershipType.PLATINUM].includes(user.membership)) {
+            if (user?.userType === UserType.STUDENT && !isGoldOrPlatinum) {
                 throw new ForbiddenException('Gold membership or higher is required for old live content');
             }
         }
+
+        // Only redact for Free students. Platinum, Gold, and Silver students receive full access!
+        if (isFreeStudent) {
+            course.youtubeUrl = null;
+            if (course.lessons && course.lessons.length > 0) {
+                for (const l of course.lessons) {
+                    l.youtubeUrl = null;
+                }
+            }
+        }
+
         return course;
     }
 
@@ -211,11 +235,41 @@ export class CoursesService {
         return { message: 'Lesson deleted successfully' };
     }
 
-    public async getCourseLessons(courseId: number) {
-        return this.lessonRepository.find({
+    public async getCourseLessons(courseId: number, payload?: JWTPayloadType) {
+        const lessons = await this.lessonRepository.find({
             where: { courseId },
             order: { orderIndex: 'ASC' }
         });
+        if (payload?.id) {
+            const user = await this.userRepository.findOne({ where: { id: payload.id } });
+            const cleanMembership = (user?.membership || '').toString().toLowerCase().trim();
+            const isFreeStudent = user?.userType === UserType.STUDENT && !['silver', 'gold', 'platinum'].includes(cleanMembership);
+            if (isFreeStudent) {
+                for (const l of lessons) {
+                    l.youtubeUrl = null;
+                }
+            }
+        }
+        return lessons;
+    }
+
+    /**
+     * Checks whether a student has sufficient membership (Silver, Gold, Platinum)
+     * to open or download PDF magazines and lesson materials.
+     */
+    public async assertMediaAccess(userId: number) {
+        const user = await this.userRepository.findOne({ where: { id: userId } });
+        if (!user) throw new NotFoundException('Utilisateur introuvable');
+        if (user.userType !== UserType.STUDENT) return;
+
+        const cleanMembership = (user.membership || '').toString().toLowerCase().trim();
+        const isPaidStudent = ['silver', 'gold', 'platinum'].includes(cleanMembership);
+
+        if (!isPaidStudent) {
+            throw new ForbiddenException(
+                'Votre formule actuelle (Gratuit) ne vous permet pas d\'ouvrir ou de télécharger les supports PDF et vidéos. Veuillez souscrire à une formule Silver, Gold ou Platinum.'
+            );
+        }
     }
 
     private async getAccessibleCourse(id: number, userId: number, userType?: UserType | string) {
@@ -228,10 +282,17 @@ export class CoursesService {
 
     private validateInstructorTeaching(instructor: User, subject?: string | null, filiere?: string | null) {
         if (instructor.teachingSubjects && instructor.teachingSubjects.length > 0 && subject) {
-            const cleanSub = subject.toLowerCase().trim();
-            const allowed = instructor.teachingSubjects.some(
-                (s) => s.toLowerCase().trim() === cleanSub
-            );
+            const cleanSub = subject.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+            const allowed = instructor.teachingSubjects.some((s) => {
+                const cleanS = s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+                return (
+                    cleanSub === cleanS ||
+                    cleanSub.startsWith(cleanS + '-') ||
+                    cleanSub.startsWith(cleanS) ||
+                    cleanSub.includes(cleanS) ||
+                    cleanS.includes(cleanSub)
+                );
+            });
             if (!allowed) {
                 throw new ForbiddenException(
                     `En tant qu'instructeur, vous n'êtes pas autorisé à enseigner la matière "${subject}". Vos matières assignées sont : ${instructor.teachingSubjects.join(', ')}`
@@ -240,10 +301,15 @@ export class CoursesService {
         }
 
         if (instructor.teachingClasses && instructor.teachingClasses.length > 0 && filiere && filiere !== 'all') {
-            const cleanFil = filiere.toLowerCase().trim();
-            const allowed = instructor.teachingClasses.some(
-                (c) => c.toLowerCase().trim() === cleanFil
-            );
+            const cleanFil = filiere.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+            const allowed = instructor.teachingClasses.some((c) => {
+                const cleanC = c.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+                return (
+                    cleanFil === cleanC ||
+                    cleanFil.includes(cleanC) ||
+                    cleanC.includes(cleanFil)
+                );
+            });
             if (!allowed) {
                 throw new ForbiddenException(
                     `En tant qu'instructeur, vous n'êtes pas autorisé à enseigner pour la classe "${filiere}". Vos classes assignées sont : ${instructor.teachingClasses.join(', ')}`

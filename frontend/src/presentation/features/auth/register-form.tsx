@@ -10,7 +10,8 @@ export function RegisterForm() {
   const { register } = useAuth();
 
   // Basic Account
-  const [username, setUsername] = useState("");
+  const [firstname, setFirstname] = useState("");
+  const [lastname, setLastname] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
@@ -42,6 +43,18 @@ export function RegisterForm() {
     setNotice("");
 
     // Validation
+    if (!firstname.trim()) {
+      setError("Veuillez renseigner votre prénom.");
+      setBusy(false);
+      return;
+    }
+
+    if (!lastname.trim()) {
+      setError("Veuillez renseigner votre nom.");
+      setBusy(false);
+      return;
+    }
+
     if (!studentClass) {
       setError("Veuillez sélectionner votre classe dans la liste.");
       setBusy(false);
@@ -85,10 +98,16 @@ export function RegisterForm() {
     }
 
     try {
+      const trimmedFirstname = firstname.trim();
+      const trimmedLastname = lastname.trim();
+      const combinedUsername = `${trimmedFirstname} ${trimmedLastname}`.trim();
+
       const message = await register({
         email: email.trim(),
         password,
-        username: username.trim(),
+        firstname: trimmedFirstname,
+        lastname: trimmedLastname,
+        username: combinedUsername,
         studentClass,
         phoneNumber: phoneNumber.trim(),
         gender,
@@ -196,16 +215,31 @@ export function RegisterForm() {
           <form className="mt-8 space-y-5" onSubmit={onSubmit}>
             {/* Identity & Login Credentials */}
             <div className="space-y-4">
-              <label className="block text-sm font-medium" style={{ color: "var(--ink-soft)" }}>
-                Nom d&apos;utilisateur ou Nom complet
-                <input
-                  required
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  className="input-field mt-1.5"
-                  placeholder="Ex: Mohamed Ben Salah"
-                />
-              </label>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <label className="block text-sm font-medium" style={{ color: "var(--ink-soft)" }}>
+                  Prénom
+                  <input
+                    required
+                    maxLength={25}
+                    value={firstname}
+                    onChange={(e) => setFirstname(e.target.value)}
+                    className="input-field mt-1.5"
+                    placeholder="Ex: Mohamed"
+                  />
+                </label>
+
+                <label className="block text-sm font-medium" style={{ color: "var(--ink-soft)" }}>
+                  Nom
+                  <input
+                    required
+                    maxLength={25}
+                    value={lastname}
+                    onChange={(e) => setLastname(e.target.value)}
+                    className="input-field mt-1.5"
+                    placeholder="Ex: Ben Salah"
+                  />
+                </label>
+              </div>
 
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <label className="block text-sm font-medium" style={{ color: "var(--ink-soft)" }}>

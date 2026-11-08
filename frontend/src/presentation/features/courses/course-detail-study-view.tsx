@@ -7,7 +7,7 @@ import { useAuth } from "@/presentation/providers/auth-provider";
 import { coursesService } from "@/application/services/courses-service";
 import type { Course } from "@/domain/entities/course";
 import type { Lesson } from "@/domain/entities/lesson";
-import { LessonType } from "@/domain/enums";
+import { LessonType, MembershipType, UserType } from "@/domain/enums";
 import { PageLoader } from "@/presentation/components/ui/page-loader";
 import { Button } from "@/presentation/components/ui/button";
 import { MagazinePdfViewer } from "@/presentation/components/pdf/magazine-pdf-viewer";
@@ -18,7 +18,13 @@ type CourseDetailStudyViewProps = {
 
 export function CourseDetailStudyView({ courseId }: CourseDetailStudyViewProps) {
   const router = useRouter();
-  const { token } = useAuth();
+  const { token, user } = useAuth();
+
+  const userTypeStr = (user?.userType || "").toString().toLowerCase().trim();
+  const membershipStr = (user?.membership || "").toString().toLowerCase().trim();
+  const isStudent = userTypeStr === "student";
+  const isPaidStudent = isStudent && ["silver", "gold", "platinum"].includes(membershipStr);
+  const isFreeStudent = isStudent && !isPaidStudent;
 
   const [course, setCourse] = useState<Course | null>(null);
   const [selectedLessonId, setSelectedLessonId] = useState<number | null>(null);
@@ -60,8 +66,9 @@ export function CourseDetailStudyView({ courseId }: CourseDetailStudyViewProps) 
     return course.lessons.findIndex((l) => l.id === activeLesson.id);
   }, [course, activeLesson]);
 
-  // Determine which PDF file is currently targeted
+  // Determine which PDF file is currently targeted (Free plan students cannot open PDF)
   const currentPdfFile = useMemo(() => {
+    if (isFreeStudent) return null;
     if (viewingCoursePdf && course?.pdfFile) {
       return course.pdfFile;
     }
@@ -69,14 +76,14 @@ export function CourseDetailStudyView({ courseId }: CourseDetailStudyViewProps) 
       return activeLesson.pdfFile;
     }
     return null;
-  }, [viewingCoursePdf, course, activeLesson]);
+  }, [viewingCoursePdf, course, activeLesson, isFreeStudent]);
 
   // Load PDF as interactive Blob URL in the browser
   useEffect(() => {
     let isCancelled = false;
     let objectUrl: string | null = null;
 
-    if (!token || !currentPdfFile) {
+    if (!token || !currentPdfFile || isFreeStudent) {
       setPdfBlobUrl(null);
       setLoadingPdf(false);
       setPdfError("");
@@ -114,10 +121,14 @@ export function CourseDetailStudyView({ courseId }: CourseDetailStudyViewProps) 
         URL.revokeObjectURL(objectUrl);
       }
     };
-  }, [token, currentPdfFile]);
+  }, [token, currentPdfFile, isFreeStudent]);
 
   const handleDownloadPdf = async (fileName: string) => {
     if (!token || !fileName) return;
+    if (isFreeStudent) {
+      router.push("/membership");
+      return;
+    }
     try {
       setPdfBusy(true);
       await coursesService.downloadPdf(token, fileName);
@@ -132,10 +143,19 @@ export function CourseDetailStudyView({ courseId }: CourseDetailStudyViewProps) 
   const getEmbedYoutubeUrl = (url?: string | null) => {
     if (!url) return null;
     try {
-      if (url.includes("embed")) return url;
+      if (url.includes("/embed/")) return url;
       const u = new URL(url);
       if (u.hostname === "youtu.be") {
-        return `https://www.youtube.com/embed${u.pathname}`;
+        const id = u.pathname.replace(/^\//, "").split("/")[0];
+        return `https://www.youtube.com/embed/${id}`;
+      }
+      if (u.pathname.startsWith("/live/")) {
+        const id = u.pathname.replace("/live/", "").split("/")[0];
+        return `https://www.youtube.com/embed/${id}`;
+      }
+      if (u.pathname.startsWith("/shorts/")) {
+        const id = u.pathname.replace("/shorts/", "").split("/")[0];
+        return `https://www.youtube.com/embed/${id}`;
       }
       const v = u.searchParams.get("v");
       if (v) {
@@ -205,6 +225,31 @@ export function CourseDetailStudyView({ courseId }: CourseDetailStudyViewProps) 
         </div>
       </div>
 
+      {/* Free Plan Restriction Notice Banner */}
+      {isFreeStudent && (
+        <div className="flex flex-wrap items-center justify-between gap-3 p-4 rounded-2xl border border-amber-200 bg-amber-50/90 text-amber-950 shadow-xs animate-fade-in">
+          <div className="flex items-center gap-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-200/80 text-xl">
+              🔒
+            </span>
+            <div className="text-xs">
+              <p className="font-bold text-amber-950 text-sm">
+                Formule actuelle : Gratuit (Free)
+              </p>
+              <p className="text-amber-800 mt-0.5 leading-relaxed">
+                Vous pouvez consulter le programme du cours. L&apos;ouverture des <strong>vidéos pédagogiques</strong> et des <strong>supports PDF</strong> est réservée aux abonnés.
+              </p>
+            </div>
+          </div>
+          <Link
+            href="/membership"
+            className="inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 transition-colors shadow-xs"
+          >
+            Débloquer l&apos;accès complet →
+          </Link>
+        </div>
+      )}
+
       {/* Main Learning Classroom Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* LEFT COLUMN: Course Curriculum & Lessons Navigation (4 cols) */}
@@ -247,25 +292,30 @@ export function CourseDetailStudyView({ courseId }: CourseDetailStudyViewProps) 
                 >
                   <div className="flex items-center gap-2.5">
                     <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl text-xs bg-rose-100 text-rose-700 font-bold">
-                      📄
+                      {isFreeStudent ? "🔒" : "📄"}
                     </span>
                     <div className="min-w-0 flex-1">
                       <span className="text-xs font-bold text-slate-800 block truncate">
-                        Polycopié PDF du cours
+                        Polycopié PDF du cours {isFreeStudent ? "🔒" : ""}
                       </span>
-                      <span className="text-[10px] text-slate-500">Document officiel complet</span>
+                      <span className="text-[10px] text-slate-500">
+                        {isFreeStudent ? "Réservé aux abonnés" : "Document officiel complet"}
+                      </span>
                     </div>
                   </div>
                   {viewingCoursePdf ? (
                     <span className="h-2 w-2 rounded-full bg-rose-600 shrink-0" />
                   ) : (
-                    <span className="text-[11px] font-semibold text-rose-600 shrink-0">Lire →</span>
+                    <span className="text-[11px] font-semibold text-rose-600 shrink-0">
+                      {isFreeStudent ? "🔒" : "Lire →"}
+                    </span>
                   )}
                 </button>
               )}
 
               {lessons.map((lesson, idx) => {
                 const isSelected = !viewingCoursePdf && activeLesson?.id === lesson.id;
+                const isLessonLocked = isFreeStudent && (lesson.type === LessonType.VIDEO || lesson.type === LessonType.PDF);
                 return (
                   <button
                     key={lesson.id}
@@ -297,10 +347,11 @@ export function CourseDetailStudyView({ courseId }: CourseDetailStudyViewProps) 
                             color: isSelected ? "var(--accent)" : "var(--ink)",
                           }}
                         >
-                          {lesson.title}
+                          {lesson.title} {isLessonLocked ? "🔒" : ""}
                         </span>
                         <span className="text-[10px] text-slate-400 font-medium">
                           {lesson.type === LessonType.VIDEO ? "🎬 Vidéo" : lesson.type === LessonType.PDF ? "📄 Document PDF" : "📝 Notes écrites"}
+                          {isLessonLocked ? " • Verrouillé" : ""}
                           {lesson.durationMinutes ? ` • ${lesson.durationMinutes} min` : ""}
                         </span>
                       </div>
@@ -346,8 +397,14 @@ export function CourseDetailStudyView({ courseId }: CourseDetailStudyViewProps) 
                 </h1>
               </div>
 
-              {/* Magazine Flipbook Viewer */}
-              {loadingPdf ? (
+              {/* Magazine Flipbook Viewer or Free Plan Locked View */}
+              {isFreeStudent ? (
+                <LockedMediaCard
+                  type="pdf"
+                  title={`Polycopié officiel : ${course.title}`}
+                  description="Le polycopié officiel complet au format PDF est réservé aux élèves ayant souscrit à un abonnement (Silver, Gold ou Platinum)."
+                />
+              ) : loadingPdf ? (
                 <div className="flex flex-col items-center justify-center h-[620px] rounded-3xl bg-slate-900 border border-slate-800">
                   <div className="h-10 w-10 animate-spin rounded-full border-3 border-indigo-500 border-t-transparent" />
                   <p className="mt-3 text-xs font-semibold text-slate-300">Préparation du magazine interactif…</p>
@@ -384,20 +441,33 @@ export function CourseDetailStudyView({ courseId }: CourseDetailStudyViewProps) 
               </div>
 
               {/* 1. VIDEO LESSON STAGE */}
-              {activeLesson.type === LessonType.VIDEO && activeLesson.youtubeUrl && (
+              {activeLesson.type === LessonType.VIDEO && (
                 <div className="space-y-4">
-                  <div className="relative w-full overflow-hidden rounded-2xl aspect-video bg-black shadow-md">
-                    <iframe
-                      src={getEmbedYoutubeUrl(activeLesson.youtubeUrl) || ""}
+                  {isFreeStudent ? (
+                    <LockedMediaCard
+                      type="video"
                       title={activeLesson.title}
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                      allowFullScreen
-                      className="absolute inset-0 h-full w-full border-0"
+                      description="Le visionnage des explications vidéo des professeurs est réservé aux élèves ayant souscrit à une formule Silver, Gold ou Platinum."
                     />
-                  </div>
+                  ) : activeLesson.youtubeUrl ? (
+                    <div className="relative w-full overflow-hidden rounded-2xl aspect-video bg-black shadow-md">
+                      <iframe
+                        src={getEmbedYoutubeUrl(activeLesson.youtubeUrl) || ""}
+                        title={activeLesson.title}
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                        className="absolute inset-0 h-full w-full border-0"
+                      />
+                    </div>
+                  ) : (
+                    <div className="p-12 text-center text-xs text-slate-400 rounded-2xl border border-dashed">
+                      Vidéo en cours d&apos;intégration pour cette leçon.
+                    </div>
+                  )}
 
                   {activeLesson.description && (
                     <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-xs leading-relaxed text-slate-700">
+                      <p className="font-semibold text-slate-900 mb-1">Résumé pédagogique :</p>
                       {activeLesson.description}
                     </div>
                   )}
@@ -425,8 +495,14 @@ export function CourseDetailStudyView({ courseId }: CourseDetailStudyViewProps) 
                     </p>
                   )}
 
-                  {/* Magazine Flipbook Viewer */}
-                  {loadingPdf ? (
+                  {/* Magazine Flipbook Viewer or Free Plan Locked View */}
+                  {isFreeStudent ? (
+                    <LockedMediaCard
+                      type="pdf"
+                      title={activeLesson.title}
+                      description="Ce document et support d'exercices PDF sont réservés aux élèves ayant souscrit à une formule Silver, Gold ou Platinum."
+                    />
+                  ) : loadingPdf ? (
                     <div className="flex flex-col items-center justify-center h-[620px] rounded-3xl bg-slate-900 border border-slate-800">
                       <div className="h-10 w-10 animate-spin rounded-full border-3 border-indigo-500 border-t-transparent" />
                       <p className="mt-3 text-xs font-semibold text-slate-300">Préparation du document interactif…</p>
@@ -460,14 +536,22 @@ export function CourseDetailStudyView({ courseId }: CourseDetailStudyViewProps) 
               )}
 
               {course.youtubeUrl && (
-                <div className="relative w-full overflow-hidden rounded-2xl aspect-video bg-black">
-                  <iframe
-                    src={getEmbedYoutubeUrl(course.youtubeUrl) || ""}
+                isFreeStudent ? (
+                  <LockedMediaCard
+                    type="video"
                     title={course.title}
-                    allowFullScreen
-                    className="absolute inset-0 h-full w-full border-0"
+                    description="La vidéo de ce cours est réservée aux élèves abonnés Silver, Gold et Platinum."
                   />
-                </div>
+                ) : (
+                  <div className="relative w-full overflow-hidden rounded-2xl aspect-video bg-black">
+                    <iframe
+                      src={getEmbedYoutubeUrl(course.youtubeUrl) || ""}
+                      title={course.title}
+                      allowFullScreen
+                      className="absolute inset-0 h-full w-full border-0"
+                    />
+                  </div>
+                )
               )}
             </div>
           )}
@@ -508,6 +592,72 @@ export function CourseDetailStudyView({ courseId }: CourseDetailStudyViewProps) 
             </div>
           )}
         </div>
+      </div>
+    </div>
+  );
+}
+
+function LockedMediaCard({
+  type,
+  title,
+  description,
+}: {
+  type: "video" | "pdf";
+  title?: string;
+  description?: string;
+}) {
+  const isVideo = type === "video";
+  return isVideo ? (
+    <div className="relative w-full overflow-hidden rounded-2xl aspect-video bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 border border-slate-800 flex flex-col items-center justify-center p-6 text-center shadow-xl">
+      <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-500/20 text-indigo-300 text-2xl border border-indigo-500/30 shadow-inner">
+        🔒
+      </div>
+      <span className="mt-3 inline-flex items-center gap-1.5 rounded-full px-3 py-0.5 text-[11px] font-bold uppercase font-mono bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+        Vidéo Verrouillée • Formule Free
+      </span>
+      {title && (
+        <h3 className="mt-2 font-serif text-lg sm:text-xl font-bold text-white max-w-lg line-clamp-1">
+          {title}
+        </h3>
+      )}
+      <p className="mt-1.5 max-w-md text-xs text-slate-300 leading-relaxed">
+        {description || "Le visionnage des explications vidéo des professeurs est réservé aux élèves ayant souscrit à une formule Silver, Gold ou Platinum."}
+      </p>
+      <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+        <Link
+          href="/membership"
+          className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-500 shadow-md transition-all hover:scale-[1.02]"
+        >
+          Débloquer la vidéo • Voir les formules →
+        </Link>
+      </div>
+    </div>
+  ) : (
+    <div className="flex flex-col items-center justify-center py-16 px-6 text-center rounded-3xl border border-dashed border-rose-300 bg-rose-50/60 shadow-xs">
+      <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-rose-100 text-3xl shadow-xs border border-rose-200">
+        🔒
+      </div>
+      <span className="mt-4 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold uppercase font-mono bg-rose-100 text-rose-700 border border-rose-200">
+        Document PDF Verrouillé
+      </span>
+      {title && (
+        <h3 className="mt-3 font-serif text-xl sm:text-2xl font-bold text-slate-800">
+          {title}
+        </h3>
+      )}
+      <p className="mt-2 max-w-md text-xs sm:text-sm text-slate-600 leading-relaxed">
+        {description || "Le polycopié officiel et les supports PDF interactifs sont réservés aux élèves abonnés (Formules Silver, Gold et Platinum)."}
+      </p>
+      <div className="mt-3 text-xs font-medium text-slate-500">
+        Votre formule actuelle : <span className="font-bold text-rose-700">Gratuit (Free)</span>
+      </div>
+      <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+        <Link
+          href="/membership"
+          className="inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 shadow-md transition-all hover:scale-[1.02]"
+        >
+          Débloquer avec un abonnement →
+        </Link>
       </div>
     </div>
   );

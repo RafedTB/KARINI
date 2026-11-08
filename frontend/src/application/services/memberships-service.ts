@@ -1,7 +1,7 @@
 import { membershipsRepository } from "@/infrastructure/repositories/memberships-repository";
 
 export const membershipsService = {
-  listPlans(token: string) {
+  listPlans(token?: string) {
     return membershipsRepository.listPlans(token);
   },
 

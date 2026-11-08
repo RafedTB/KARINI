@@ -65,26 +65,30 @@ const platformFeatures = [
 const tiers = [
   {
     name: "Standard",
+    period: "Abonnement Mensuel",
     desc: "Essential access for newcomers and self-directed learners.",
     perks: ["Access to free course materials", "Credit-based unlocks", "Standard support"],
     badgeClass: "badge-accent",
   },
   {
     name: "Silver",
+    period: "Abonnement Mensuel",
     desc: "Expanded access to supplementary exercises and resources.",
     perks: ["Discounted credit rates", "Exercise solution guides", "Priority updates"],
     badgeClass: "badge-silver",
   },
   {
     name: "Gold",
+    period: "Abonnement Mensuel",
     desc: "Full access including exclusive live masterclass recordings.",
     perks: ["Full live archive access", "All magazine downloads", "Community forum access"],
     badgeClass: "badge-gold",
   },
   {
     name: "Platinum",
-    desc: "The ultimate VIP pass for ambitious students and professionals.",
-    perks: ["Unlimited access to all material", "Direct instructor Q&A", "Verified completion certificates"],
+    period: "Souscription Annuelle (Fin au 15 Juin)",
+    desc: "Pass annuel d'excellence jusqu'au 15 juin pour réussir le Bac avec accès direct aux lives.",
+    perks: ["Accès illimité aux Live jusqu'au 15 juin", "Accès complet au catalogue et magazines", "Séances directes avec les enseignants", "Certificats officiels"],
     badgeClass: "badge-platinum",
   },
 ];
@@ -654,9 +658,14 @@ export default function HomePage() {
           {tiers.map((t) => (
             <div key={t.name} className="glass-card flex flex-col justify-between p-6">
               <div>
-                <span className={`badge ${t.badgeClass} text-xs font-semibold uppercase`}>
-                  {t.name}
-                </span>
+                <div className="flex items-center justify-between gap-2">
+                  <span className={`badge ${t.badgeClass} text-xs font-semibold uppercase`}>
+                    {t.name}
+                  </span>
+                  <span className="text-[10px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-200/60 rounded-md px-1.5 py-0.5">
+                    {t.period}
+                  </span>
+                </div>
                 <p className="mt-3 text-xs leading-relaxed text-slate-500">{t.desc}</p>
                 <div className="my-4 h-px bg-slate-100" />
                 <ul className="space-y-2 text-xs text-slate-600">

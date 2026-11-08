@@ -1,30 +1,30 @@
-import { RequireAuth } from "@/presentation/components/auth/require-auth";
 import { MembershipPlansView } from "@/presentation/features/memberships/membership-plans-view";
 
 export default function MembershipPage() {
   return (
-    <RequireAuth>
-      <div className="animate-fade-in-up">
+    <div className="animate-fade-in-up">
+      <div className="max-w-3xl">
         <p
-          className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs uppercase tracking-[0.2em]"
+          className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs uppercase tracking-[0.2em] font-medium"
           style={{
             color: "var(--gold)",
             background: "var(--gold-soft)",
             border: "1px solid rgba(217, 119, 6, 0.25)",
           }}
         >
-          Membership
+          Formules d&apos;adhésion & Crédits
         </p>
         <h1 className="mt-4 font-serif text-3xl md:text-4xl" style={{ color: "var(--ink)" }}>
-          Choose your <span className="gradient-text-warm">plan</span>
+          Choisissez votre <span className="gradient-text-warm">formule Karini</span>
         </h1>
-        <p className="mt-2 max-w-2xl text-sm" style={{ color: "var(--muted)" }}>
-          Upgrade with credits to unlock premium content. Gold and platinum tiers include full live archive access.
+        <p className="mt-2 text-sm leading-relaxed" style={{ color: "var(--muted)" }}>
+          Accédez aux cours premium, leçons vidéo, exercices interactifs corrigés et archives en direct grâce à vos crédits d&apos;apprentissage.
         </p>
-        <div className="mt-8">
-          <MembershipPlansView />
-        </div>
       </div>
-    </RequireAuth>
+
+      <div className="mt-8">
+        <MembershipPlansView />
+      </div>
+    </div>
   );
 }

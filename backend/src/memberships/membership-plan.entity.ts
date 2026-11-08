@@ -13,6 +13,9 @@ export class MembershipPlan {
     @Column({ type: 'integer', default: 0 })
     priceCredits!: number;
 
+    @Column({ type: 'varchar', length: 20, default: 'monthly' })
+    duration!: string; // 'monthly' | 'yearly'
+
     @CreateDateColumn({ type: 'timestamp' })
     createdAt!: Date;
 

@@ -2,7 +2,10 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import type { Course } from "@/domain/entities/course";
+import { MembershipType, UserType } from "@/domain/enums";
+import { useAuth } from "@/presentation/providers/auth-provider";
 import { coursesService } from "@/application/services/courses-service";
 import { Button } from "@/presentation/components/ui/button";
 import { formatCourseSection, courseSectionIcon } from "@/shared/labels/course-section";
@@ -13,11 +16,23 @@ type CourseCardProps = {
 };
 
 export function CourseCard({ course, token }: CourseCardProps) {
+  const router = useRouter();
+  const { user } = useAuth();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
+  const userTypeStr = (user?.userType || "").toString().toLowerCase().trim();
+  const membershipStr = (user?.membership || "").toString().toLowerCase().trim();
+  const isStudent = userTypeStr === "student";
+  const isPaidStudent = isStudent && ["silver", "gold", "platinum"].includes(membershipStr);
+  const isFreeStudent = isStudent && !isPaidStudent;
+
   async function openMagazine() {
     if (!course.pdfFile) return;
+    if (isFreeStudent) {
+      router.push("/membership");
+      return;
+    }
     setBusy(true);
     setError("");
     try {
@@ -96,12 +111,12 @@ export function CourseCard({ course, token }: CourseCardProps) {
         )}
         {course.youtubeUrl && (
           <span className="rounded-md px-2 py-0.5 font-medium bg-rose-50 text-rose-700">
-            🎬 Vidéo
+            🎬 Vidéo {isFreeStudent ? "🔒" : ""}
           </span>
         )}
         {course.pdfFile && (
           <span className="rounded-md px-2 py-0.5 font-medium bg-pink-50 text-pink-700">
-            📄 PDF
+            📄 PDF {isFreeStudent ? "🔒" : ""}
           </span>
         )}
       </div>
@@ -131,13 +146,20 @@ export function CourseCard({ course, token }: CourseCardProps) {
               variant="secondary"
               disabled={busy}
               onClick={openMagazine}
-              className="px-3 py-2 text-xs"
+              className={`px-3 py-2 text-xs transition-colors ${
+                isFreeStudent ? "border-amber-300 bg-amber-50/80 text-amber-800 hover:bg-amber-100 hover:text-amber-900" : ""
+              }`}
+              title={isFreeStudent ? "Document réservé aux formules payantes (Silver, Gold, Platinum). Cliquez pour vous abonner." : "Ouvrir le polycopié PDF"}
             >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                <polyline points="14 2 14 8 20 8" />
-              </svg>
-              {busy ? "…" : "PDF"}
+              {isFreeStudent ? (
+                <span className="text-xs">🔒</span>
+              ) : (
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                  <polyline points="14 2 14 8 20 8" />
+                </svg>
+              )}
+              {busy ? "…" : isFreeStudent ? "PDF (Abonné)" : "PDF"}
             </Button>
           ) : null}
         </div>

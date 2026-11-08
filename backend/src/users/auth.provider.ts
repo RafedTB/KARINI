@@ -31,6 +31,8 @@ export class AuthProvider {
             email,
             password,
             username,
+            firstname,
+            lastname,
             studentClass,
             phoneNumber,
             gender,
@@ -91,10 +93,17 @@ export class AuthProvider {
         }
 
         const hashedPassword = await this.HashPassword(password);
+        const computedUsername =
+            username?.trim() ||
+            [firstname?.trim(), lastname?.trim()].filter(Boolean).join(' ') ||
+            cleanEmail.split('@')[0];
+
         let newUser = this.userRepository.create({
             email: cleanEmail,
             password: hashedPassword,
-            username: username?.trim() || cleanEmail.split('@')[0],
+            username: computedUsername,
+            firstname: firstname?.trim() || undefined,
+            lastname: lastname?.trim() || undefined,
             phoneNumber: phoneNumber?.trim() || undefined,
             gender: gender?.trim() || undefined,
             studentClass: studentClass?.trim() || undefined,

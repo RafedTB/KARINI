@@ -10,17 +10,16 @@ import { MembershipType, UserType } from "../utils/enum.js";
 import type { JWTPayloadType } from "../utils/types.js";
 
 @ApiTags('Memberships')
-@ApiBearerAuth()
 @Controller('api/memberships')
-@UseGuards(AuthRolesGuard)
 export class MembershipsController {
     constructor(private readonly membershipsService: MembershipsService) {}
 
     @Get('prices')
-    @Roles(UserType.SUPERADMIN, UserType.STUDENT, UserType.FINANCE)
     public getPrices() { return this.membershipsService.getPrices(); }
 
     @Put(':membership/price')
+    @ApiBearerAuth()
+    @UseGuards(AuthRolesGuard)
     @Roles(UserType.SUPERADMIN, UserType.FINANCE)
     public updatePrice(
         @Param('membership', new ParseEnumPipe(MembershipType)) membership: MembershipType,
@@ -30,6 +29,8 @@ export class MembershipsController {
     }
 
     @Post('purchase')
+    @ApiBearerAuth()
+    @UseGuards(AuthRolesGuard)
     @Roles(UserType.STUDENT)
     public purchase(@Body() body: PurchaseMembershipDto, @currentUser() payload: JWTPayloadType) {
         return this.membershipsService.purchase(payload.id, body.membership);

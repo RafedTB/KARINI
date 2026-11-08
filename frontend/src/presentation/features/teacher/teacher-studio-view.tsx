@@ -63,40 +63,161 @@ export function TeacherStudioView() {
   const isTeacherOrAdmin =
     user?.userType === UserType.INSTRUCTOR || user?.userType === UserType.SUPERADMIN;
 
-  // Filter allowed subjects & classes based on instructor's assigned teaching credentials
-  const allowedSubjects = useMemo(() => {
-    if (user?.userType === UserType.SUPERADMIN || !user?.teachingSubjects || user.teachingSubjects.length === 0) {
-      return subjects;
-    }
-    const cleanAssigned = user.teachingSubjects.map((s) => s.toLowerCase().trim());
-    const filtered = subjects.filter((s) =>
-      cleanAssigned.includes((s.slug || s.code || "").toLowerCase().trim()) ||
-      cleanAssigned.includes(s.name.toLowerCase().trim())
-    );
-    if (filtered.length > 0) return filtered;
-    // Fallback if subjects haven't been seeded with these slugs yet
-    return user.teachingSubjects.map((slug, idx) => ({
-      id: idx + 9999,
-      name: slug.charAt(0).toUpperCase() + slug.slice(1),
-      code: slug.toUpperCase().slice(0, 5),
-      slug,
-      filiere: "all",
-      category: "Enseignement",
-      icon: "math",
-      color: "#4f46e5",
-      createdAt: "",
-      updatedAt: "",
-    }));
-  }, [user, subjects]);
+  // Helpers for robust matching between assigned teacher credentials & subjects/classes
+  const normalizeText = (str: string) =>
+    (str || "")
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .trim();
+
+  const isSubjectAllowedForTeacher = (subject: Subject, assigned: string[]) => {
+    if (!assigned || assigned.length === 0) return true;
+    const cleanAssigned = assigned.map(normalizeText);
+    const subSlug = normalizeText(subject.slug || "");
+    const subCode = normalizeText(subject.code || "");
+    const subName = normalizeText(subject.name || "");
+
+    return cleanAssigned.some((a) => {
+      if (!a) return false;
+      if (a === subSlug || a === subCode || a === subName) return true;
+      if (subSlug.startsWith(a + "-") || subSlug.startsWith(a)) return true;
+      if (subName.includes(a) || a.includes(subName)) return true;
+      if (subCode && (subCode.includes(a) || a.includes(subCode))) return true;
+      return false;
+    });
+  };
+
+  const isFiliereAllowedForTeacher = (filiereName: string, assigned: string[]) => {
+    if (!assigned || assigned.length === 0) return true;
+    const cleanFiliere = normalizeText(filiereName);
+    return assigned.some((a) => {
+      const cleanA = normalizeText(a);
+      return cleanFiliere === cleanA || cleanFiliere.includes(cleanA) || cleanA.includes(cleanFiliere);
+    });
+  };
 
   const allowedFilieres = useMemo(() => {
-    if (user?.userType === UserType.SUPERADMIN || !user?.teachingClasses || user.teachingClasses.length === 0) {
-      return filieres;
+    let list = filieres;
+    if (list.length === 0) {
+      list = [
+        "2ème Informatique",
+        "2ème Math",
+        "2ème Sciences",
+        "3ème Informatique",
+        "3ème Math",
+        "3ème Sciences",
+        "3ème Technique",
+        "3ème Economie",
+        "Bac Informatique",
+        "Bac Math",
+        "Bac Sciences",
+        "Bac Technique",
+        "Bac Economie",
+      ];
     }
-    const cleanAssigned = user.teachingClasses.map((c) => c.toLowerCase().trim());
-    const filtered = filieres.filter((f) => cleanAssigned.includes(f.toLowerCase().trim()));
+    if (user?.userType === UserType.SUPERADMIN || !user?.teachingClasses || user.teachingClasses.length === 0) {
+      return list;
+    }
+    const filtered = list.filter((f) => isFiliereAllowedForTeacher(f, user.teachingClasses!));
     return filtered.length > 0 ? filtered : user.teachingClasses;
   }, [user, filieres]);
+
+  // Dynamically filter subjects for the course modal based on the currently selected filière
+  // and the teacher's assigned subjects (if an instructor)
+  const modalSubjects = useMemo(() => {
+    const selectedFilNorm = normalizeText(courseForm.filiere || "");
+
+    // 1. Filter by selected class/filière
+    let list = subjects.filter((s) => {
+      const sFilNorm = normalizeText(s.filiere || "");
+      return (
+        sFilNorm === "all" ||
+        sFilNorm === selectedFilNorm ||
+        (selectedFilNorm && sFilNorm.includes(selectedFilNorm)) ||
+        (sFilNorm && selectedFilNorm.includes(sFilNorm))
+      );
+    });
+
+    // 2. If instructor has assigned subjects, filter strictly to allowed subjects
+    if (user?.userType === UserType.INSTRUCTOR && user.teachingSubjects && user.teachingSubjects.length > 0) {
+      list = list.filter((s) => isSubjectAllowedForTeacher(s, user.teachingSubjects!));
+    }
+
+    // 3. Fallback: if empty for this filière (e.g. subjects not yet seeded for this level),
+    // provide the teacher's subjects or general fallback
+    if (list.length === 0) {
+      const baseAllowed = subjects.filter((s) =>
+        user?.userType === UserType.SUPERADMIN ||
+        !user?.teachingSubjects?.length ||
+        isSubjectAllowedForTeacher(s, user.teachingSubjects)
+      );
+      if (baseAllowed.length > 0) return baseAllowed;
+
+      if (user?.teachingSubjects && user.teachingSubjects.length > 0) {
+        return user.teachingSubjects.map((slug, idx) => ({
+          id: idx + 9999,
+          name: slug.charAt(0).toUpperCase() + slug.slice(1),
+          code: slug.toUpperCase().slice(0, 5),
+          slug,
+          filiere: courseForm.filiere,
+          category: "Enseignement",
+          icon: "math",
+          color: "#4f46e5",
+          createdAt: "",
+          updatedAt: "",
+        }));
+      }
+    }
+
+    return list;
+  }, [subjects, courseForm.filiere, user]);
+
+  // When instructor changes the Filière in the modal, automatically re-evaluate available subjects
+  // and set the subject to the first valid one if the previous subject is not in the new filière
+  const handleFiliereChange = (newFiliere: string) => {
+    const newFilNorm = normalizeText(newFiliere || "");
+
+    let newSubjects = subjects.filter((s) => {
+      const sFilNorm = normalizeText(s.filiere || "");
+      return (
+        sFilNorm === "all" ||
+        sFilNorm === newFilNorm ||
+        (newFilNorm && sFilNorm.includes(newFilNorm)) ||
+        (sFilNorm && newFilNorm.includes(sFilNorm))
+      );
+    });
+
+    if (user?.userType === UserType.INSTRUCTOR && user.teachingSubjects && user.teachingSubjects.length > 0) {
+      newSubjects = newSubjects.filter((s) => isSubjectAllowedForTeacher(s, user.teachingSubjects!));
+    }
+
+    const isCurrentValid = newSubjects.some(
+      (s) => (s.slug || s.code.toLowerCase()) === courseForm.subject
+    );
+
+    const nextSubject = isCurrentValid
+      ? courseForm.subject
+      : (newSubjects[0]?.slug || newSubjects[0]?.code?.toLowerCase() || "math");
+
+    setCourseForm((prev) => ({
+      ...prev,
+      filiere: newFiliere,
+      subject: nextSubject,
+    }));
+  };
+
+  // Keep courseForm.subject synchronized with modalSubjects whenever modal opens or subjects update
+  useEffect(() => {
+    if (!showCourseModal || modalSubjects.length === 0) return;
+    const exists = modalSubjects.some(
+      (s) => (s.slug || s.code.toLowerCase()) === courseForm.subject
+    );
+    if (!exists) {
+      const nextSub = modalSubjects[0].slug || modalSubjects[0].code.toLowerCase();
+      setCourseForm((prev) => ({ ...prev, subject: nextSub }));
+    }
+  }, [showCourseModal, modalSubjects, courseForm.subject]);
 
   const showNotification = (msg: string) => {
     setSuccessMsg(msg);
@@ -299,7 +420,13 @@ export function TeacherStudioView() {
   // Filtered courses
   const filteredCourses = useMemo(() => {
     return courses.filter((c) => {
-      const matchesSubject = selectedSubject === "all" || (c.subject || "math").toLowerCase() === selectedSubject.toLowerCase();
+      const cSub = (c.subject || "math").toLowerCase();
+      const sSub = selectedSubject.toLowerCase();
+      const matchesSubject =
+        selectedSubject === "all" ||
+        cSub === sSub ||
+        cSub.startsWith(sSub + "-") ||
+        sSub.startsWith(cSub + "-");
       const matchesFiliere = selectedFiliere === "all" || (c.filiere && c.filiere === selectedFiliere);
       const search = searchQuery.toLowerCase();
       const matchesSearch =
@@ -384,8 +511,28 @@ export function TeacherStudioView() {
         <Button
           type="button"
           onClick={() => {
-            const initialSub = allowedSubjects[0]?.slug || (user?.teachingSubjects?.[0] ? user.teachingSubjects[0].toLowerCase() : "math");
             const initialFil = allowedFilieres[0] || (user?.teachingClasses?.[0] || "2ème Informatique");
+            const initialFilNorm = normalizeText(initialFil);
+
+            let filSubs = subjects.filter((s) => {
+              const sFilNorm = normalizeText(s.filiere || "");
+              return (
+                sFilNorm === "all" ||
+                sFilNorm === initialFilNorm ||
+                (initialFilNorm && sFilNorm.includes(initialFilNorm)) ||
+                (sFilNorm && initialFilNorm.includes(sFilNorm))
+              );
+            });
+
+            if (user?.userType === UserType.INSTRUCTOR && user.teachingSubjects && user.teachingSubjects.length > 0) {
+              filSubs = filSubs.filter((s) => isSubjectAllowedForTeacher(s, user.teachingSubjects!));
+            }
+
+            const initialSub =
+              filSubs[0]?.slug ||
+              filSubs[0]?.code?.toLowerCase() ||
+              (user?.teachingSubjects?.[0] ? user.teachingSubjects[0].toLowerCase() : "math");
+
             setEditingCourse(null);
             setCourseForm({
               title: "",
@@ -544,11 +691,13 @@ export function TeacherStudioView() {
             style={{ borderColor: "var(--line)", color: "var(--ink)" }}
           >
             <option value="all">Toutes les matières</option>
-            {subjects.map((s) => (
-              <option key={s.id} value={s.slug || s.code.toLowerCase()}>
-                {s.name} ({s.code})
-              </option>
-            ))}
+            {subjects
+              .filter((s) => selectedFiliere === "all" || !s.filiere || s.filiere === "all" || s.filiere === selectedFiliere)
+              .map((s) => (
+                <option key={s.id} value={s.slug || s.code.toLowerCase()}>
+                  {s.name} ({s.code})
+                </option>
+              ))}
           </select>
         </div>
       </div>
@@ -739,39 +888,9 @@ export function TeacherStudioView() {
                 />
               </div>
 
-              {/* Matière & Filière */}
+              {/* Filière & Matière */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="block text-xs font-semibold" style={{ color: "var(--ink)" }}>
-                      Matière *
-                    </label>
-                    {user?.userType === UserType.INSTRUCTOR && user.teachingSubjects && user.teachingSubjects.length > 0 && (
-                      <span className="text-[10px] font-bold text-indigo-600">Assignée</span>
-                    )}
-                  </div>
-                  <select
-                    value={courseForm.subject}
-                    onChange={(e) => setCourseForm({ ...courseForm, subject: e.target.value })}
-                    className="w-full rounded-xl border px-3 py-2 text-sm outline-none focus:border-indigo-500"
-                    style={{ borderColor: "var(--line)" }}
-                  >
-                    {allowedSubjects.map((s) => (
-                      <option key={s.id} value={s.slug || s.code.toLowerCase()}>
-                        {s.name} ({s.code})
-                      </option>
-                    ))}
-                    {allowedSubjects.length === 0 && (
-                      <>
-                        <option value="math">Mathématiques (MATH)</option>
-                        <option value="physique">Physique - Chimie (PHY)</option>
-                        <option value="informatique">Informatique (INFO)</option>
-                        <option value="science">Sciences SVT (SVT)</option>
-                      </>
-                    )}
-                  </select>
-                </div>
-
+                {/* 1. Filière / Classe (Placed First) */}
                 <div>
                   <div className="flex items-center justify-between mb-1">
                     <label className="block text-xs font-semibold" style={{ color: "var(--ink)" }}>
@@ -783,7 +902,7 @@ export function TeacherStudioView() {
                   </div>
                   <select
                     value={courseForm.filiere}
-                    onChange={(e) => setCourseForm({ ...courseForm, filiere: e.target.value })}
+                    onChange={(e) => handleFiliereChange(e.target.value)}
                     className="w-full rounded-xl border px-3 py-2 text-sm outline-none focus:border-indigo-500"
                     style={{ borderColor: "var(--line)" }}
                   >
@@ -798,6 +917,43 @@ export function TeacherStudioView() {
                         <option value="2ème Math">2ème Math</option>
                         <option value="2ème Sciences">2ème Sciences</option>
                         <option value="Bac Informatique">Bac Informatique</option>
+                      </>
+                    )}
+                  </select>
+                </div>
+
+                {/* 2. Matière (Dynamically filtered by chosen Filière) */}
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-semibold" style={{ color: "var(--ink)" }}>
+                      Matière *
+                    </label>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[10px] font-medium text-slate-500">
+                        {modalSubjects.length} dispo{modalSubjects.length > 1 ? "s" : ""}
+                      </span>
+                      {user?.userType === UserType.INSTRUCTOR && user.teachingSubjects && user.teachingSubjects.length > 0 && (
+                        <span className="text-[10px] font-bold text-indigo-600">Assignée</span>
+                      )}
+                    </div>
+                  </div>
+                  <select
+                    value={courseForm.subject}
+                    onChange={(e) => setCourseForm({ ...courseForm, subject: e.target.value })}
+                    className="w-full rounded-xl border px-3 py-2 text-sm outline-none focus:border-indigo-500"
+                    style={{ borderColor: "var(--line)" }}
+                  >
+                    {modalSubjects.map((s) => (
+                      <option key={s.id} value={s.slug || s.code.toLowerCase()}>
+                        {s.name} ({s.code})
+                      </option>
+                    ))}
+                    {modalSubjects.length === 0 && (
+                      <>
+                        <option value="math">Mathématiques (MATH)</option>
+                        <option value="physique">Physique - Chimie (PHY)</option>
+                        <option value="informatique">Informatique (INFO)</option>
+                        <option value="science">Sciences SVT (SVT)</option>
                       </>
                     )}
                   </select>

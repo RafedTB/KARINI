@@ -71,6 +71,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             <span>© {new Date().getFullYear()} Karini E-learning. All rights reserved.</span>
             <div className="flex items-center gap-4">
               <Link href="/courses" className="transition-colors hover:text-slate-600">Courses</Link>
+              <Link href="/live" className="transition-colors hover:text-slate-600">Live</Link>
               <Link href="/membership" className="transition-colors hover:text-slate-600">Membership</Link>
             </div>
           </div>

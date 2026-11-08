@@ -11,6 +11,7 @@ import { AuthProvider } from "./auth.provider.js";
 import { join } from "node:path";
 import { existsSync, unlinkSync } from "node:fs";
 import { ResetPasswordDto } from "./dto/reset-password.dto.js";
+import { getPlatinumExpirationDate } from "../memberships/memberships.service.js";
 
 @Injectable()
 export class usersService {
@@ -45,6 +46,19 @@ export class usersService {
     public async getCurrentUser(id: number): Promise<User> {
         const user = await this.userRepository.findOne({ where: { id } });
         if (!user) throw new NotFoundException('User not found');
+
+        // Check if student's paid membership has expired
+        if (
+            user.userType === UserType.STUDENT &&
+            user.membership !== MembershipType.DEFAULT &&
+            user.membershipExpiresAt &&
+            new Date() > new Date(user.membershipExpiresAt)
+        ) {
+            user.membership = MembershipType.DEFAULT;
+            user.membershipExpiresAt = null;
+            await this.userRepository.save(user);
+        }
+
         return user;
     }
 
@@ -79,6 +93,15 @@ export class usersService {
             throw new BadRequestException('Memberships can only be assigned to students');
         }
         user.membership = membership;
+        if (membership === MembershipType.PLATINUM) {
+            user.membershipExpiresAt = getPlatinumExpirationDate();
+        } else if (membership === MembershipType.DEFAULT) {
+            user.membershipExpiresAt = null;
+        } else {
+            const expires = new Date();
+            expires.setMonth(expires.getMonth() + 1);
+            user.membershipExpiresAt = expires;
+        }
         return this.userRepository.save(user);
     }
 
@@ -216,7 +239,18 @@ export class usersService {
             user.email = dto.email;
         }
         if (dto.userType !== undefined) user.userType = dto.userType;
-        if (dto.membership !== undefined) user.membership = dto.membership;
+        if (dto.membership !== undefined) {
+            user.membership = dto.membership;
+            if (dto.membership === MembershipType.PLATINUM) {
+                user.membershipExpiresAt = getPlatinumExpirationDate();
+            } else if (dto.membership === MembershipType.DEFAULT) {
+                user.membershipExpiresAt = null;
+            } else if (!user.membershipExpiresAt) {
+                const expires = new Date();
+                expires.setMonth(expires.getMonth() + 1);
+                user.membershipExpiresAt = expires;
+            }
+        }
         if (dto.credits !== undefined) user.credits = dto.credits;
         if (dto.isAccountVerified !== undefined) user.isAccountVerified = dto.isAccountVerified;
         if (dto.firstname !== undefined) user.firstname = dto.firstname;
@@ -232,6 +266,27 @@ export class usersService {
         }
         if (dto.password) {
             user.password = await this.authProvider.HashPassword(dto.password);
+        }
+        return this.userRepository.save(user);
+    }
+
+    public async getStudents() {
+        return this.userRepository.find({
+            where: { userType: UserType.STUDENT },
+            order: { lastname: 'ASC', firstname: 'ASC' },
+        });
+    }
+
+    public async assignStudentClassAndGroup(id: number, studentClass?: string, studentGroup?: string) {
+        const user = await this.getCurrentUser(id);
+        if (user.userType !== UserType.STUDENT) {
+            throw new BadRequestException('Seuls les comptes élèves peuvent être assignés à une classe et un groupe');
+        }
+        if (studentClass !== undefined) {
+            user.studentClass = studentClass ? studentClass.trim() : null;
+        }
+        if (studentGroup !== undefined) {
+            user.studentGroup = studentGroup ? studentGroup.trim() : 'Standard';
         }
         return this.userRepository.save(user);
     }

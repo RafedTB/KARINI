@@ -7,6 +7,13 @@ export enum UserType {
     PARENT = 'parent'
 }
 
+export enum StudentGroup {
+    DABA_DABA = 'DabaDaba',
+    STANDARD = 'Standard',
+    EXCELLENT = 'Excellent',
+    TOP = 'Top'
+}
+
 export enum MembershipType {
     DEFAULT = 'default',
     SILVER = 'silver',
