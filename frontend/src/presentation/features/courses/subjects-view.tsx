@@ -71,6 +71,8 @@ export function SubjectsView() {
   const [selectedFiliere, setSelectedFiliere] = useState<string>(
     studentFiliere || "all"
   );
+  const [selectedCategory, setSelectedCategory] = useState<string>("all");
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
 
   // Modals state for Superadmin
   const [showAddModal, setShowAddModal] = useState(false);
@@ -157,6 +159,22 @@ export function SubjectsView() {
     }));
   }, [dbSubjects]);
 
+  // Unique categories within current filière
+  const availableCategories = useMemo(() => {
+    const filiereFiltered = allSubjects.filter((s) => {
+      if (isStudent && studentFiliere) {
+        return s.filiere.toLowerCase().trim() === studentFiliere.toLowerCase().trim();
+      }
+      return selectedFiliere === "all" || s.filiere === selectedFiliere;
+    });
+
+    const set = new Set<string>();
+    filiereFiltered.forEach((s) => {
+      if (s.category) set.add(s.category.trim());
+    });
+    return Array.from(set).sort();
+  }, [allSubjects, isStudent, studentFiliere, selectedFiliere]);
+
   const filteredSubjects = useMemo(() => {
     return allSubjects.filter((subject) => {
       let matchesFiliere = false;
@@ -168,6 +186,9 @@ export function SubjectsView() {
           selectedFiliere === "all" || subject.filiere === selectedFiliere;
       }
 
+      const matchesCategory =
+        selectedCategory === "all" || subject.category === selectedCategory;
+
       const query = searchQuery.toLowerCase().trim();
       const matchesSearch =
         !query ||
@@ -175,11 +196,43 @@ export function SubjectsView() {
         subject.shortCode.toLowerCase().includes(query) ||
         subject.description.toLowerCase().includes(query) ||
         subject.filiere.toLowerCase().includes(query) ||
-        subject.category.toLowerCase().includes(query);
+        subject.category.toLowerCase().includes(query) ||
+        subject.topics.some((t) => t.toLowerCase().includes(query));
 
-      return matchesFiliere && matchesSearch;
+      return matchesFiliere && matchesCategory && matchesSearch;
     });
-  }, [allSubjects, selectedFiliere, searchQuery, isStudent, studentFiliere]);
+  }, [allSubjects, selectedFiliere, selectedCategory, searchQuery, isStudent, studentFiliere]);
+
+  // Overall metrics for the current scope
+  const metrics = useMemo(() => {
+    const filiereFilteredSubjects = allSubjects.filter((s) => {
+      if (isStudent && studentFiliere) {
+        return s.filiere.toLowerCase().trim() === studentFiliere.toLowerCase().trim();
+      }
+      return selectedFiliere === "all" || s.filiere === selectedFiliere;
+    });
+
+    const totalSubjects = filiereFilteredSubjects.length;
+    const totalCourses = courses.length;
+
+    let videoCount = 0;
+    let exerciseCount = 0;
+    let magazineCount = 0;
+
+    courses.forEach((c) => {
+      if (c.section === "course") videoCount++;
+      else if (c.section === "exercise") exerciseCount++;
+      else if (c.section === "magazine") magazineCount++;
+    });
+
+    return {
+      totalSubjects,
+      totalCourses,
+      videoCount,
+      exerciseCount,
+      magazineCount,
+    };
+  }, [allSubjects, courses, isStudent, studentFiliere, selectedFiliere]);
 
   const getSubjectCourseCount = (subjectId: string, shortCode: string) => {
     return courses.filter((c) => {
@@ -410,266 +463,588 @@ export function SubjectsView() {
         </div>
       )}
 
-      {/* Search & Filière Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        {/* Search Input */}
-        <div className="relative flex-1 max-w-md">
-          <svg
-            className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-          >
-            <circle cx="11" cy="11" r="8" />
-            <line x1="21" y1="21" x2="16.65" y2="16.65" />
-          </svg>
-          <input
-            type="text"
-            placeholder="Rechercher une matière (ex: Algo, BDD, Math, Web...)"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full rounded-2xl border bg-white/70 pl-10 pr-4 py-2.5 text-sm outline-none transition-all focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-500/20"
-            style={{
-              borderColor: "var(--line)",
-              color: "var(--ink)",
-            }}
-          />
-          {searchQuery && (
-            <button
-              onClick={() => setSearchQuery("")}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-slate-600"
-            >
-              Effacer
-            </button>
-          )}
+      {/* Quick Statistics Overview Ribbon */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+        <div
+          className="rounded-2xl p-4 border transition-all hover:shadow-sm"
+          style={{
+            background: "var(--paper-card)",
+            borderColor: "var(--line)",
+          }}
+        >
+          <div className="flex items-center gap-2 text-xs font-medium" style={{ color: "var(--muted)" }}>
+            <span className="flex h-7 w-7 items-center justify-center rounded-xl bg-indigo-500/10 text-indigo-600 text-sm">
+              📚
+            </span>
+            <span>Matières</span>
+          </div>
+          <div className="mt-2 flex items-baseline gap-2">
+            <span className="font-serif text-2xl sm:text-3xl font-bold" style={{ color: "var(--ink)" }}>
+              {metrics.totalSubjects}
+            </span>
+            <span className="text-[11px] font-medium text-emerald-600">au programme</span>
+          </div>
         </div>
 
-        {/* Filière Indicator / Selector */}
-        <div className="flex items-center gap-3">
-          {isStudent && studentFiliere ? (
-            <div
-              className="flex items-center gap-2.5 rounded-2xl border px-4 py-2.5 text-xs font-semibold shadow-sm"
-              style={{
-                borderColor: "rgba(99, 102, 241, 0.25)",
-                background: "linear-gradient(135deg, rgba(99, 102, 241, 0.08), rgba(14, 165, 233, 0.06))",
-                color: "var(--ink)",
-              }}
-            >
-              <span className="flex h-2.5 w-2.5 rounded-full bg-emerald-500 animate-pulse shadow-sm shadow-emerald-500/50" />
-              <span style={{ color: "var(--muted)" }}>Programme scolaire :</span>
-              <span className="font-bold text-indigo-600 dark:text-indigo-400">
-                {studentFiliere}
-              </span>
-              <span
-                className="ml-1 rounded-full px-2.5 py-0.5 text-[11px] font-bold tracking-wide font-mono"
-                style={{
-                  background: "rgba(99, 102, 241, 0.15)",
-                  color: "#4f46e5",
-                }}
-              >
-                {filteredSubjects.length} {filteredSubjects.length === 1 ? "matière" : "matières"}
-              </span>
-            </div>
-          ) : (
-            <div className="flex items-center gap-2">
-              <label className="text-xs font-semibold whitespace-nowrap" style={{ color: "var(--muted)" }}>
-                Filière :
-              </label>
-              <select
-                value={selectedFiliere}
-                onChange={(e) => setSelectedFiliere(e.target.value)}
-                className="rounded-2xl border bg-white/90 px-3.5 py-2 text-xs font-semibold outline-none transition-all focus:border-indigo-500 shadow-sm cursor-pointer"
-                style={{ borderColor: "var(--line)", color: "var(--ink)" }}
-              >
-                <option value="all">Toutes les filières ({allSubjects.length} matières)</option>
-                {filieres.map((f) => {
-                  const count = allSubjects.filter((s) => s.filiere === f).length;
-                  return (
-                    <option key={f} value={f}>
-                      {f} {count > 0 ? `(${count})` : ""}
-                    </option>
-                  );
-                })}
-              </select>
-            </div>
-          )}
+        <div
+          className="rounded-2xl p-4 border transition-all hover:shadow-sm"
+          style={{
+            background: "var(--paper-card)",
+            borderColor: "var(--line)",
+          }}
+        >
+          <div className="flex items-center gap-2 text-xs font-medium" style={{ color: "var(--muted)" }}>
+            <span className="flex h-7 w-7 items-center justify-center rounded-xl bg-cyan-500/10 text-cyan-600 text-sm">
+              🎬
+            </span>
+            <span>Cours Vidéo</span>
+          </div>
+          <div className="mt-2 flex items-baseline gap-2">
+            <span className="font-serif text-2xl sm:text-3xl font-bold" style={{ color: "var(--ink)" }}>
+              {metrics.videoCount}
+            </span>
+            <span className="text-[11px] font-medium" style={{ color: "var(--muted)" }}>chapitres</span>
+          </div>
+        </div>
 
-          {isSuperAdmin && !isStudent && (
-            <button
-              type="button"
-              onClick={openAddModal}
-              className="hidden sm:inline-flex items-center gap-1.5 rounded-2xl border px-3.5 py-2 text-xs font-bold transition-all hover:border-indigo-500 shadow-sm"
-              style={{
-                borderColor: "rgba(99, 102, 241, 0.3)",
-                background: "var(--accent-glow)",
-                color: "var(--accent)",
-              }}
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                <line x1="12" y1="5" x2="12" y2="19" />
-                <line x1="5" y1="12" x2="19" y2="12" />
-              </svg>
-              Ajouter
-            </button>
-          )}
+        <div
+          className="rounded-2xl p-4 border transition-all hover:shadow-sm"
+          style={{
+            background: "var(--paper-card)",
+            borderColor: "var(--line)",
+          }}
+        >
+          <div className="flex items-center gap-2 text-xs font-medium" style={{ color: "var(--muted)" }}>
+            <span className="flex h-7 w-7 items-center justify-center rounded-xl bg-rose-500/10 text-rose-600 text-sm">
+              ✍️
+            </span>
+            <span>Exercices &amp; PDF</span>
+          </div>
+          <div className="mt-2 flex items-baseline gap-2">
+            <span className="font-serif text-2xl sm:text-3xl font-bold" style={{ color: "var(--ink)" }}>
+              {metrics.exerciseCount + metrics.magazineCount}
+            </span>
+            <span className="text-[11px] font-medium" style={{ color: "var(--muted)" }}>fiches</span>
+          </div>
+        </div>
+
+        <div
+          className="rounded-2xl p-4 border transition-all hover:shadow-sm"
+          style={{
+            background: "var(--paper-card)",
+            borderColor: "var(--line)",
+          }}
+        >
+          <div className="flex items-center gap-2 text-xs font-medium" style={{ color: "var(--muted)" }}>
+            <span className="flex h-7 w-7 items-center justify-center rounded-xl bg-amber-500/10 text-amber-600 text-sm">
+              🎓
+            </span>
+            <span>Filière</span>
+          </div>
+          <div className="mt-2">
+            <span className="font-bold text-sm sm:text-base text-indigo-600 truncate block">
+              {isStudent && studentFiliere ? studentFiliere : (selectedFiliere === "all" ? "Toutes les filières" : selectedFiliere)}
+            </span>
+            <span className="text-[10px] text-slate-500 block truncate">
+              {isStudent ? "Programme officiel élève" : "Vue catalogue"}
+            </span>
+          </div>
         </div>
       </div>
 
-      {/* Grid of Dynamic SQUARE FORMAT Subjects */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-        {filteredSubjects.map((subject, idx) => {
-          const count = getSubjectCourseCount(subject.id, subject.shortCode);
-          return (
-            <Link
-              key={subject.id}
-              href={`/courses/${subject.id}`}
-              className={`group relative flex flex-col justify-between aspect-square rounded-3xl p-6 transition-all duration-300 hover:-translate-y-1.5 hover:shadow-xl cursor-pointer animate-fade-in-up stagger-${Math.min(
-                idx + 1,
-                6
-              )}`}
+      {/* Search, Filière Filter & View Toggle Header */}
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          {/* Search Input */}
+          <div className="relative flex-1 max-w-md">
+            <svg
+              className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <circle cx="11" cy="11" r="8" />
+              <line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+            <input
+              type="text"
+              placeholder="Rechercher une matière, mot-clé ou topic (ex: Algo, BDD, Math...)"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full rounded-2xl border bg-white/80 pl-10 pr-10 py-2.5 text-sm outline-none transition-all focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 shadow-sm"
+              style={{
+                borderColor: "var(--line)",
+                color: "var(--ink)",
+              }}
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400 hover:text-slate-600 bg-slate-100 rounded-full h-5 w-5 flex items-center justify-center"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+
+          {/* Right Controls: Filière Indicator/Selector, View Mode & SuperAdmin Action */}
+          <div className="flex flex-wrap items-center gap-2.5">
+            {/* Filière Indicator / Selector */}
+            {isStudent && studentFiliere ? (
+              <div
+                className="flex items-center gap-2 rounded-2xl border px-3.5 py-2 text-xs font-semibold shadow-sm"
+                style={{
+                  borderColor: "rgba(99, 102, 241, 0.25)",
+                  background: "linear-gradient(135deg, rgba(99, 102, 241, 0.08), rgba(14, 165, 233, 0.06))",
+                  color: "var(--ink)",
+                }}
+              >
+                <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="font-bold text-indigo-600">{studentFiliere}</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5">
+                <select
+                  value={selectedFiliere}
+                  onChange={(e) => {
+                    setSelectedFiliere(e.target.value);
+                    setSelectedCategory("all");
+                  }}
+                  className="rounded-2xl border bg-white px-3 py-2 text-xs font-semibold outline-none transition-all focus:border-indigo-500 shadow-sm cursor-pointer"
+                  style={{ borderColor: "var(--line)", color: "var(--ink)" }}
+                >
+                  <option value="all">Toutes les filières</option>
+                  {filieres.map((f) => {
+                    const count = allSubjects.filter((s) => s.filiere === f).length;
+                    return (
+                      <option key={f} value={f}>
+                        {f} {count > 0 ? `(${count})` : ""}
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+            )}
+
+            {/* View Mode Toggle: Grid vs List */}
+            <div
+              className="flex items-center rounded-2xl p-1 border shadow-sm"
               style={{
                 background: "var(--paper-card)",
-                border: "1px solid var(--line)",
-                boxShadow: "0 4px 20px -2px rgba(15, 23, 42, 0.05)",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = `${subject.accentColor}55`;
-                e.currentTarget.style.boxShadow = `0 16px 32px -8px ${subject.accentColor}25`;
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = "var(--line)";
-                e.currentTarget.style.boxShadow = "0 4px 20px -2px rgba(15, 23, 42, 0.05)";
+                borderColor: "var(--line)",
               }}
             >
-              {/* Subtle decorative background gradient */}
-              <div
-                className="pointer-events-none absolute inset-0 rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+              <button
+                type="button"
+                onClick={() => setViewMode("grid")}
+                title="Affichage en cartes"
+                className={`flex h-8 w-8 items-center justify-center rounded-xl transition-all cursor-pointer ${
+                  viewMode === "grid"
+                    ? "bg-indigo-600 text-white shadow-sm"
+                    : "text-slate-500 hover:text-slate-800"
+                }`}
+              >
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <rect x="3" y="3" width="7" height="7" rx="1.5" />
+                  <rect x="14" y="3" width="7" height="7" rx="1.5" />
+                  <rect x="14" y="14" width="7" height="7" rx="1.5" />
+                  <rect x="3" y="14" width="7" height="7" rx="1.5" />
+                </svg>
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode("list")}
+                title="Affichage en liste"
+                className={`flex h-8 w-8 items-center justify-center rounded-xl transition-all cursor-pointer ${
+                  viewMode === "list"
+                    ? "bg-indigo-600 text-white shadow-sm"
+                    : "text-slate-500 hover:text-slate-800"
+                }`}
+              >
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <line x1="8" y1="6" x2="21" y2="6" />
+                  <line x1="8" y1="12" x2="21" y2="12" />
+                  <line x1="8" y1="18" x2="21" y2="18" />
+                  <line x1="3" y1="6" x2="3.01" y2="6" strokeWidth="3.5" />
+                  <line x1="3" y1="12" x2="3.01" y2="12" strokeWidth="3.5" />
+                  <line x1="3" y1="18" x2="3.01" y2="18" strokeWidth="3.5" />
+                </svg>
+              </button>
+            </div>
+
+            {/* SuperAdmin Quick Add Button */}
+            {isSuperAdmin && !isStudent && (
+              <button
+                type="button"
+                onClick={openAddModal}
+                className="hidden sm:inline-flex items-center gap-1.5 rounded-2xl border px-3 py-2 text-xs font-bold transition-all hover:border-indigo-500 shadow-sm"
                 style={{
-                  background: `radial-gradient(circle at top right, ${subject.accentColor}12, transparent 70%)`,
+                  borderColor: "rgba(99, 102, 241, 0.3)",
+                  background: "var(--accent-glow)",
+                  color: "var(--accent)",
                 }}
-              />
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <line x1="12" y1="5" x2="12" y2="19" />
+                  <line x1="5" y1="12" x2="19" y2="12" />
+                </svg>
+                Ajouter
+              </button>
+            )}
+          </div>
+        </div>
 
-              {/* Superadmin Card Quick Actions (Edit / Delete) */}
-              {isSuperAdmin && (
-                <div className="absolute top-3 right-3 z-20 flex items-center gap-1.5 opacity-90 group-hover:opacity-100 transition-opacity">
-                  <button
-                    type="button"
-                    title="Modifier la matière"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      openEditModal(subject.raw);
-                    }}
-                    className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white transition-colors shadow-sm"
-                  >
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                      <path d="M12 20h9" />
-                      <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
-                    </svg>
-                  </button>
+        {/* Category Filter Pills (if multiple categories available) */}
+        {availableCategories.length > 0 && (
+          <div className="flex items-center gap-1.5 overflow-x-auto py-1 scrollbar-none">
+            <button
+              type="button"
+              onClick={() => setSelectedCategory("all")}
+              className={`rounded-xl px-3.5 py-1.5 text-xs font-semibold shrink-0 transition-all cursor-pointer ${
+                selectedCategory === "all"
+                  ? "bg-indigo-600 text-white shadow-sm"
+                  : "border text-slate-600 hover:bg-slate-50"
+              }`}
+              style={{
+                borderColor: selectedCategory === "all" ? "transparent" : "var(--line)",
+              }}
+            >
+              Toutes les matières
+              <span className={`ml-1.5 px-1.5 py-0.2 rounded-full text-[10px] ${
+                selectedCategory === "all" ? "bg-white/20 text-white" : "bg-slate-100 text-slate-600"
+              }`}>
+                {metrics.totalSubjects}
+              </span>
+            </button>
 
-                  <button
-                    type="button"
-                    title="Supprimer la matière"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      setDeletingSubject(subject.raw);
-                    }}
-                    className="flex h-7 w-7 items-center justify-center rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-600 hover:text-white transition-colors shadow-sm"
-                  >
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                      <polyline points="3 6 5 6 21 6" />
-                      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                    </svg>
-                  </button>
-                </div>
-              )}
+            {availableCategories.map((cat) => {
+              const count = allSubjects.filter((s) => {
+                const matchesFiliere = isStudent && studentFiliere
+                  ? s.filiere.toLowerCase().trim() === studentFiliere.toLowerCase().trim()
+                  : (selectedFiliere === "all" || s.filiere === selectedFiliere);
+                return matchesFiliere && s.category === cat;
+              }).length;
 
-              {/* Top Row: Icon container + ShortCode Pill */}
-              <div className="relative z-10 flex items-start justify-between">
-                <div
-                  className="flex h-14 w-14 items-center justify-center rounded-2xl transition-transform duration-300 group-hover:scale-110"
+              const isCatActive = selectedCategory === cat;
+              return (
+                <button
+                  key={cat}
+                  type="button"
+                  onClick={() => setSelectedCategory(cat)}
+                  className={`rounded-xl px-3.5 py-1.5 text-xs font-semibold shrink-0 transition-all cursor-pointer ${
+                    isCatActive
+                      ? "bg-indigo-600 text-white shadow-sm"
+                      : "border text-slate-600 hover:bg-slate-50"
+                  }`}
                   style={{
-                    backgroundColor: subject.lightBg,
-                    border: `1px solid ${subject.accentColor}25`,
+                    borderColor: isCatActive ? "transparent" : "var(--line)",
                   }}
                 >
-                  <SubjectIcon subjectId={subject.icon} size={28} color={subject.accentColor} />
-                </div>
+                  {cat}
+                  {count > 0 && (
+                    <span className={`ml-1.5 px-1.5 py-0.2 rounded-full text-[10px] ${
+                      isCatActive ? "bg-white/20 text-white" : "bg-slate-100 text-slate-600"
+                    }`}>
+                      {count}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
 
-                <div className={`flex flex-col items-end gap-1 ${isSuperAdmin ? "mr-16" : ""}`}>
-                  <span
-                    className="rounded-full px-2.5 py-0.5 text-[11px] font-bold tracking-wider uppercase font-mono"
+      {/* Dynamic Results Count indicator when filtered */}
+      {(searchQuery || selectedCategory !== "all") && (
+        <div className="flex items-center justify-between text-xs text-slate-500 pt-1">
+          <span>
+            Affichage de <strong>{filteredSubjects.length}</strong> {filteredSubjects.length === 1 ? "matière trouvée" : "matières trouvées"}
+            {selectedCategory !== "all" && ` dans « ${selectedCategory} »`}
+            {searchQuery && ` pour « ${searchQuery} »`}
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              setSearchQuery("");
+              setSelectedCategory("all");
+            }}
+            className="text-indigo-600 hover:underline font-semibold"
+          >
+            Réinitialiser les filtres
+          </button>
+        </div>
+      )}
+
+      {/* VIEW 1: MODERN GRID OF SUBJECT CARDS */}
+      {viewMode === "grid" && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+          {filteredSubjects.map((subject, idx) => {
+            const count = getSubjectCourseCount(subject.id, subject.shortCode);
+            return (
+              <Link
+                key={subject.id}
+                href={`/courses/${subject.id}`}
+                className={`group relative flex flex-col justify-between rounded-3xl p-6 sm:p-7 min-h-[300px] transition-all duration-300 hover:-translate-y-1.5 hover:shadow-xl cursor-pointer animate-fade-in-up stagger-${Math.min(
+                  idx + 1,
+                  6
+                )}`}
+                style={{
+                  background: "var(--paper-card)",
+                  border: "1px solid var(--line)",
+                  boxShadow: "0 4px 20px -2px rgba(15, 23, 42, 0.05)",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.borderColor = `${subject.accentColor}55`;
+                  e.currentTarget.style.boxShadow = `0 16px 32px -8px ${subject.accentColor}25`;
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.borderColor = "var(--line)";
+                  e.currentTarget.style.boxShadow = "0 4px 20px -2px rgba(15, 23, 42, 0.05)";
+                }}
+              >
+                {/* Subtle decorative background gradient */}
+                <div
+                  className="pointer-events-none absolute inset-0 rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                  style={{
+                    background: `radial-gradient(circle at top right, ${subject.accentColor}15, transparent 70%)`,
+                  }}
+                />
+
+                {/* Superadmin Card Quick Actions (Edit / Delete) */}
+                {isSuperAdmin && (
+                  <div className="absolute top-4 right-4 z-20 flex items-center gap-1.5 opacity-90 group-hover:opacity-100 transition-opacity">
+                    <button
+                      type="button"
+                      title="Modifier la matière"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        openEditModal(subject.raw);
+                      }}
+                      className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white transition-colors shadow-sm"
+                    >
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                        <path d="M12 20h9" />
+                        <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+                      </svg>
+                    </button>
+
+                    <button
+                      type="button"
+                      title="Supprimer la matière"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setDeletingSubject(subject.raw);
+                      }}
+                      className="flex h-7 w-7 items-center justify-center rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-600 hover:text-white transition-colors shadow-sm"
+                    >
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                        <polyline points="3 6 5 6 21 6" />
+                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                      </svg>
+                    </button>
+                  </div>
+                )}
+
+                {/* Top Row: Icon container + ShortCode Pill */}
+                <div className="relative z-10 flex items-start justify-between">
+                  <div
+                    className="flex h-14 w-14 items-center justify-center rounded-2xl transition-transform duration-300 group-hover:scale-110 shadow-sm"
                     style={{
                       backgroundColor: subject.lightBg,
-                      color: subject.accentColor,
                       border: `1px solid ${subject.accentColor}30`,
                     }}
                   >
-                    {subject.shortCode}
-                  </span>
+                    <SubjectIcon subjectId={subject.icon} size={28} color={subject.accentColor} />
+                  </div>
 
-                  <span className="text-[10px] font-semibold text-slate-500 truncate max-w-[110px]">
-                    {subject.filiere}
-                  </span>
+                  <div className={`flex flex-col items-end gap-1 ${isSuperAdmin ? "mr-16" : ""}`}>
+                    <span
+                      className="rounded-full px-2.5 py-0.5 text-[11px] font-bold tracking-wider uppercase font-mono shadow-xs"
+                      style={{
+                        backgroundColor: subject.lightBg,
+                        color: subject.accentColor,
+                        border: `1px solid ${subject.accentColor}35`,
+                      }}
+                    >
+                      {subject.shortCode}
+                    </span>
+
+                    <span className="text-[10px] font-semibold text-slate-500 truncate max-w-[120px]">
+                      {subject.category}
+                    </span>
+                  </div>
                 </div>
-              </div>
 
-              {/* Middle: Subject Name & Short description */}
-              <div className="relative z-10 my-auto pt-2">
-                <h3
-                  className="font-serif text-xl font-bold tracking-tight transition-colors group-hover:text-indigo-600 line-clamp-1"
-                  style={{ color: "var(--ink)" }}
-                >
-                  {subject.name}
-                </h3>
-                <p
-                  className="mt-1.5 text-xs line-clamp-2 leading-relaxed"
-                  style={{ color: "var(--muted)" }}
-                >
-                  {subject.description || "Contenus et ressources pour cette matière."}
-                </p>
-              </div>
-
-              {/* Bottom: Course count & Open Arrow */}
-              <div className="relative z-10 pt-3 border-t flex items-center justify-between" style={{ borderColor: "var(--line)" }}>
-                <span
-                  className="text-xs font-semibold flex items-center gap-1.5 transition-colors"
-                  style={{ color: subject.accentColor }}
-                >
-                  {count > 0 ? `${count} ${count === 1 ? "contenu" : "contenus"}` : "Explorer"}
-                </span>
-
-                <div
-                  className="flex h-7 w-7 items-center justify-center rounded-full transition-all duration-300 group-hover:translate-x-1"
-                  style={{
-                    backgroundColor: subject.lightBg,
-                    color: subject.accentColor,
-                  }}
-                >
-                  <svg
-                    width="14"
-                    height="14"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
+                {/* Middle: Subject Name, Description & Topics */}
+                <div className="relative z-10 my-auto py-3">
+                  <h3
+                    className="font-serif text-xl sm:text-2xl font-bold tracking-tight transition-colors group-hover:text-indigo-600 line-clamp-1"
+                    style={{ color: "var(--ink)" }}
                   >
-                    <line x1="5" y1="12" x2="19" y2="12" />
-                    <polyline points="12 5 19 12 12 19" />
-                  </svg>
+                    {subject.name}
+                  </h3>
+                  <p
+                    className="mt-1.5 text-xs line-clamp-2 leading-relaxed"
+                    style={{ color: "var(--muted)" }}
+                  >
+                    {subject.description || "Consultez les cours, exercices et ressources de ce programme."}
+                  </p>
+
+                  {/* Topics tag previews */}
+                  {subject.topics && subject.topics.length > 0 && (
+                    <div className="mt-3 flex flex-wrap gap-1">
+                      {subject.topics.slice(0, 3).map((topic) => (
+                        <span
+                          key={topic}
+                          className="rounded-md px-1.5 py-0.5 text-[10px] font-medium bg-slate-100 text-slate-600 border border-slate-200/60"
+                        >
+                          #{topic}
+                        </span>
+                      ))}
+                      {subject.topics.length > 3 && (
+                        <span className="text-[10px] text-slate-400 self-center font-semibold">
+                          +{subject.topics.length - 3}
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </div>
-              </div>
-            </Link>
-          );
-        })}
-      </div>
+
+                {/* Bottom: Course count & Open Arrow */}
+                <div
+                  className="relative z-10 pt-3 border-t flex items-center justify-between"
+                  style={{ borderColor: "var(--line)" }}
+                >
+                  <div className="flex items-center gap-1.5">
+                    <span
+                      className="flex h-2 w-2 rounded-full"
+                      style={{ backgroundColor: count > 0 ? "#10b981" : subject.accentColor }}
+                    />
+                    <span
+                      className="text-xs font-semibold transition-colors"
+                      style={{ color: subject.accentColor }}
+                    >
+                      {count > 0 ? `${count} ${count === 1 ? "contenu" : "contenus"}` : "Explorer"}
+                    </span>
+                  </div>
+
+                  <div
+                    className="flex h-7 w-7 items-center justify-center rounded-full transition-all duration-300 group-hover:translate-x-1"
+                    style={{
+                      backgroundColor: subject.lightBg,
+                      color: subject.accentColor,
+                    }}
+                  >
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <line x1="5" y1="12" x2="19" y2="12" />
+                      <polyline points="12 5 19 12 12 19" />
+                    </svg>
+                  </div>
+                </div>
+              </Link>
+            );
+          })}
+        </div>
+      )}
+
+      {/* VIEW 2: COMPACT LIST VIEW OF SUBJECTS */}
+      {viewMode === "list" && (
+        <div
+          className="rounded-3xl border overflow-hidden shadow-sm"
+          style={{
+            background: "var(--paper-card)",
+            borderColor: "var(--line)",
+          }}
+        >
+          <div className="divide-y" style={{ borderColor: "var(--line)" }}>
+            {filteredSubjects.map((subject) => {
+              const count = getSubjectCourseCount(subject.id, subject.shortCode);
+              return (
+                <div
+                  key={subject.id}
+                  className="group flex flex-col sm:flex-row sm:items-center justify-between p-4 sm:p-5 gap-4 hover:bg-slate-50/80 transition-colors"
+                >
+                  <div className="flex items-center gap-4">
+                    <div
+                      className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl shadow-xs"
+                      style={{
+                        backgroundColor: subject.lightBg,
+                        border: `1px solid ${subject.accentColor}30`,
+                      }}
+                    >
+                      <SubjectIcon subjectId={subject.icon} size={24} color={subject.accentColor} />
+                    </div>
+
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span
+                          className="rounded-full px-2 py-0.2 text-[10px] font-bold font-mono uppercase"
+                          style={{
+                            backgroundColor: subject.lightBg,
+                            color: subject.accentColor,
+                          }}
+                        >
+                          {subject.shortCode}
+                        </span>
+                        <span className="text-xs text-slate-500 font-medium">{subject.category}</span>
+                        <span className="text-xs text-slate-400">• {subject.filiere}</span>
+                      </div>
+                      <h4 className="font-serif text-lg font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">
+                        {subject.name}
+                      </h4>
+                      <p className="text-xs text-slate-500 line-clamp-1 max-w-xl">
+                        {subject.description || "Consultez les cours, exercices et ressources de ce programme."}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between sm:justify-end gap-4 shrink-0">
+                    <div className="text-right">
+                      <span className="text-xs font-bold text-slate-900 block">
+                        {count > 0 ? `${count} ${count === 1 ? "contenu" : "contenus"}` : "Programme ouvert"}
+                      </span>
+                      <span className="text-[10px] text-slate-500">
+                        {count > 0 ? "Vidéos & PDF" : "Prêt"}
+                      </span>
+                    </div>
+
+                    <Link
+                      href={`/courses/${subject.id}`}
+                      className="rounded-xl px-4 py-2 text-xs font-bold transition-all shadow-xs flex items-center gap-1.5"
+                      style={{
+                        backgroundColor: subject.lightBg,
+                        color: subject.accentColor,
+                        border: `1px solid ${subject.accentColor}30`,
+                      }}
+                    >
+                      Accéder
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                        <polyline points="9 18 15 12 9 6" />
+                      </svg>
+                    </Link>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Empty State */}
       {filteredSubjects.length === 0 && (
@@ -684,8 +1059,8 @@ export function SubjectsView() {
             </svg>
           </div>
           <p className="font-serif text-lg font-bold" style={{ color: "var(--ink)" }}>
-            {searchQuery
-              ? `Aucune matière trouvée pour "${searchQuery}"`
+            {searchQuery || selectedCategory !== "all"
+              ? `Aucune matière trouvée avec les filtres sélectionnés`
               : isStudent && studentFiliere
               ? `Aucune matière configurée pour votre filière ${studentFiliere}`
               : selectedFiliere !== "all"
@@ -693,12 +1068,27 @@ export function SubjectsView() {
               : "Aucune matière dans le catalogue pour le moment"}
           </p>
           <p className="mt-1 text-sm max-w-md mx-auto" style={{ color: "var(--muted)" }}>
-            {searchQuery
-              ? "Vérifiez l'orthographe ou tentez un autre mot-clé."
+            {searchQuery || selectedCategory !== "all"
+              ? "Essayez de modifier votre mot-clé de recherche ou sélectionnez « Toutes les matières »."
               : isSuperAdmin
               ? "En tant que Superadministrateur, vous pouvez ajouter immédiatement les matières dynamiques pour cette filière."
               : "Les enseignants et l'administration ajouteront prochainement les programmes scolaires."}
           </p>
+
+          {(searchQuery || selectedCategory !== "all") && (
+            <div className="mt-4">
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchQuery("");
+                  setSelectedCategory("all");
+                }}
+                className="inline-flex items-center gap-2 rounded-xl bg-indigo-50 border border-indigo-200 px-4 py-2 text-xs font-bold text-indigo-700 hover:bg-indigo-100 transition-colors"
+              >
+                Réinitialiser la recherche et filtres
+              </button>
+            </div>
+          )}
 
           {isSuperAdmin && (
             <div className="mt-5">

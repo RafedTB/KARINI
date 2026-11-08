@@ -9,9 +9,9 @@ import { coursesService } from "@/application/services/courses-service";
 import { CourseCard } from "@/presentation/features/courses/course-card";
 import { PageLoader } from "@/presentation/components/ui/page-loader";
 import { useAuth } from "@/presentation/providers/auth-provider";
+import { VideoStudioView } from "@/presentation/features/courses/video-studio-view";
 
 const TABS = [
-  { key: "all", label: "Tout" },
   { key: CourseSection.COURSE, label: "Cours Vidéo" },
   { key: CourseSection.EXERCISE, label: "Exercices PDF" },
   { key: CourseSection.MAGAZINE, label: "Magazines PDF" },
@@ -21,19 +21,16 @@ const TABS = [
 export function CoursesView() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const activeTab = searchParams.get("section") || "all";
+  const activeTab = searchParams.get("section") || CourseSection.COURSE;
 
   const { token, user } = useAuth();
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [videoViewMode, setVideoViewMode] = useState<"studio" | "grid">("studio");
 
   const handleTabChange = (key: string) => {
-    if (key === "all") {
-      router.replace("/courses", { scroll: false });
-    } else {
-      router.replace(`/courses?section=${key}`, { scroll: false });
-    }
+    router.replace(`/courses?section=${key}`, { scroll: false });
   };
 
   useEffect(() => {
@@ -78,9 +75,7 @@ export function CoursesView() {
     );
   }
 
-  const filtered = activeTab === "all"
-    ? courses
-    : courses.filter((c) => c.section === activeTab);
+  const filtered = courses.filter((c) => c.section === activeTab);
 
   return (
     <div>
@@ -110,46 +105,81 @@ export function CoursesView() {
         </div>
       )}
 
-      {/* Filter tabs */}
-      <div
-        className="mb-8 flex flex-wrap gap-1 rounded-2xl p-1.5"
-        style={{ background: "var(--paper-card)", border: "1px solid var(--line)", boxShadow: "0 1px 3px 0 rgba(15,23,42,0.04)" }}
-      >
-        {TABS.map((tab) => {
-          const isGoldOnlyTab = tab.key === CourseSection.OLDLIVE;
-          const isStudentNonGold = user?.userType === UserType.STUDENT && user?.membership !== MembershipType.GOLD;
-          const count = tab.key === "all"
-            ? courses.length
-            : courses.filter((c) => c.section === tab.key).length;
-          const isActive = activeTab === tab.key;
-          return (
+      {/* Filter tabs & video studio toggle */}
+      <div className="mb-8 flex flex-wrap items-center justify-between gap-3">
+        <div
+          className="flex flex-wrap gap-1 rounded-2xl p-1.5"
+          style={{ background: "var(--paper-card)", border: "1px solid var(--line)", boxShadow: "0 1px 3px 0 rgba(15,23,42,0.04)" }}
+        >
+          {TABS.map((tab) => {
+            const isGoldOnlyTab = tab.key === CourseSection.OLDLIVE;
+            const isStudentNonGold = user?.userType === UserType.STUDENT && user?.membership !== MembershipType.GOLD;
+            const count = courses.filter((c) => c.section === tab.key).length;
+            const isActive = activeTab === tab.key;
+            return (
+              <button
+                key={tab.key}
+                type="button"
+                onClick={() => handleTabChange(tab.key)}
+                className="rounded-xl px-4 py-2 text-sm transition-all duration-200 cursor-pointer flex items-center gap-1.5"
+                style={{
+                  color: isActive ? "var(--accent)" : "var(--muted)",
+                  background: isActive ? "var(--accent-glow)" : "transparent",
+                  fontWeight: isActive ? 600 : 400,
+                }}
+              >
+                <span>{tab.label}</span>
+                {isGoldOnlyTab && isStudentNonGold ? (
+                  <span className="badge text-[9px] px-1.5 py-0.2 bg-amber-100 text-amber-800 border-amber-200">
+                    ⭐ Gold
+                  </span>
+                ) : (
+                  <span
+                    className="text-xs"
+                    style={{ opacity: 0.6 }}
+                  >
+                    {count}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        {activeTab === CourseSection.COURSE && (
+          <div
+            className="flex items-center rounded-2xl p-1 border shadow-xs"
+            style={{
+              background: "var(--paper-card)",
+              borderColor: "var(--line)",
+            }}
+          >
             <button
-              key={tab.key}
               type="button"
-              onClick={() => handleTabChange(tab.key)}
-              className="rounded-xl px-4 py-2 text-sm transition-all duration-200 cursor-pointer flex items-center gap-1.5"
-              style={{
-                color: isActive ? "var(--accent)" : "var(--muted)",
-                background: isActive ? "var(--accent-glow)" : "transparent",
-                fontWeight: isActive ? 600 : 400,
-              }}
+              onClick={() => setVideoViewMode("studio")}
+              className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-1.5 ${
+                videoViewMode === "studio"
+                  ? "bg-indigo-600 text-white shadow-xs"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
             >
-              <span>{tab.label}</span>
-              {isGoldOnlyTab && isStudentNonGold ? (
-                <span className="badge text-[9px] px-1.5 py-0.2 bg-amber-100 text-amber-800 border-amber-200">
-                  ⭐ Gold
-                </span>
-              ) : (
-                <span
-                  className="text-xs"
-                  style={{ opacity: 0.6 }}
-                >
-                  {count}
-                </span>
-              )}
+              <span>🎬</span>
+              <span>Lecteur Vidéo</span>
             </button>
-          );
-        })}
+            <button
+              type="button"
+              onClick={() => setVideoViewMode("grid")}
+              className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-1.5 ${
+                videoViewMode === "grid"
+                  ? "bg-indigo-600 text-white shadow-xs"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              <span>⊞</span>
+              <span>Grille</span>
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Gold Gate Banner for Archive Live */}
@@ -170,6 +200,9 @@ export function CoursesView() {
             </Link>
           </div>
         </div>
+      ) : activeTab === CourseSection.COURSE && videoViewMode === "studio" ? (
+        /* INTERACTIVE VIDEO STUDIO: Left playlist (Vid 1, 2, 3...) & Right video display */
+        <VideoStudioView courses={filtered} token={token!} />
       ) : (
         <>
           {/* Grid */}
@@ -182,9 +215,20 @@ export function CoursesView() {
           </div>
 
           {filtered.length === 0 && (
-            <p className="mt-8 text-center text-sm" style={{ color: "var(--muted)" }}>
-              No content in this category yet.
-            </p>
+            <div
+              className="glass-card px-8 py-12 text-center rounded-3xl mt-6"
+              style={{ borderStyle: "dashed" }}
+            >
+              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600 mb-3 text-2xl">
+                📂
+              </div>
+              <h3 className="font-serif text-lg font-bold" style={{ color: "var(--ink)" }}>
+                Aucun contenu dans cette section
+              </h3>
+              <p className="mt-1 text-xs text-slate-500 max-w-sm mx-auto">
+                Les enseignants publieront prochainement des cours, exercices ou magazines dans cette catégorie.
+              </p>
+            </div>
           )}
         </>
       )}

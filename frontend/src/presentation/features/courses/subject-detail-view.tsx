@@ -12,13 +12,13 @@ import { PageLoader } from "@/presentation/components/ui/page-loader";
 import { useAuth } from "@/presentation/providers/auth-provider";
 import { getSubjectById, SUBJECTS } from "@/shared/labels/course-subjects";
 import { SubjectIcon } from "@/presentation/features/courses/subject-icons";
+import { VideoStudioView } from "@/presentation/features/courses/video-studio-view";
 
 type SubjectDetailViewProps = {
   subjectId: string;
 };
 
 const SECTION_TABS = [
-  { key: "all", label: "Tous les contenus", icon: "📚" },
   { key: CourseSection.COURSE, label: "Cours Vidéo", icon: "🎬" },
   { key: CourseSection.EXERCISE, label: "Exercices PDF", icon: "✍️" },
   { key: CourseSection.MAGAZINE, label: "Magazines PDF", icon: "📑" },
@@ -28,16 +28,18 @@ const SECTION_TABS = [
 export function SubjectDetailView({ subjectId }: SubjectDetailViewProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const activeSection = searchParams.get("section") || "all";
+  const activeSection = searchParams.get("section") || CourseSection.COURSE;
 
   const { token, user } = useAuth();
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [searchFilter, setSearchFilter] = useState("");
+  const [videoViewMode, setVideoViewMode] = useState<"studio" | "grid">("studio");
 
   const fallbackSubject = useMemo(() => getSubjectById(subjectId), [subjectId]);
   const [dbSubject, setDbSubject] = useState<import("@/domain/entities/subject").Subject | null>(null);
+  const [allDbSubjects, setAllDbSubjects] = useState<import("@/domain/entities/subject").Subject[]>([]);
 
   const subject = useMemo(() => {
     if (dbSubject) {
@@ -81,8 +83,17 @@ export function SubjectDetailView({ subjectId }: SubjectDetailViewProps) {
       }
     };
 
-    Promise.all([loadSubjectDetails(), coursesService.list(token)])
-      .then(([loadedSub, coursesData]) => {
+    const filiereParam = user?.userType === UserType.STUDENT && user?.studentClass ? user.studentClass : undefined;
+
+    Promise.all([
+      loadSubjectDetails(),
+      coursesService.list(token),
+      subjectsService.list(token, filiereParam).catch(() => []),
+    ])
+      .then(([loadedSub, coursesData, subjectsList]) => {
+        if (subjectsList && subjectsList.length > 0) {
+          setAllDbSubjects(subjectsList);
+        }
         const targetSlug = subjectId.toLowerCase();
         const subCode = loadedSub?.code?.toLowerCase();
         const subSlug = loadedSub?.slug?.toLowerCase();
@@ -108,17 +119,25 @@ export function SubjectDetailView({ subjectId }: SubjectDetailViewProps) {
       .finally(() => setLoading(false));
   }, [token, subjectId, fallbackSubject]);
 
-  const handleTabChange = (key: string) => {
-    if (key === "all") {
-      router.replace(`/courses/${subject.id}`, { scroll: false });
-    } else {
-      router.replace(`/courses/${subject.id}?section=${key}`, { scroll: false });
+  const switcherSubjects = useMemo(() => {
+    if (allDbSubjects.length > 0) {
+      return allDbSubjects.map((s) => ({
+        id: s.slug || String(s.id),
+        name: s.name,
+        shortCode: s.code,
+        accentColor: s.color || "#4f46e5",
+        lightBg: `${s.color || "#4f46e5"}18`,
+      }));
     }
+    return SUBJECTS.slice(0, 8);
+  }, [allDbSubjects]);
+
+  const handleTabChange = (key: string) => {
+    router.replace(`/courses/${subject.id}?section=${key}`, { scroll: false });
   };
 
   const sectionCounts = useMemo(() => {
     const counts: Record<string, number> = {
-      all: courses.length,
       [CourseSection.COURSE]: 0,
       [CourseSection.EXERCISE]: 0,
       [CourseSection.MAGAZINE]: 0,
@@ -134,7 +153,7 @@ export function SubjectDetailView({ subjectId }: SubjectDetailViewProps) {
 
   const displayedCourses = useMemo(() => {
     return courses.filter((c) => {
-      const matchesSection = activeSection === "all" || c.section === activeSection;
+      const matchesSection = c.section === activeSection;
       const matchesSearch =
         !searchFilter ||
         c.title.toLowerCase().includes(searchFilter.toLowerCase()) ||
@@ -178,25 +197,26 @@ export function SubjectDetailView({ subjectId }: SubjectDetailViewProps) {
         </Link>
 
         {/* Quick subject switcher pills */}
-        <div className="flex items-center gap-1.5 overflow-x-auto py-1 max-w-full">
-          <span className="text-xs font-medium mr-1 hidden sm:inline" style={{ color: "var(--muted)" }}>
+        <div className="flex items-center gap-1.5 overflow-x-auto py-1 max-w-full scrollbar-none">
+          <span className="text-xs font-semibold mr-1 hidden sm:inline" style={{ color: "var(--muted)" }}>
             Matières :
           </span>
-          {SUBJECTS.slice(0, 6).map((s) => {
-            const isCurrent = s.id === subject.id;
+          {switcherSubjects.map((s) => {
+            const isCurrent = s.id === subject.id || s.shortCode.toLowerCase() === subject.shortCode.toLowerCase();
             return (
               <Link
                 key={s.id}
                 href={`/courses/${s.id}`}
-                className="rounded-lg px-2.5 py-1 text-xs font-medium transition-all shrink-0"
+                className="rounded-xl px-3 py-1.5 text-xs font-semibold transition-all shrink-0 flex items-center gap-1.5"
                 style={{
-                  background: isCurrent ? s.lightBg : "transparent",
+                  background: isCurrent ? s.lightBg : "var(--paper-card)",
                   color: isCurrent ? s.accentColor : "var(--muted)",
-                  border: isCurrent ? `1px solid ${s.accentColor}40` : "1px solid transparent",
+                  border: isCurrent ? `1px solid ${s.accentColor}40` : "1px solid var(--line)",
                   fontWeight: isCurrent ? 700 : 500,
+                  boxShadow: isCurrent ? `0 2px 8px -2px ${s.accentColor}30` : "none",
                 }}
               >
-                {s.shortCode}
+                <span>{s.shortCode}</span>
               </Link>
             );
           })}
@@ -205,11 +225,11 @@ export function SubjectDetailView({ subjectId }: SubjectDetailViewProps) {
 
       {/* Hero Subject Header Banner */}
       <div
-        className="relative overflow-hidden rounded-3xl p-6 sm:p-8"
+        className="relative overflow-hidden rounded-3xl p-6 sm:p-8 border shadow-sm"
         style={{
-          background: "var(--paper-card)",
-          border: `1px solid ${subject.accentColor}30`,
-          boxShadow: `0 12px 30px -10px ${subject.accentColor}18`,
+          background: `linear-gradient(135deg, ${subject.lightBg} 0%, rgba(255,255,255,0.95) 100%), var(--paper-card)`,
+          borderColor: `${subject.accentColor}35`,
+          boxShadow: `0 12px 30px -10px ${subject.accentColor}20`,
         }}
       >
         <div
@@ -217,13 +237,14 @@ export function SubjectDetailView({ subjectId }: SubjectDetailViewProps) {
           style={{ backgroundColor: subject.accentColor }}
         />
 
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="flex items-start gap-5">
+        <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5">
             <div
-              className="flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl shadow-sm"
+              className="flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl shadow-md transition-transform hover:scale-105"
               style={{
                 backgroundColor: subject.lightBg,
-                border: `1px solid ${subject.accentColor}35`,
+                border: `1px solid ${subject.accentColor}40`,
+                boxShadow: `0 8px 24px -4px ${subject.accentColor}35`,
               }}
             >
               <SubjectIcon subjectId={subject.id} size={40} color={subject.accentColor} />
@@ -232,27 +253,30 @@ export function SubjectDetailView({ subjectId }: SubjectDetailViewProps) {
             <div>
               <div className="flex flex-wrap items-center gap-2">
                 <span
-                  className="rounded-full px-2.5 py-0.5 text-xs font-bold tracking-wider font-mono uppercase"
+                  className="rounded-full px-3 py-0.5 text-xs font-bold tracking-wider font-mono uppercase shadow-xs"
                   style={{
                     backgroundColor: subject.lightBg,
                     color: subject.accentColor,
-                    border: `1px solid ${subject.accentColor}30`,
+                    border: `1px solid ${subject.accentColor}35`,
                   }}
                 >
                   {subject.shortCode}
                 </span>
                 <span
-                  className="rounded-full px-2.5 py-0.5 text-xs font-medium"
+                  className="rounded-full px-3 py-0.5 text-xs font-semibold"
                   style={{
-                    background: "rgba(15, 23, 42, 0.05)",
-                    color: "var(--muted)",
+                    background: "rgba(15, 23, 42, 0.06)",
+                    color: "var(--ink)",
                   }}
                 >
                   {subject.category}
                 </span>
+                <span className="text-xs text-slate-500 font-medium hidden sm:inline">
+                  • Programme Officiel
+                </span>
               </div>
 
-              <h1 className="mt-2 font-serif text-3xl sm:text-4xl font-bold" style={{ color: "var(--ink)" }}>
+              <h1 className="mt-2 font-serif text-3xl sm:text-4xl font-bold tracking-tight" style={{ color: "var(--ink)" }}>
                 {subject.name}
               </h1>
 
@@ -261,41 +285,62 @@ export function SubjectDetailView({ subjectId }: SubjectDetailViewProps) {
               </p>
 
               {/* Topics tags */}
-              <div className="mt-4 flex flex-wrap items-center gap-1.5">
-                {subject.topics.map((topic) => (
-                  <span
-                    key={topic}
-                    className="rounded-md px-2 py-0.5 text-[11px] font-medium"
-                    style={{
-                      backgroundColor: "rgba(15, 23, 42, 0.04)",
-                      color: "var(--ink)",
-                      border: "1px solid var(--line)",
-                    }}
-                  >
-                    #{topic}
-                  </span>
-                ))}
-              </div>
+              {subject.topics && subject.topics.length > 0 && (
+                <div className="mt-4 flex flex-wrap items-center gap-1.5">
+                  {subject.topics.map((topic) => (
+                    <span
+                      key={topic}
+                      className="rounded-lg px-2.5 py-0.5 text-[11px] font-semibold bg-white/80 text-slate-700 border shadow-xs"
+                      style={{
+                        borderColor: "var(--line)",
+                      }}
+                    >
+                      #{topic}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
-          {/* Quick Counter Card */}
+          {/* Quick Counter Card & Breakdown */}
           <div
-            className="flex flex-col rounded-2xl p-4 shrink-0 sm:min-w-[180px] text-center md:text-right"
+            className="flex flex-col rounded-2xl p-5 shrink-0 lg:min-w-[220px] bg-white/85 border shadow-sm"
             style={{
-              backgroundColor: subject.lightBg,
-              border: `1px solid ${subject.accentColor}20`,
+              borderColor: `${subject.accentColor}30`,
             }}
           >
-            <span className="text-xs font-medium" style={{ color: "var(--muted)" }}>
-              Total Contenus
-            </span>
-            <span className="font-serif text-3xl font-bold mt-1" style={{ color: subject.accentColor }}>
-              {courses.length}
-            </span>
-            <span className="text-[11px] mt-0.5" style={{ color: "var(--muted)" }}>
-              Cours, Séries & Magazines
-            </span>
+            <div className="flex items-center justify-between pb-2 border-b" style={{ borderColor: "var(--line)" }}>
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                Total Contenus
+              </span>
+              <span className="font-serif text-3xl font-bold" style={{ color: subject.accentColor }}>
+                {courses.length}
+              </span>
+            </div>
+
+            <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+              <div className="flex items-center gap-1.5 text-slate-600">
+                <span>🎬</span>
+                <span className="font-bold">{sectionCounts[CourseSection.COURSE] ?? 0}</span>
+                <span className="text-[10px] text-slate-400">vidéos</span>
+              </div>
+              <div className="flex items-center gap-1.5 text-slate-600">
+                <span>✍️</span>
+                <span className="font-bold">{sectionCounts[CourseSection.EXERCISE] ?? 0}</span>
+                <span className="text-[10px] text-slate-400">séries</span>
+              </div>
+              <div className="flex items-center gap-1.5 text-slate-600">
+                <span>📑</span>
+                <span className="font-bold">{sectionCounts[CourseSection.MAGAZINE] ?? 0}</span>
+                <span className="text-[10px] text-slate-400">revues</span>
+              </div>
+              <div className="flex items-center gap-1.5 text-slate-600">
+                <span>🔴</span>
+                <span className="font-bold">{sectionCounts[CourseSection.OLDLIVE] ?? 0}</span>
+                <span className="text-[10px] text-slate-400">directs</span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -304,11 +349,10 @@ export function SubjectDetailView({ subjectId }: SubjectDetailViewProps) {
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         {/* CourseSection Tabs */}
         <div
-          className="flex flex-wrap gap-1 rounded-2xl p-1.5"
+          className="flex flex-wrap gap-1 rounded-2xl p-1.5 border shadow-sm"
           style={{
             background: "var(--paper-card)",
-            border: "1px solid var(--line)",
-            boxShadow: "0 1px 3px 0 rgba(15,23,42,0.04)",
+            borderColor: "var(--line)",
           }}
         >
           {SECTION_TABS.map((tab) => {
@@ -321,11 +365,11 @@ export function SubjectDetailView({ subjectId }: SubjectDetailViewProps) {
                 key={tab.key}
                 type="button"
                 onClick={() => handleTabChange(tab.key)}
-                className="flex items-center gap-1.5 rounded-xl px-4 py-2 text-sm transition-all duration-200 cursor-pointer"
+                className="flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs sm:text-sm transition-all duration-200 cursor-pointer"
                 style={{
                   color: isActive ? subject.accentColor : "var(--muted)",
                   background: isActive ? subject.lightBg : "transparent",
-                  fontWeight: isActive ? 600 : 400,
+                  fontWeight: isActive ? 700 : 500,
                   border: isActive ? `1px solid ${subject.accentColor}30` : "1px solid transparent",
                 }}
               >
@@ -337,7 +381,7 @@ export function SubjectDetailView({ subjectId }: SubjectDetailViewProps) {
                   </span>
                 ) : (
                   <span
-                    className="ml-1 rounded-full px-1.5 py-0.2 text-xs"
+                    className="ml-1 rounded-full px-1.5 py-0.2 text-[11px]"
                     style={{
                       backgroundColor: isActive ? subject.accentColor : "rgba(15,23,42,0.08)",
                       color: isActive ? "#ffffff" : "var(--muted)",
@@ -352,31 +396,78 @@ export function SubjectDetailView({ subjectId }: SubjectDetailViewProps) {
           })}
         </div>
 
-        {/* Filter Input inside subject */}
-        <div className="relative min-w-[240px] max-w-sm">
-          <svg
-            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-          >
-            <circle cx="11" cy="11" r="8" />
-            <line x1="21" y1="21" x2="16.65" y2="16.65" />
-          </svg>
-          <input
-            type="text"
-            placeholder="Filtrer les chapitres..."
-            value={searchFilter}
-            onChange={(e) => setSearchFilter(e.target.value)}
-            className="w-full rounded-xl border bg-white/70 pl-9 pr-3 py-2 text-sm outline-none transition-all focus:border-indigo-500 focus:bg-white"
-            style={{
-              borderColor: "var(--line)",
-              color: "var(--ink)",
-            }}
-          />
+        {/* Right side controls: Video studio toggle & Search bar */}
+        <div className="flex flex-wrap items-center gap-2.5">
+          {activeSection === CourseSection.COURSE && (
+            <div
+              className="flex items-center rounded-2xl p-1 border shadow-xs"
+              style={{
+                background: "var(--paper-card)",
+                borderColor: "var(--line)",
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => setVideoViewMode("studio")}
+                className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-1.5 ${
+                  videoViewMode === "studio"
+                    ? "bg-indigo-600 text-white shadow-xs"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                <span>🎬</span>
+                <span>Lecteur Vidéo</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setVideoViewMode("grid")}
+                className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-1.5 ${
+                  videoViewMode === "grid"
+                    ? "bg-indigo-600 text-white shadow-xs"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                <span>⊞</span>
+                <span>Grille</span>
+              </button>
+            </div>
+          )}
+
+          {/* Filter Input inside subject */}
+          <div className="relative min-w-[220px] max-w-sm">
+            <svg
+              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <circle cx="11" cy="11" r="8" />
+              <line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+            <input
+              type="text"
+              placeholder="Filtrer les chapitres..."
+              value={searchFilter}
+              onChange={(e) => setSearchFilter(e.target.value)}
+              className="w-full rounded-2xl border bg-white/80 pl-9 pr-9 py-2 text-xs sm:text-sm outline-none transition-all focus:border-indigo-500 focus:bg-white shadow-sm"
+              style={{
+                borderColor: "var(--line)",
+                color: "var(--ink)",
+              }}
+            />
+            {searchFilter && (
+              <button
+                type="button"
+                onClick={() => setSearchFilter("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400 hover:text-slate-600 bg-slate-100 rounded-full h-5 w-5 flex items-center justify-center"
+              >
+                ✕
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -405,6 +496,14 @@ export function SubjectDetailView({ subjectId }: SubjectDetailViewProps) {
             </Link>
           </div>
         </div>
+      ) : activeSection === CourseSection.COURSE && videoViewMode === "studio" ? (
+        /* INTERACTIVE VIDEO STUDIO: Left playlist (Vid 1, 2, 3...) & Right video display */
+        <VideoStudioView
+          courses={displayedCourses}
+          token={token!}
+          subjectName={subject.name}
+          accentColor={subject.accentColor}
+        />
       ) : (
         <>
           {/* Affichage: Grid of Course Cards */}
@@ -433,28 +532,11 @@ export function SubjectDetailView({ subjectId }: SubjectDetailViewProps) {
               </div>
 
               <h2 className="mt-5 font-serif text-2xl" style={{ color: "var(--ink)" }}>
-                Aucun contenu disponible pour le moment
+                Aucun contenu disponible dans cette section
               </h2>
               <p className="mx-auto mt-2 max-w-md text-sm" style={{ color: "var(--muted)" }}>
-                {activeSection !== "all"
-                  ? `Il n'y a pas encore de contenu dans cette section (${activeSection}) pour la matière ${subject.name}.`
-                  : `Les professeurs préparent actuellement les cours et exercices de ${subject.name}.`}
+                Les professeurs préparent et publieront prochainement les contenus pour cette section de {subject.name}.
               </p>
-
-              {activeSection !== "all" && (
-                <button
-                  type="button"
-                  onClick={() => handleTabChange("all")}
-                  className="mt-5 inline-flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-semibold"
-                  style={{
-                    backgroundColor: subject.lightBg,
-                    color: subject.accentColor,
-                    border: `1px solid ${subject.accentColor}40`,
-                  }}
-                >
-                  Voir tous les contenus de {subject.shortCode}
-                </button>
-              )}
             </div>
           )}
         </>
