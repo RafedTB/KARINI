@@ -194,6 +194,9 @@ export class usersService {
             credits: dto.credits ?? 0,
             firstname: dto.firstname ?? '',
             lastname: dto.lastname ?? '',
+            studentClass: dto.userType === UserType.STUDENT ? (dto.studentClass?.trim() || null) : null,
+            teachingSubjects: dto.userType === UserType.INSTRUCTOR ? (dto.teachingSubjects || []) : null,
+            teachingClasses: dto.userType === UserType.INSTRUCTOR ? (dto.teachingClasses || []) : null,
             isAccountVerified: true,
         });
         return this.userRepository.save(newUser);
@@ -218,6 +221,15 @@ export class usersService {
         if (dto.isAccountVerified !== undefined) user.isAccountVerified = dto.isAccountVerified;
         if (dto.firstname !== undefined) user.firstname = dto.firstname;
         if (dto.lastname !== undefined) user.lastname = dto.lastname;
+        if (dto.studentClass !== undefined) {
+            user.studentClass = dto.studentClass?.trim() || null;
+        }
+        if (dto.teachingSubjects !== undefined) {
+            user.teachingSubjects = dto.teachingSubjects;
+        }
+        if (dto.teachingClasses !== undefined) {
+            user.teachingClasses = dto.teachingClasses;
+        }
         if (dto.password) {
             user.password = await this.authProvider.HashPassword(dto.password);
         }

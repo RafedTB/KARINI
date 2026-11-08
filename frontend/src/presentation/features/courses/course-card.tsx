@@ -74,6 +74,16 @@ export function CourseCard({ course, token }: CourseCardProps) {
 
       {/* Course format highlights */}
       <div className="mt-4 flex flex-wrap items-center gap-1.5 text-[11px]">
+        {course.filiere && (
+          <span className="rounded-md px-2 py-0.5 font-semibold bg-sky-50 text-sky-700 border border-sky-100">
+            🎓 {course.filiere}
+          </span>
+        )}
+        {course.instructor && (
+          <span className="rounded-md px-2 py-0.5 font-medium bg-slate-100 text-slate-700 border border-slate-200">
+            👨‍🏫 {course.instructor.firstname ? `${course.instructor.firstname} ${course.instructor.lastname || ""}` : (course.instructor.username || "Enseignant")}
+          </span>
+        )}
         {course.lessons && course.lessons.length > 0 && (
           <span className="rounded-md px-2 py-0.5 font-bold bg-indigo-50 text-indigo-700">
             📖 {course.lessons.length} {course.lessons.length === 1 ? "leçon" : "leçons"}

@@ -10,14 +10,17 @@ type RequestOptions = Omit<RequestInit, "headers"> & {
 export async function apiClient<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const { token, json, headers, ...init } = options;
 
+  const resolvedBody = json !== undefined ? JSON.stringify(json) : init.body;
+  const isStringBody = typeof resolvedBody === "string";
+
   const response = await fetch(`${env.apiUrl}${path}`, {
     ...init,
     headers: {
-      ...(json !== undefined ? { "Content-Type": "application/json" } : {}),
+      ...(json !== undefined || isStringBody ? { "Content-Type": "application/json" } : {}),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...headers,
     },
-    body: json !== undefined ? JSON.stringify(json) : init.body,
+    body: resolvedBody,
   });
 
   const contentType = response.headers.get("content-type") ?? "";

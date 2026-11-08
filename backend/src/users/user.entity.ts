@@ -54,6 +54,12 @@ export class User {
     @Column({ type: 'varchar', length: 100, nullable: true })
     studentClass?: string | null;
 
+    @Column({ type: 'simple-json', nullable: true })
+    teachingSubjects?: string[] | null;
+
+    @Column({ type: 'simple-json', nullable: true })
+    teachingClasses?: string[] | null;
+
     @Column({ type: 'integer', nullable: true })
     age?: number | null;
 

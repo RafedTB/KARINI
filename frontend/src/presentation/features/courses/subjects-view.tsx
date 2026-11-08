@@ -763,21 +763,8 @@ export function SubjectsView() {
                   style={{ borderColor: "var(--line)" }}
                 >
                   {filieres.map((f) => (
-                    <option key={f} value={f}>
-                      {f}
-                    </option>
+                    <option key={f} value={f}>{f}</option>
                   ))}
-                  <option value="2ème Informatique">2ème Informatique</option>
-                  <option value="2ème Math">2ème Math</option>
-                  <option value="2ème Sciences">2ème Sciences</option>
-                  <option value="2ème Économie & Services">2ème Économie & Services</option>
-                  <option value="3ème Informatique">3ème Informatique</option>
-                  <option value="3ème Math">3ème Math</option>
-                  <option value="3ème Sciences Expérimentales">3ème Sciences Expérimentales</option>
-                  <option value="Bac Informatique">Bac Informatique</option>
-                  <option value="Bac Math">Bac Math</option>
-                  <option value="Bac Sciences">Bac Sciences</option>
-                  <option value="Tronc Commun">Tronc Commun</option>
                   <option value="custom">+ Créer une nouvelle filière...</option>
                 </select>
 
@@ -1014,14 +1001,17 @@ export function SubjectsView() {
                 <label className="block text-xs font-semibold mb-1" style={{ color: "var(--ink)" }}>
                   Filière
                 </label>
-                <input
-                  type="text"
+                <select
                   required
                   value={subjectForm.filiere}
                   onChange={(e) => setSubjectForm({ ...subjectForm, filiere: e.target.value })}
-                  className="w-full rounded-xl border px-3 py-2 text-sm outline-none focus:border-indigo-500"
+                  className="w-full rounded-xl border px-3 py-2 text-sm outline-none focus:border-indigo-500 font-medium cursor-pointer"
                   style={{ borderColor: "var(--line)" }}
-                />
+                >
+                  {Array.from(new Set([...filieres, subjectForm.filiere])).map((f) => (
+                    <option key={f} value={f}>{f}</option>
+                  ))}
+                </select>
               </div>
 
               {/* Catégorie */}

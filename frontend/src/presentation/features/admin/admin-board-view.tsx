@@ -10,6 +10,8 @@ import { UserType, MembershipType } from "@/domain/enums";
 import { SubjectIcon } from "@/presentation/features/courses/subject-icons";
 import { PageLoader } from "@/presentation/components/ui/page-loader";
 import { Button } from "@/presentation/components/ui/button";
+import { TUNISIAN_CLASS_GROUPS, FILIERE_OPTIONS } from "@/shared/constants/filiere-options";
+import { SUBJECTS } from "@/shared/labels/course-subjects";
 
 export function AdminBoardView() {
   const { token, user: currentUser } = useAuth();
@@ -47,6 +49,9 @@ export function AdminBoardView() {
     credits: 0,
     firstname: "",
     lastname: "",
+    studentClass: "2ème Informatique",
+    teachingSubjects: ["math"] as string[],
+    teachingClasses: ["2ème Informatique"] as string[],
   });
 
   const [newSubjectForm, setNewSubjectForm] = useState({
@@ -100,7 +105,12 @@ export function AdminBoardView() {
     try {
       setSubmitting(true);
       setError("");
-      await adminService.createUser(token, newUserForm);
+      await adminService.createUser(token, {
+        ...newUserForm,
+        studentClass: newUserForm.userType === UserType.STUDENT ? newUserForm.studentClass : undefined,
+        teachingSubjects: newUserForm.userType === UserType.INSTRUCTOR ? newUserForm.teachingSubjects : undefined,
+        teachingClasses: newUserForm.userType === UserType.INSTRUCTOR ? newUserForm.teachingClasses : undefined,
+      });
       setShowAddUserModal(false);
       setNewUserForm({
         username: "",
@@ -111,6 +121,9 @@ export function AdminBoardView() {
         credits: 0,
         firstname: "",
         lastname: "",
+        studentClass: "2ème Informatique",
+        teachingSubjects: ["math"],
+        teachingClasses: ["2ème Informatique"],
       });
       showNotification(`Utilisateur créé avec succès en tant que ${newUserForm.userType} !`);
       fetchData();
@@ -135,6 +148,9 @@ export function AdminBoardView() {
         credits: Number(editingUser.credits),
         firstname: editingUser.firstname || "",
         lastname: editingUser.lastname || "",
+        studentClass: editingUser.userType === UserType.STUDENT ? (editingUser.studentClass || null) : null,
+        teachingSubjects: editingUser.userType === UserType.INSTRUCTOR ? (editingUser.teachingSubjects || []) : null,
+        teachingClasses: editingUser.userType === UserType.INSTRUCTOR ? (editingUser.teachingClasses || []) : null,
       });
       setEditingUser(null);
       showNotification("Utilisateur mis à jour avec succès !");
@@ -923,35 +939,136 @@ export function AdminBoardView() {
                 </div>
               </div>
 
-              {/* If student: Membership & credits */}
+              {/* If student: Class selection & Membership & credits */}
               {newUserForm.userType === UserType.STUDENT && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 rounded-2xl bg-indigo-50/50 border border-indigo-100">
+                <div className="space-y-3 p-3.5 rounded-2xl bg-indigo-50/50 border border-indigo-100">
                   <div>
-                    <label className="block text-xs font-semibold mb-1 text-indigo-900">
-                      Formule d&apos;abonnement
+                    <label className="block text-xs font-bold text-indigo-950 mb-1">
+                      Classe de l&apos;élève *
                     </label>
                     <select
-                      value={newUserForm.membership}
-                      onChange={(e) => setNewUserForm({ ...newUserForm, membership: e.target.value as MembershipType })}
-                      className="w-full rounded-lg border bg-white px-2.5 py-1.5 text-xs font-medium"
+                      value={newUserForm.studentClass}
+                      onChange={(e) => setNewUserForm({ ...newUserForm, studentClass: e.target.value })}
+                      className="w-full rounded-xl border bg-white px-3 py-2 text-sm outline-none focus:border-indigo-500 font-medium"
+                      style={{ borderColor: "var(--line)" }}
                     >
-                      <option value={MembershipType.DEFAULT}>Default (Gratuit)</option>
-                      <option value={MembershipType.SILVER}>Silver</option>
-                      <option value={MembershipType.GOLD}>Gold (Accès Archives)</option>
-                      <option value={MembershipType.PLATINUM}>Platinum</option>
+                      {TUNISIAN_CLASS_GROUPS.map((g) => (
+                        <optgroup key={g.group} label={g.group}>
+                          {g.classes.map((c) => (
+                            <option key={c} value={c}>
+                              {c}
+                            </option>
+                          ))}
+                        </optgroup>
+                      ))}
                     </select>
                   </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                    <div>
+                      <label className="block text-xs font-semibold mb-1 text-indigo-900">
+                        Formule d&apos;abonnement
+                      </label>
+                      <select
+                        value={newUserForm.membership}
+                        onChange={(e) => setNewUserForm({ ...newUserForm, membership: e.target.value as MembershipType })}
+                        className="w-full rounded-lg border bg-white px-2.5 py-1.5 text-xs font-medium"
+                      >
+                        <option value={MembershipType.DEFAULT}>Default (Gratuit)</option>
+                        <option value={MembershipType.SILVER}>Silver</option>
+                        <option value={MembershipType.GOLD}>Gold (Accès Archives)</option>
+                        <option value={MembershipType.PLATINUM}>Platinum</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold mb-1 text-indigo-900">
+                        Crédits initiaux
+                      </label>
+                      <input
+                        type="number"
+                        min={0}
+                        value={newUserForm.credits}
+                        onChange={(e) => setNewUserForm({ ...newUserForm, credits: parseInt(e.target.value) || 0 })}
+                        className="w-full rounded-lg border bg-white px-2.5 py-1.5 text-xs font-mono"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* If instructor: Teaching Subjects and Classes */}
+              {newUserForm.userType === UserType.INSTRUCTOR && (
+                <div className="space-y-3.5 p-3.5 rounded-2xl bg-indigo-50/50 border border-indigo-100">
                   <div>
-                    <label className="block text-xs font-semibold mb-1 text-indigo-900">
-                      Crédits initiaux
-                    </label>
-                    <input
-                      type="number"
-                      min={0}
-                      value={newUserForm.credits}
-                      onChange={(e) => setNewUserForm({ ...newUserForm, credits: parseInt(e.target.value) || 0 })}
-                      className="w-full rounded-lg border bg-white px-2.5 py-1.5 text-xs font-mono"
-                    />
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="block text-xs font-bold text-indigo-950">
+                        Matières qu&apos;il peut enseigner ({newUserForm.teachingSubjects.length})
+                      </label>
+                      <span className="text-[10px] text-indigo-600 font-medium">Cliquez pour activer/désactiver</span>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto p-1 bg-white rounded-xl border border-indigo-100">
+                      {SUBJECTS.map((s) => {
+                        const selected = newUserForm.teachingSubjects.includes(s.id);
+                        return (
+                          <button
+                            key={s.id}
+                            type="button"
+                            onClick={() => {
+                              const exists = newUserForm.teachingSubjects.includes(s.id);
+                              setNewUserForm({
+                                ...newUserForm,
+                                teachingSubjects: exists
+                                  ? newUserForm.teachingSubjects.filter((x) => x !== s.id)
+                                  : [...newUserForm.teachingSubjects, s.id],
+                              });
+                            }}
+                            className={`rounded-lg px-2.5 py-1 text-xs font-semibold transition-all ${
+                              selected
+                                ? "bg-indigo-600 text-white shadow-sm"
+                                : "bg-slate-50 text-slate-700 border border-slate-200 hover:bg-slate-100"
+                            }`}
+                          >
+                            {selected ? "✓ " : ""}{s.name}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="block text-xs font-bold text-indigo-950">
+                        Classes / Niveaux qu&apos;il peut enseigner ({newUserForm.teachingClasses.length})
+                      </label>
+                      <span className="text-[10px] text-indigo-600 font-medium">Optionnel (toutes si vide)</span>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto p-1 bg-white rounded-xl border border-indigo-100">
+                      {FILIERE_OPTIONS.filter((f, idx, arr) => arr.indexOf(f) === idx).map((c) => {
+                        const selected = newUserForm.teachingClasses.includes(c);
+                        return (
+                          <button
+                            key={c}
+                            type="button"
+                            onClick={() => {
+                              const exists = newUserForm.teachingClasses.includes(c);
+                              setNewUserForm({
+                                ...newUserForm,
+                                teachingClasses: exists
+                                  ? newUserForm.teachingClasses.filter((x) => x !== c)
+                                  : [...newUserForm.teachingClasses, c],
+                              });
+                            }}
+                            className={`rounded-lg px-2 py-0.5 text-xs transition-all ${
+                              selected
+                                ? "bg-emerald-600 text-white font-semibold shadow-sm"
+                                : "bg-slate-50 text-slate-700 border border-slate-200 hover:bg-slate-100"
+                            }`}
+                          >
+                            {selected ? "✓ " : ""}{c}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
               )}
@@ -1032,56 +1149,187 @@ export function AdminBoardView() {
                 </div>
               </div>
 
+              {/* Firstname & Lastname */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold mb-1" style={{ color: "var(--ink)" }}>
-                    Rôle
+                    Prénom
                   </label>
-                  <select
-                    value={editingUser.userType}
-                    onChange={(e) => setEditingUser({ ...editingUser, userType: e.target.value })}
+                  <input
+                    type="text"
+                    value={editingUser.firstname || ""}
+                    onChange={(e) => setEditingUser({ ...editingUser, firstname: e.target.value })}
+                    placeholder="Prénom"
                     className="w-full rounded-xl border px-3 py-2 text-sm outline-none focus:border-indigo-500"
                     style={{ borderColor: "var(--line)" }}
-                  >
-                    <option value={UserType.STUDENT}>Étudiant</option>
-                    <option value={UserType.INSTRUCTOR}>Instructeur</option>
-                    <option value={UserType.FINANCE}>Finance</option>
-                    <option value={UserType.MODERATOR}>Modérateur</option>
-                    <option value={UserType.PARENT}>Parent</option>
-                    <option value={UserType.SUPERADMIN}>Superadmin</option>
-                  </select>
+                  />
                 </div>
-
                 <div>
                   <label className="block text-xs font-semibold mb-1" style={{ color: "var(--ink)" }}>
-                    Membership
+                    Nom de famille
                   </label>
-                  <select
-                    value={editingUser.membership}
-                    onChange={(e) => setEditingUser({ ...editingUser, membership: e.target.value })}
+                  <input
+                    type="text"
+                    value={editingUser.lastname || ""}
+                    onChange={(e) => setEditingUser({ ...editingUser, lastname: e.target.value })}
+                    placeholder="Nom de famille"
                     className="w-full rounded-xl border px-3 py-2 text-sm outline-none focus:border-indigo-500"
                     style={{ borderColor: "var(--line)" }}
-                  >
-                    <option value={MembershipType.DEFAULT}>Default</option>
-                    <option value={MembershipType.SILVER}>Silver</option>
-                    <option value={MembershipType.GOLD}>Gold</option>
-                    <option value={MembershipType.PLATINUM}>Platinum</option>
-                  </select>
+                  />
                 </div>
               </div>
 
               <div>
                 <label className="block text-xs font-semibold mb-1" style={{ color: "var(--ink)" }}>
-                  Solde de crédits
+                  Rôle de l&apos;utilisateur
                 </label>
-                <input
-                  type="number"
-                  value={editingUser.credits}
-                  onChange={(e) => setEditingUser({ ...editingUser, credits: parseInt(e.target.value) || 0 })}
-                  className="w-full rounded-xl border px-3 py-2 text-sm outline-none focus:border-indigo-500 font-mono"
+                <select
+                  value={editingUser.userType}
+                  onChange={(e) => setEditingUser({ ...editingUser, userType: e.target.value })}
+                  className="w-full rounded-xl border px-3 py-2 text-sm outline-none focus:border-indigo-500 font-medium"
                   style={{ borderColor: "var(--line)" }}
-                />
+                >
+                  <option value={UserType.STUDENT}>Étudiant (Élève)</option>
+                  <option value={UserType.INSTRUCTOR}>Instructeur (Enseignant)</option>
+                  <option value={UserType.SUPERADMIN}>Superadmin</option>
+                  <option value={UserType.FINANCE}>Finance</option>
+                  <option value={UserType.MODERATOR}>Modérateur</option>
+                  <option value={UserType.PARENT}>Parent</option>
+                </select>
               </div>
+
+              {/* If student: Student class + Membership & credits */}
+              {editingUser.userType === UserType.STUDENT && (
+                <div className="space-y-3 p-3.5 rounded-2xl bg-indigo-50/50 border border-indigo-100">
+                  <div>
+                    <label className="block text-xs font-bold text-indigo-950 mb-1">
+                      Classe de l&apos;élève *
+                    </label>
+                    <select
+                      value={editingUser.studentClass || "2ème Informatique"}
+                      onChange={(e) => setEditingUser({ ...editingUser, studentClass: e.target.value })}
+                      className="w-full rounded-xl border bg-white px-3 py-2 text-sm outline-none focus:border-indigo-500 font-medium"
+                      style={{ borderColor: "var(--line)" }}
+                    >
+                      {TUNISIAN_CLASS_GROUPS.map((g) => (
+                        <optgroup key={g.group} label={g.group}>
+                          {g.classes.map((c) => (
+                            <option key={c} value={c}>
+                              {c}
+                            </option>
+                          ))}
+                        </optgroup>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 pt-1">
+                    <div>
+                      <label className="block text-xs font-semibold mb-1 text-indigo-950">
+                        Formule d&apos;abonnement
+                      </label>
+                      <select
+                        value={editingUser.membership}
+                        onChange={(e) => setEditingUser({ ...editingUser, membership: e.target.value })}
+                        className="w-full rounded-xl border bg-white px-3 py-2 text-sm outline-none focus:border-indigo-500 font-medium"
+                        style={{ borderColor: "var(--line)" }}
+                      >
+                        <option value={MembershipType.DEFAULT}>Default (Gratuit)</option>
+                        <option value={MembershipType.SILVER}>Silver</option>
+                        <option value={MembershipType.GOLD}>Gold (Accès Archives)</option>
+                        <option value={MembershipType.PLATINUM}>Platinum</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold mb-1 text-indigo-950">
+                        Solde de crédits
+                      </label>
+                      <input
+                        type="number"
+                        min={0}
+                        value={editingUser.credits}
+                        onChange={(e) => setEditingUser({ ...editingUser, credits: parseInt(e.target.value) || 0 })}
+                        className="w-full rounded-xl border bg-white px-3 py-2 text-sm outline-none focus:border-indigo-500 font-mono"
+                        style={{ borderColor: "var(--line)" }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* If instructor: Teaching Subjects and Classes */}
+              {editingUser.userType === UserType.INSTRUCTOR && (
+                <div className="space-y-3.5 p-3.5 rounded-2xl bg-indigo-50/50 border border-indigo-100">
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="block text-xs font-bold text-indigo-950">
+                        Matières qu&apos;il peut enseigner ({(editingUser.teachingSubjects || []).length})
+                      </label>
+                      <span className="text-[10px] text-indigo-600 font-medium">Cliquez pour activer/désactiver</span>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto p-1 bg-white rounded-xl border border-indigo-100">
+                      {SUBJECTS.map((s) => {
+                        const current = editingUser.teachingSubjects || [];
+                        const selected = current.includes(s.id);
+                        return (
+                          <button
+                            key={s.id}
+                            type="button"
+                            onClick={() => {
+                              const updated = selected
+                                ? current.filter((x) => x !== s.id)
+                                : [...current, s.id];
+                              setEditingUser({ ...editingUser, teachingSubjects: updated });
+                            }}
+                            className={`rounded-lg px-2.5 py-1 text-xs font-semibold transition-all ${
+                              selected
+                                ? "bg-indigo-600 text-white shadow-sm"
+                                : "bg-slate-50 text-slate-700 border border-slate-200 hover:bg-slate-100"
+                            }`}
+                          >
+                            {selected ? "✓ " : ""}{s.name}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="block text-xs font-bold text-indigo-950">
+                        Classes / Niveaux qu&apos;il peut enseigner ({(editingUser.teachingClasses || []).length})
+                      </label>
+                      <span className="text-[10px] text-indigo-600 font-medium">Optionnel (toutes si vide)</span>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto p-1 bg-white rounded-xl border border-indigo-100">
+                      {FILIERE_OPTIONS.filter((f, idx, arr) => arr.indexOf(f) === idx).map((c) => {
+                        const current = editingUser.teachingClasses || [];
+                        const selected = current.includes(c);
+                        return (
+                          <button
+                            key={c}
+                            type="button"
+                            onClick={() => {
+                              const updated = selected
+                                ? current.filter((x) => x !== c)
+                                : [...current, c];
+                              setEditingUser({ ...editingUser, teachingClasses: updated });
+                            }}
+                            className={`rounded-lg px-2 py-0.5 text-xs transition-all ${
+                              selected
+                                ? "bg-emerald-600 text-white font-semibold shadow-sm"
+                                : "bg-slate-50 text-slate-700 border border-slate-200 hover:bg-slate-100"
+                            }`}
+                          >
+                            {selected ? "✓ " : ""}{c}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <div className="flex items-center justify-end gap-3 pt-4 border-t" style={{ borderColor: "var(--line)" }}>
                 <Button type="button" variant="secondary" onClick={() => setEditingUser(null)} className="text-xs">
@@ -1137,17 +1385,9 @@ export function AdminBoardView() {
                   className="w-full rounded-xl border px-3 py-2 text-sm outline-none focus:border-indigo-500 font-medium"
                   style={{ borderColor: "var(--line)" }}
                 >
-                  <option value="2ème Informatique">2ème Informatique</option>
-                  <option value="2ème Math">2ème Math</option>
-                  <option value="2ème Sciences">2ème Sciences</option>
-                  <option value="2ème Économie & Services">2ème Économie & Services</option>
-                  <option value="3ème Informatique">3ème Informatique</option>
-                  <option value="3ème Math">3ème Math</option>
-                  <option value="3ème Sciences Expérimentales">3ème Sciences Expérimentales</option>
-                  <option value="Bac Informatique">Bac Informatique</option>
-                  <option value="Bac Math">Bac Math</option>
-                  <option value="Bac Sciences">Bac Sciences</option>
-                  <option value="Tronc Commun">Tronc Commun</option>
+                  {filieres.map((f) => (
+                    <option key={f} value={f}>{f}</option>
+                  ))}
                   <option value="custom">+ Autre filière personnalisée...</option>
                 </select>
 
@@ -1350,14 +1590,17 @@ export function AdminBoardView() {
                 <label className="block text-xs font-semibold mb-1" style={{ color: "var(--ink)" }}>
                   Filière
                 </label>
-                <input
-                  type="text"
+                <select
                   required
                   value={editingSubject.filiere}
                   onChange={(e) => setEditingSubject({ ...editingSubject, filiere: e.target.value })}
-                  className="w-full rounded-xl border px-3 py-2 text-sm outline-none focus:border-indigo-500"
+                  className="w-full rounded-xl border px-3 py-2 text-sm outline-none focus:border-indigo-500 font-medium"
                   style={{ borderColor: "var(--line)" }}
-                />
+                >
+                  {Array.from(new Set([...filieres, editingSubject.filiere])).map((f) => (
+                    <option key={f} value={f}>{f}</option>
+                  ))}
+                </select>
               </div>
 
               <div>

@@ -1,4 +1,4 @@
-import { IsEmail, IsEnum, IsNotEmpty, IsNumber, IsOptional, IsString, MinLength } from "class-validator";
+import { IsArray, IsEmail, IsEnum, IsNotEmpty, IsNumber, IsOptional, IsString, MinLength } from "class-validator";
 import { MembershipType, UserType } from "../../utils/enum.js";
 
 export class AdminCreateUserDto {
@@ -31,4 +31,16 @@ export class AdminCreateUserDto {
     @IsString()
     @IsOptional()
     lastname?: string;
+
+    @IsString()
+    @IsOptional()
+    studentClass?: string;
+
+    @IsArray()
+    @IsOptional()
+    teachingSubjects?: string[];
+
+    @IsArray()
+    @IsOptional()
+    teachingClasses?: string[];
 }

@@ -41,23 +41,14 @@ export class SubjectsService implements OnModuleInit {
     }
 
     public async getFilieres(): Promise<string[]> {
-        const subjects = await this.subjectRepository.find({ select: { filiere: true } });
-        const set = new Set(subjects.map((s) => s.filiere));
-        // Ensure standard filières are included in suggestions
-        [
-            '2ème Informatique',
-            '2ème Math',
-            '2ème Sciences',
-            '2ème Économie & Services',
-            '3ème Informatique',
-            '3ème Math',
-            '3ème Sciences Expérimentales',
-            'Bac Informatique',
-            'Bac Math',
-            'Bac Sciences',
-            'Tronc Commun',
-        ].forEach((f) => set.add(f));
-        return Array.from(set);
+        // Return all distinct filières stored in the database, sorted alphabetically.
+        // The DB is seeded on startup with all standard Tunisian curriculum filières.
+        const rows = await this.subjectRepository
+            .createQueryBuilder('s')
+            .select('DISTINCT s.filiere', 'filiere')
+            .orderBy('s.filiere', 'ASC')
+            .getRawMany<{ filiere: string }>();
+        return rows.map((r) => r.filiere);
     }
 
     public async create(dto: CreateSubjectDto, userId?: number) {
@@ -93,7 +84,15 @@ export class SubjectsService implements OnModuleInit {
         if (dto.icon !== undefined) subject.icon = dto.icon;
         if (dto.color !== undefined) subject.color = dto.color;
         if (dto.topics !== undefined) subject.topics = dto.topics;
-        if (dto.slug !== undefined) subject.slug = dto.slug;
+        if (dto.slug !== undefined) {
+            subject.slug = dto.slug;
+        } else if (dto.name !== undefined || dto.filiere !== undefined || dto.code !== undefined) {
+            const candidateSlug = this.slugify(`${subject.filiere}-${subject.code || subject.name}`);
+            const existing = await this.subjectRepository.findOne({ where: { slug: candidateSlug } });
+            if (!existing || existing.id === subject.id) {
+                subject.slug = candidateSlug;
+            }
+        }
         return this.subjectRepository.save(subject);
     }
 
@@ -115,6 +114,12 @@ export class SubjectsService implements OnModuleInit {
     }
 
     private async seedDefaultsIfEmpty() {
+        // If the database already has subjects, do not re-seed or overwrite user changes!
+        const count = await this.subjectRepository.count();
+        if (count > 0) {
+            return;
+        }
+
         const defaultSubjects: Partial<Subject>[] = [
             // 2ème Informatique
             {

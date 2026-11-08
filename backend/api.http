@@ -56,6 +56,39 @@ Content-Type: application/json
 GET {{baseUrl}}/api/users/current-user
 Authorization: Bearer {{token}}
 
+### Users: admin create instructor with teaching subjects & classes [superadmin]
+POST {{baseUrl}}/api/users/admin/create-user
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "username": "prof_informatique",
+  "email": "teacher.info@karini.tn",
+  "password": "password123",
+  "userType": "instructor",
+  "firstname": "Mohamed",
+  "lastname": "Ben Ali",
+  "teachingSubjects": ["informatique", "math"],
+  "teachingClasses": ["Bac Informatique", "3ème Informatique", "2ème Informatique"]
+}
+
+### Users: admin create student with class [superadmin]
+POST {{baseUrl}}/api/users/admin/create-user
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "username": "eleve_bac",
+  "email": "eleve.bac@karini.tn",
+  "password": "password123",
+  "userType": "student",
+  "firstname": "Yasmine",
+  "lastname": "Trabelsi",
+  "studentClass": "Bac Informatique",
+  "membership": "gold",
+  "credits": 50
+}
+
 ### Users: get all users [superadmin]
 GET {{baseUrl}}/api/users
 Authorization: Bearer {{token}}

@@ -35,7 +35,7 @@ export const subjectsRepository = {
     return apiClient<Subject>("/api/subjects", {
       token,
       method: "POST",
-      body: JSON.stringify(data),
+      json: data,
     });
   },
 
@@ -43,7 +43,7 @@ export const subjectsRepository = {
     return apiClient<Subject>(`/api/subjects/${id}`, {
       token,
       method: "PATCH",
-      body: JSON.stringify(data),
+      json: data,
     });
   },
 

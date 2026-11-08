@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import type { MembershipPlan } from "@/domain/entities/membership-plan";
-import { MembershipType } from "@/domain/enums";
+import { MembershipType, UserType } from "@/domain/enums";
 import { membershipsService } from "@/application/services/memberships-service";
 import { Button } from "@/presentation/components/ui/button";
 import { PageLoader } from "@/presentation/components/ui/page-loader";
@@ -83,12 +84,38 @@ export function MembershipPlansView() {
     }
   }
 
+  const isStudent = user?.userType === UserType.STUDENT;
+
   if (loading) return <PageLoader label="Loading membership plans…" />;
 
   return (
     <div>
-      {/* Current plan info */}
-      {user ? (
+      {/* Current plan info / Non-student banner */}
+      {user && !isStudent ? (
+        <div className="glass-card mb-8 p-6 rounded-3xl border border-indigo-200 bg-gradient-to-r from-indigo-50/80 via-purple-50/50 to-pink-50/40 animate-fade-in shadow-sm">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="flex items-center gap-3.5">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-600 text-white text-xl shadow-sm shrink-0">
+                {user.userType === UserType.SUPERADMIN ? "👑" : "👨‍🏫"}
+              </div>
+              <div>
+                <h2 className="font-serif text-lg font-bold text-slate-900">
+                  Accès Professionnel Illimité ({user.userType})
+                </h2>
+                <p className="text-xs text-slate-600 mt-0.5 max-w-xl leading-relaxed">
+                  Les formules d&apos;abonnement et crédits sont exclusivement destinés aux comptes élèves. En tant que {user.userType}, vous disposez déjà d&apos;un accès sans restriction à l&apos;intégralité des cours, leçons et archives de Karini.
+                </p>
+              </div>
+            </div>
+            <Link
+              href={user.userType === UserType.SUPERADMIN ? "/admin" : "/teacher"}
+              className="btn-primary text-xs font-bold rounded-xl whitespace-nowrap self-start sm:self-auto shadow-sm"
+            >
+              {user.userType === UserType.SUPERADMIN ? "Ouvrir Panneau Admin →" : "Ouvrir Studio Enseignant →"}
+            </Link>
+          </div>
+        </div>
+      ) : user ? (
         <div
           className="glass-card mb-8 flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between animate-fade-in"
         >
@@ -213,7 +240,16 @@ export function MembershipPlansView() {
 
               {/* Button */}
               <div className="mt-6">
-                {isCurrent ? (
+                {!isStudent ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="w-full text-xs text-slate-400 cursor-not-allowed bg-slate-50"
+                    disabled
+                  >
+                    Réservé aux élèves
+                  </Button>
+                ) : isCurrent ? (
                   <span
                     className="block w-full rounded-xl py-2.5 text-center text-sm font-medium"
                     style={{ color: meta.color, background: `${meta.color}15` }}

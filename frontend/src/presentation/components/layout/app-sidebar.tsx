@@ -18,9 +18,10 @@ export function AppSidebar({ isOpenMobile, onCloseMobile }: AppSidebarProps) {
   if (!user) return null;
 
   const isSuperadmin = user.userType === UserType.SUPERADMIN;
-  const isTeacherOrAdmin =
-    user.userType === UserType.INSTRUCTOR || user.userType === UserType.SUPERADMIN;
+  const isInstructor = user.userType === UserType.INSTRUCTOR;
+  const isStudent = user.userType === UserType.STUDENT;
 
+  // Build role-tailored navigation items
   const navLinks = [
     {
       href: "/",
@@ -35,32 +36,25 @@ export function AppSidebar({ isOpenMobile, onCloseMobile }: AppSidebarProps) {
       ),
       exact: true,
     },
-    {
-      href: "/courses",
-      label: "Courses",
-      icon: (
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
-          <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
-        </svg>
-      ),
-      exact: false,
-    },
-    {
-      href: "/membership",
-      label: "Membership",
-      icon: (
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <path d="M12 2L15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2z" />
-        </svg>
-      ),
-      exact: false,
-    },
-    ...(isTeacherOrAdmin
+    ...(isSuperadmin
+      ? [
+          {
+            href: "/admin",
+            label: "Panneau Superadmin",
+            icon: (
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+              </svg>
+            ),
+            exact: false,
+          },
+        ]
+      : []),
+    ...(isInstructor || isSuperadmin
       ? [
           {
             href: "/teacher",
-            label: "Teacher Studio",
+            label: "Studio Enseignant",
             icon: (
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M22 10v6M2 10l10-5 10 5-10 5z" />
@@ -71,14 +65,26 @@ export function AppSidebar({ isOpenMobile, onCloseMobile }: AppSidebarProps) {
           },
         ]
       : []),
-    ...(isSuperadmin
+    {
+      href: "/courses",
+      label: isInstructor ? "Catalogue des Cours" : isSuperadmin ? "Tous les Cours" : "Mes Cours",
+      icon: (
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+          <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+        </svg>
+      ),
+      exact: false,
+    },
+    // Membership link is ONLY for students
+    ...(isStudent
       ? [
           {
-            href: "/admin",
-            label: "Superadmin Board",
+            href: "/membership",
+            label: "Formules & Crédits",
             icon: (
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                <path d="M12 2L15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2z" />
               </svg>
             ),
             exact: false,
@@ -87,7 +93,6 @@ export function AppSidebar({ isOpenMobile, onCloseMobile }: AppSidebarProps) {
       : []),
   ];
 
-  const isStudent = user.userType === UserType.STUDENT;
   const isBacInfo = Boolean(
     user.studentClass &&
       (/bac.*info/i.test(user.studentClass) ||
@@ -227,45 +232,107 @@ export function AppSidebar({ isOpenMobile, onCloseMobile }: AppSidebarProps) {
           </div>
         </div>
 
-        {/* Credits & Tier card */}
-        <div
-          className="mt-6 rounded-2xl p-4 transition-all"
-          style={{
-            background: "linear-gradient(135deg, rgba(99, 102, 241, 0.08), rgba(6, 182, 212, 0.08))",
-            border: "1px solid rgba(99, 102, 241, 0.16)",
-          }}
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold" style={{ color: "var(--ink)" }}>
-              Credits Balance
-            </span>
-            <span
-              className="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase"
-              style={{
-                background: "rgba(99, 102, 241, 0.15)",
-                color: "var(--accent)",
-              }}
-            >
-              {membershipTier}
-            </span>
-          </div>
-          <div className="mt-2 flex items-baseline gap-1.5">
-            <span className="font-serif text-3xl font-bold gradient-text">{user.credits}</span>
-            <span className="text-xs" style={{ color: "var(--muted)" }}>credits</span>
-          </div>
-          <Link
-            href="/membership"
-            onClick={onCloseMobile}
-            className="mt-3 block text-center rounded-xl py-1.5 text-xs font-medium transition-colors"
+        {/* Role-specific bottom card */}
+        {isStudent && (
+          <div
+            className="mt-6 rounded-2xl p-4 transition-all"
             style={{
-              background: "#ffffff",
-              color: "var(--accent)",
-              border: "1px solid rgba(99, 102, 241, 0.2)",
+              background: "linear-gradient(135deg, rgba(99, 102, 241, 0.08), rgba(6, 182, 212, 0.08))",
+              border: "1px solid rgba(99, 102, 241, 0.16)",
             }}
           >
-            Upgrade / Top up →
-          </Link>
-        </div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold" style={{ color: "var(--ink)" }}>
+                Solde de Crédits
+              </span>
+              <span
+                className="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase"
+                style={{
+                  background: "rgba(99, 102, 241, 0.15)",
+                  color: "var(--accent)",
+                }}
+              >
+                {membershipTier}
+              </span>
+            </div>
+            <div className="mt-2 flex items-baseline gap-1.5">
+              <span className="font-serif text-3xl font-bold gradient-text">{user.credits}</span>
+              <span className="text-xs" style={{ color: "var(--muted)" }}>crédits</span>
+            </div>
+            <Link
+              href="/membership"
+              onClick={onCloseMobile}
+              className="mt-3 block text-center rounded-xl py-1.5 text-xs font-medium transition-colors"
+              style={{
+                background: "#ffffff",
+                color: "var(--accent)",
+                border: "1px solid rgba(99, 102, 241, 0.2)",
+              }}
+            >
+              Gérer mon abonnement →
+            </Link>
+          </div>
+        )}
+
+        {isInstructor && (
+          <div
+            className="mt-6 rounded-2xl p-4 transition-all"
+            style={{
+              background: "linear-gradient(135deg, rgba(79, 70, 229, 0.08), rgba(124, 58, 237, 0.08))",
+              border: "1px solid rgba(79, 70, 229, 0.2)",
+            }}
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-indigo-900 flex items-center gap-1.5">
+                <span>👨‍🏫</span> Espace Enseignant
+              </span>
+              <span className="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase bg-indigo-100 text-indigo-700">
+                Studio
+              </span>
+            </div>
+            <p className="mt-2 text-xs text-slate-600 leading-relaxed">
+              {user.teachingSubjects && user.teachingSubjects.length > 0
+                ? `${user.teachingSubjects.length} matière(s) assignée(s)`
+                : "Toutes matières autorisées"}
+            </p>
+            <Link
+              href="/teacher"
+              onClick={onCloseMobile}
+              className="mt-3 block text-center rounded-xl py-1.5 text-xs font-bold transition-all bg-indigo-600 text-white shadow-xs hover:bg-indigo-700"
+            >
+              + Nouveau cours
+            </Link>
+          </div>
+        )}
+
+        {isSuperadmin && (
+          <div
+            className="mt-6 rounded-2xl p-4 transition-all"
+            style={{
+              background: "linear-gradient(135deg, rgba(225, 29, 72, 0.08), rgba(99, 102, 241, 0.08))",
+              border: "1px solid rgba(225, 29, 72, 0.2)",
+            }}
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-rose-950 flex items-center gap-1.5">
+                <span>👑</span> Superadmin
+              </span>
+              <span className="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase bg-rose-100 text-rose-700">
+                Actif
+              </span>
+            </div>
+            <p className="mt-2 text-xs text-slate-600 leading-relaxed">
+              Contrôle total sur les comptes, les matières et les accès.
+            </p>
+            <Link
+              href="/admin"
+              onClick={onCloseMobile}
+              className="mt-3 block text-center rounded-xl py-1.5 text-xs font-bold transition-all bg-slate-900 text-white shadow-xs hover:bg-slate-800"
+            >
+              Panneau d&apos;administration →
+            </Link>
+          </div>
+        )}
       </div>
 
       {/* Bottom user card */}

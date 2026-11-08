@@ -97,6 +97,7 @@ export function AdminUsersTab({
               <th className="px-5 py-3.5 font-semibold">Utilisateur</th>
               <th className="px-5 py-3.5 font-semibold">Email</th>
               <th className="px-5 py-3.5 font-semibold">Rôle</th>
+              <th className="px-5 py-3.5 font-semibold">Classe / Enseignement</th>
               <th className="px-5 py-3.5 font-semibold">Membership</th>
               <th className="px-5 py-3.5 font-semibold">Crédits</th>
               <th className="px-5 py-3.5 font-semibold text-right">Actions</th>
@@ -146,15 +147,67 @@ export function AdminUsersTab({
                       {u.userType}
                     </span>
                   </td>
-                  <td className="px-5 py-3.5">
-                    <span className="rounded-md px-2 py-0.5 text-xs font-medium uppercase font-mono bg-slate-100 text-slate-700">
-                      {u.membership || "default"}
-                    </span>
+                  <td className="px-5 py-3.5 max-w-xs">
+                    {u.userType === UserType.STUDENT && (
+                      <span className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-semibold bg-sky-50 text-sky-700 border border-sky-200">
+                        🎓 {u.studentClass || "Non assignée"}
+                      </span>
+                    )}
+                    {u.userType === UserType.INSTRUCTOR && (
+                      <div className="space-y-1">
+                        {u.teachingSubjects && u.teachingSubjects.length > 0 ? (
+                          <div className="flex flex-wrap items-center gap-1">
+                            <span className="text-[10px] text-slate-400 font-bold">Matières:</span>
+                            {u.teachingSubjects.map((s) => (
+                              <span
+                                key={s}
+                                className="rounded px-1.5 py-0.5 text-[10px] font-bold uppercase bg-indigo-50 text-indigo-700 border border-indigo-200/50"
+                              >
+                                {s}
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="block text-[11px] text-amber-600 font-medium">
+                            ⚠️ Aucune matière assignée
+                          </span>
+                        )}
+                        {u.teachingClasses && u.teachingClasses.length > 0 && (
+                          <div className="flex flex-wrap items-center gap-1">
+                            <span className="text-[10px] text-slate-400 font-bold">Classes:</span>
+                            {u.teachingClasses.map((c) => (
+                              <span
+                                key={c}
+                                className="rounded px-1.5 py-0.5 text-[10px] font-medium bg-slate-100 text-slate-700"
+                              >
+                                {c}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    {u.userType !== UserType.STUDENT && u.userType !== UserType.INSTRUCTOR && (
+                      <span className="text-xs text-slate-400">—</span>
+                    )}
                   </td>
                   <td className="px-5 py-3.5">
-                    <span className="font-mono font-bold text-xs" style={{ color: "var(--accent)" }}>
-                      {u.credits} pts
-                    </span>
+                    {u.userType === UserType.STUDENT ? (
+                      <span className="rounded-md px-2 py-0.5 text-xs font-medium uppercase font-mono bg-slate-100 text-slate-700">
+                        {u.membership || "default"}
+                      </span>
+                    ) : (
+                      <span className="text-xs text-slate-400" title="Réservé aux élèves">—</span>
+                    )}
+                  </td>
+                  <td className="px-5 py-3.5">
+                    {u.userType === UserType.STUDENT ? (
+                      <span className="font-mono font-bold text-xs" style={{ color: "var(--accent)" }}>
+                        {u.credits} pts
+                      </span>
+                    ) : (
+                      <span className="text-xs text-slate-400" title="Réservé aux élèves">—</span>
+                    )}
                   </td>
                   <td className="px-5 py-3.5 text-right space-x-2">
                     <button

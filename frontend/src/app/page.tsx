@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useAuth } from "@/presentation/providers/auth-provider";
 import { displayName } from "@/shared/utils/display-name";
+import { UserType } from "@/domain/enums";
 
 const platformFeatures = [
   {
@@ -91,13 +92,285 @@ const tiers = [
 export default function HomePage() {
   const { user, isLoading } = useAuth();
 
-  // If student is logged in, show student dashboard hub
+  // If a user is logged in, show their role-tailored dashboard hub
   if (!isLoading && user) {
+    // =========================================================================
+    // 1. SUPERADMIN DASHBOARD HUB
+    // =========================================================================
+    if (user.userType === UserType.SUPERADMIN) {
+      return (
+        <div className="space-y-8 animate-fade-in-up">
+          {/* Superadmin Hero Header */}
+          <div
+            className="glass-card-strong relative overflow-hidden p-6 sm:p-8 rounded-3xl"
+            style={{
+              background: "linear-gradient(135deg, rgba(225, 29, 72, 0.08), rgba(99, 102, 241, 0.08))",
+              border: "1px solid rgba(225, 29, 72, 0.2)",
+            }}
+          >
+            <div className="relative z-10 max-w-3xl">
+              <span
+                className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wider bg-rose-50 text-rose-700 border border-rose-200"
+              >
+                <span>👑</span> Console Superadministrateur
+              </span>
+              <h1 className="mt-4 font-serif text-3xl font-bold sm:text-4xl" style={{ color: "var(--ink)" }}>
+                Bienvenue, <span className="gradient-text">{displayName(user)}</span>
+              </h1>
+              <p className="mt-2 text-sm leading-relaxed" style={{ color: "var(--muted)" }}>
+                Centre de commandement Karini. Pilotez l&apos;ensemble de la plateforme : gérez les comptes élèves et enseignants, configurez les matières et filières scolaires tunisiennes, et supervisez les publications.
+              </p>
+
+              <div className="mt-6 flex flex-wrap items-center gap-3">
+                <Link
+                  href="/admin"
+                  className="btn-primary text-xs sm:text-sm font-bold shadow-md rounded-xl"
+                  style={{ background: "linear-gradient(135deg, #e11d48, #4f46e5)" }}
+                >
+                  <span>⚙️</span> Panneau d&apos;Administration
+                </Link>
+                <Link
+                  href="/teacher"
+                  className="btn-secondary text-xs sm:text-sm font-semibold rounded-xl"
+                >
+                  <span>👨‍🏫</span> Studio Enseignant
+                </Link>
+                <Link
+                  href="/courses"
+                  className="btn-secondary text-xs sm:text-sm font-semibold rounded-xl"
+                >
+                  <span>📚</span> Explorer tous les cours
+                </Link>
+              </div>
+            </div>
+          </div>
+
+          {/* Quick Management Cards Grid */}
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            <Link
+              href="/admin"
+              className="glass-card group p-6 rounded-3xl transition-all duration-300 hover:-translate-y-1 hover:shadow-lg border"
+              style={{ borderColor: "rgba(99, 102, 241, 0.2)" }}
+            >
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600 text-xl font-bold">
+                👥
+              </div>
+              <h3 className="mt-4 font-serif text-lg font-bold" style={{ color: "var(--ink)" }}>
+                Gestion des Utilisateurs
+              </h3>
+              <p className="mt-1 text-xs leading-relaxed" style={{ color: "var(--muted)" }}>
+                Créer des élèves, assigner des classes, configurer les matières et classes autorisées pour chaque enseignant.
+              </p>
+              <span className="mt-4 inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 group-hover:translate-x-1 transition-transform">
+                Gérer les comptes →
+              </span>
+            </Link>
+
+            <Link
+              href="/admin"
+              className="glass-card group p-6 rounded-3xl transition-all duration-300 hover:-translate-y-1 hover:shadow-lg border"
+              style={{ borderColor: "rgba(168, 85, 247, 0.2)" }}
+            >
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-purple-50 text-purple-600 text-xl font-bold">
+                📚
+              </div>
+              <h3 className="mt-4 font-serif text-lg font-bold" style={{ color: "var(--ink)" }}>
+                Catalogue des Matières & Filières
+              </h3>
+              <p className="mt-1 text-xs leading-relaxed" style={{ color: "var(--muted)" }}>
+                Ajouter, renommer ou supprimer dynamiquement les matières pour chaque filière (2ème Info, 2ème Math, Bac Info, etc.).
+              </p>
+              <span className="mt-4 inline-flex items-center gap-1 text-xs font-semibold text-purple-600 group-hover:translate-x-1 transition-transform">
+                Configurer les programmes →
+              </span>
+            </Link>
+
+            <Link
+              href="/teacher"
+              className="glass-card group p-6 rounded-3xl transition-all duration-300 hover:-translate-y-1 hover:shadow-lg border"
+              style={{ borderColor: "rgba(6, 182, 212, 0.2)" }}
+            >
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-cyan-50 text-cyan-600 text-xl font-bold">
+                🎓
+              </div>
+              <h3 className="mt-4 font-serif text-lg font-bold" style={{ color: "var(--ink)" }}>
+                Studio Pédagogique
+              </h3>
+              <p className="mt-1 text-xs leading-relaxed" style={{ color: "var(--muted)" }}>
+                Publier de nouveaux cours, ajouter des vidéos interactives et des documents PDF pour toutes les classes.
+              </p>
+              <span className="mt-4 inline-flex items-center gap-1 text-xs font-semibold text-cyan-600 group-hover:translate-x-1 transition-transform">
+                Ouvrir le studio →
+              </span>
+            </Link>
+          </div>
+        </div>
+      );
+    }
+
+    // =========================================================================
+    // 2. INSTRUCTOR DASHBOARD HUB
+    // =========================================================================
+    if (user.userType === UserType.INSTRUCTOR) {
+      return (
+        <div className="space-y-8 animate-fade-in-up">
+          {/* Instructor Hero Header */}
+          <div
+            className="glass-card-strong relative overflow-hidden p-6 sm:p-8 rounded-3xl"
+            style={{
+              background: "linear-gradient(135deg, rgba(79, 70, 229, 0.08), rgba(6, 182, 212, 0.06))",
+              border: "1px solid rgba(79, 70, 229, 0.2)",
+            }}
+          >
+            <div className="relative z-10 max-w-3xl">
+              <span
+                className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wider bg-indigo-50 text-indigo-700 border border-indigo-200"
+              >
+                <span>👨‍🏫</span> Espace Pédagogique Enseignant
+              </span>
+              <h1 className="mt-4 font-serif text-3xl font-bold sm:text-4xl" style={{ color: "var(--ink)" }}>
+                Bienvenue, Professeur <span className="gradient-text">{displayName(user)}</span>
+              </h1>
+              <p className="mt-2 text-sm leading-relaxed" style={{ color: "var(--muted)" }}>
+                Publiez des cours captivants et des leçons structurées pour vos élèves. En tant qu&apos;enseignant, vous disposez d&apos;un accès complet aux outils de création et de diffusion pédagogique.
+              </p>
+
+              <div className="mt-6 flex flex-wrap items-center gap-3">
+                <Link
+                  href="/teacher"
+                  className="btn-primary text-xs sm:text-sm font-bold shadow-md rounded-xl"
+                >
+                  <span>+</span> Créer un nouveau cours
+                </Link>
+                <Link
+                  href="/teacher"
+                  className="btn-secondary text-xs sm:text-sm font-semibold rounded-xl"
+                >
+                  <span>🎬</span> Gérer mes leçons
+                </Link>
+                <Link
+                  href="/courses"
+                  className="btn-secondary text-xs sm:text-sm font-semibold rounded-xl"
+                >
+                  <span>📖</span> Consulter les cours publiés
+                </Link>
+              </div>
+            </div>
+          </div>
+
+          {/* Teaching Assignment Details */}
+          <div className="glass-card p-6 rounded-3xl border" style={{ borderColor: "var(--line)" }}>
+            <h3 className="text-xs font-bold uppercase tracking-wider text-indigo-950 flex items-center gap-2">
+              <span>📋</span> Vos Affectations d&apos;Enseignement
+            </h3>
+            <p className="mt-1 text-xs" style={{ color: "var(--muted)" }}>
+              Ces affectations sont configurées par le Superadministrateur et déterminent les matières et filières dans lesquelles vous pouvez publier.
+            </p>
+
+            <div className="mt-4 grid gap-4 sm:grid-cols-2">
+              <div className="p-4 rounded-2xl bg-indigo-50/50 border border-indigo-100">
+                <span className="text-xs font-bold text-indigo-950 block mb-2">Matières autorisées :</span>
+                {user.teachingSubjects && user.teachingSubjects.length > 0 ? (
+                  <div className="flex flex-wrap gap-1.5">
+                    {user.teachingSubjects.map((s) => (
+                      <span key={s} className="rounded-lg px-2.5 py-1 text-xs font-bold uppercase bg-white text-indigo-700 border border-indigo-200 shadow-xs">
+                        {s}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <span className="text-xs text-amber-700 font-medium">Toutes les matières (aucune restriction)</span>
+                )}
+              </div>
+
+              <div className="p-4 rounded-2xl bg-indigo-50/50 border border-indigo-100">
+                <span className="text-xs font-bold text-indigo-950 block mb-2">Classes / Niveaux pris en charge :</span>
+                {user.teachingClasses && user.teachingClasses.length > 0 ? (
+                  <div className="flex flex-wrap gap-1.5">
+                    {user.teachingClasses.map((c) => (
+                      <span key={c} className="rounded-lg px-2.5 py-1 text-xs font-semibold bg-white text-slate-800 border border-slate-200 shadow-xs">
+                        {c}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <span className="text-xs text-slate-600 font-medium">Toutes les classes de la plateforme</span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Action cards for Teacher */}
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            <Link
+              href="/teacher"
+              className="glass-card group p-6 rounded-3xl transition-all duration-300 hover:-translate-y-1 hover:shadow-lg border"
+              style={{ borderColor: "rgba(79, 70, 229, 0.2)" }}
+            >
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600 text-xl font-bold">
+                ✍️
+              </div>
+              <h3 className="mt-4 font-serif text-lg font-bold" style={{ color: "var(--ink)" }}>
+                Studio de Création
+              </h3>
+              <p className="mt-1 text-xs leading-relaxed" style={{ color: "var(--muted)" }}>
+                Ajoutez de nouveaux modules de cours structurés pour vos matières autorisées.
+              </p>
+              <span className="mt-4 inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 group-hover:translate-x-1 transition-transform">
+                Ouvrir le studio →
+              </span>
+            </Link>
+
+            <Link
+              href="/teacher"
+              className="glass-card group p-6 rounded-3xl transition-all duration-300 hover:-translate-y-1 hover:shadow-lg border"
+              style={{ borderColor: "rgba(6, 182, 212, 0.2)" }}
+            >
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-cyan-50 text-cyan-600 text-xl font-bold">
+                🎥
+              </div>
+              <h3 className="mt-4 font-serif text-lg font-bold" style={{ color: "var(--ink)" }}>
+                Leçons Multimédia
+              </h3>
+              <p className="mt-1 text-xs leading-relaxed" style={{ color: "var(--muted)" }}>
+                Enrichissez vos cours avec des liens vidéo YouTube, des documents PDF de cours et des synthèses écrites.
+              </p>
+              <span className="mt-4 inline-flex items-center gap-1 text-xs font-semibold text-cyan-600 group-hover:translate-x-1 transition-transform">
+                Gérer les leçons →
+              </span>
+            </Link>
+
+            <Link
+              href="/courses"
+              className="glass-card group p-6 rounded-3xl transition-all duration-300 hover:-translate-y-1 hover:shadow-lg border"
+              style={{ borderColor: "rgba(168, 85, 247, 0.2)" }}
+            >
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-purple-50 text-purple-600 text-xl font-bold">
+                📖
+              </div>
+              <h3 className="mt-4 font-serif text-lg font-bold" style={{ color: "var(--ink)" }}>
+                Vue Apprenant
+              </h3>
+              <p className="mt-1 text-xs leading-relaxed" style={{ color: "var(--muted)" }}>
+                Consultez vos cours exactement tels qu&apos;ils sont affichés aux élèves de vos classes.
+              </p>
+              <span className="mt-4 inline-flex items-center gap-1 text-xs font-semibold text-purple-600 group-hover:translate-x-1 transition-transform">
+                Consulter les cours →
+              </span>
+            </Link>
+          </div>
+        </div>
+      );
+    }
+
+    // =========================================================================
+    // 3. STUDENT DASHBOARD HUB
+    // =========================================================================
     return (
       <div className="space-y-8 animate-fade-in-up">
         {/* Welcome Header */}
         <div
-          className="glass-card-strong relative overflow-hidden p-6 sm:p-8"
+          className="glass-card-strong relative overflow-hidden p-6 sm:p-8 rounded-3xl"
           style={{
             background: "linear-gradient(135deg, rgba(99, 102, 241, 0.08), rgba(6, 182, 212, 0.06))",
             border: "1px solid rgba(99, 102, 241, 0.18)",
@@ -113,13 +386,13 @@ export default function HomePage() {
               }}
             >
               <span className="h-2 w-2 rounded-full" style={{ background: "var(--accent)" }} />
-              Student Portal
+              Espace Élève
             </span>
             <h1 className="mt-4 font-serif text-3xl font-bold md:text-4xl" style={{ color: "var(--ink)" }}>
-              Welcome back, <span className="gradient-text">{displayName(user)}</span>
+              Bienvenue, <span className="gradient-text">{displayName(user)}</span>
             </h1>
             <p className="mt-2 text-sm leading-relaxed" style={{ color: "var(--muted)" }}>
-              Continue your learning journey. Browse video lessons, practice exercises, secure magazines, and live lecture archives using the navigation menu on your left.
+              Poursuivez votre apprentissage. Accédez aux cours vidéo, exercices interactifs, magazines sécurisés et archives pédagogiques de votre programme.
             </p>
 
             <div className="mt-6 flex flex-wrap items-center gap-3">
@@ -127,10 +400,10 @@ export default function HomePage() {
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <polygon points="5 3 19 12 5 21 5 3" />
                 </svg>
-                Go to Courses
+                Accéder à mes cours
               </Link>
               <Link href="/membership" className="btn-secondary">
-                Manage Membership & Credits
+                Gérer mon abonnement & crédits
               </Link>
             </div>
           </div>
@@ -138,53 +411,47 @@ export default function HomePage() {
 
         {/* Quick Stats Grid */}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <div className="glass-card p-5">
-            <p className="text-xs uppercase tracking-wider" style={{ color: "var(--muted)" }}>Available Credits</p>
-            <div className="mt-2 flex items-baseline gap-2">
-              <span className="font-serif text-3xl font-bold gradient-text">{user.credits}</span>
-              <span className="text-xs" style={{ color: "var(--muted)" }}>credits</span>
+          <div className="glass-card p-5 rounded-2xl">
+            <p className="text-xs uppercase tracking-wider" style={{ color: "var(--muted)" }}>Classe Scolaire</p>
+            <div className="mt-2 flex items-center gap-2">
+              <span className="font-serif text-2xl font-bold text-indigo-600">
+                {user.studentClass ? `🎓 ${user.studentClass}` : "Non assignée"}
+              </span>
             </div>
-            <p className="mt-1 text-xs text-slate-500">Spend credits to unlock premium lessons & exercises.</p>
+            <p className="mt-1 text-xs text-slate-500">
+              {user.studentClass
+                ? "Vos cours sont automatiquement adaptés à cette filière."
+                : "Demandez à l'administrateur d'assigner votre classe."}
+            </p>
           </div>
 
-          <div className="glass-card p-5">
-            <p className="text-xs uppercase tracking-wider" style={{ color: "var(--muted)" }}>Membership Tier</p>
+          <div className="glass-card p-5 rounded-2xl">
+            <p className="text-xs uppercase tracking-wider" style={{ color: "var(--muted)" }}>Crédits Disponibles</p>
+            <div className="mt-2 flex items-baseline gap-2">
+              <span className="font-serif text-3xl font-bold gradient-text">{user.credits}</span>
+              <span className="text-xs" style={{ color: "var(--muted)" }}>crédits</span>
+            </div>
+            <p className="mt-1 text-xs text-slate-500">Utilisez vos crédits pour débloquer les exercices et supports.</p>
+          </div>
+
+          <div className="glass-card p-5 rounded-2xl">
+            <p className="text-xs uppercase tracking-wider" style={{ color: "var(--muted)" }}>Formule d&apos;Abonnement</p>
             <div className="mt-2 flex items-center gap-2">
               <span className="font-serif text-2xl font-bold capitalize" style={{ color: "var(--ink)" }}>
                 {user.membership || "Standard"}
               </span>
             </div>
-            <p className="mt-1 text-xs text-slate-500">Upgrade to Gold or Platinum for full archive access.</p>
-          </div>
-
-          <div className="glass-card p-5">
-            <p className="text-xs uppercase tracking-wider" style={{ color: "var(--muted)" }}>Account Status</p>
-            <div className="mt-2 flex items-center gap-2">
-              <span
-                className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold"
-                style={{
-                  background: user.isAccountVerified ? "rgba(5, 150, 105, 0.1)" : "rgba(217, 119, 6, 0.1)",
-                  color: user.isAccountVerified ? "var(--success)" : "var(--gold)",
-                }}
-              >
-                <span
-                  className="h-1.5 w-1.5 rounded-full"
-                  style={{ background: user.isAccountVerified ? "var(--success)" : "var(--gold)" }}
-                />
-                {user.isAccountVerified ? "Verified Account" : "Active Learner"}
-              </span>
-            </div>
-            <p className="mt-1 text-xs text-slate-500">{user.email}</p>
+            <p className="mt-1 text-xs text-slate-500">Abonnement actif sur la plateforme.</p>
           </div>
         </div>
 
         {/* Learning Categories Grid */}
         <div>
           <h2 className="font-serif text-2xl" style={{ color: "var(--ink)" }}>
-            Explore Content Categories
+            Catégories d&apos;Apprentissage
           </h2>
           <p className="mt-1 text-xs" style={{ color: "var(--muted)" }}>
-            Select a category to jump directly into your courses library.
+            Sélectionnez une catégorie pour accéder directement à vos ressources.
           </p>
 
           <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -192,7 +459,7 @@ export default function HomePage() {
               <Link
                 key={feat.title}
                 href={feat.href}
-                className="glass-card group flex flex-col justify-between p-5 transition-all duration-200 hover:-translate-y-1 hover:border-indigo-400"
+                className="glass-card group flex flex-col justify-between p-5 transition-all duration-200 hover:-translate-y-1 hover:border-indigo-400 rounded-2xl"
               >
                 <div>
                   <div
@@ -209,7 +476,7 @@ export default function HomePage() {
                   </p>
                 </div>
                 <div className="mt-4 flex items-center gap-1 text-xs font-medium text-indigo-600 group-hover:underline">
-                  Browse category →
+                  Explorer la catégorie →
                 </div>
               </Link>
             ))}

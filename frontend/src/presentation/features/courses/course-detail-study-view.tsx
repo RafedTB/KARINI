@@ -10,6 +10,7 @@ import type { Lesson } from "@/domain/entities/lesson";
 import { LessonType } from "@/domain/enums";
 import { PageLoader } from "@/presentation/components/ui/page-loader";
 import { Button } from "@/presentation/components/ui/button";
+import { MagazinePdfViewer } from "@/presentation/components/pdf/magazine-pdf-viewer";
 
 type CourseDetailStudyViewProps = {
   courseId: number;
@@ -21,9 +22,14 @@ export function CourseDetailStudyView({ courseId }: CourseDetailStudyViewProps) 
 
   const [course, setCourse] = useState<Course | null>(null);
   const [selectedLessonId, setSelectedLessonId] = useState<number | null>(null);
+  const [viewingCoursePdf, setViewingCoursePdf] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [pdfBusy, setPdfBusy] = useState(false);
+  const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null);
+  const [loadingPdf, setLoadingPdf] = useState(false);
+  const [pdfError, setPdfError] = useState("");
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   useEffect(() => {
     if (!token) return;
@@ -34,6 +40,8 @@ export function CourseDetailStudyView({ courseId }: CourseDetailStudyViewProps) 
         setCourse(data);
         if (data.lessons && data.lessons.length > 0) {
           setSelectedLessonId(data.lessons[0].id);
+        } else if (data.pdfFile) {
+          setViewingCoursePdf(true);
         }
       })
       .catch((err) => {
@@ -52,14 +60,69 @@ export function CourseDetailStudyView({ courseId }: CourseDetailStudyViewProps) 
     return course.lessons.findIndex((l) => l.id === activeLesson.id);
   }, [course, activeLesson]);
 
-  const handleOpenPdf = async (fileName: string) => {
-    if (!token) return;
+  // Determine which PDF file is currently targeted
+  const currentPdfFile = useMemo(() => {
+    if (viewingCoursePdf && course?.pdfFile) {
+      return course.pdfFile;
+    }
+    if (!viewingCoursePdf && activeLesson && activeLesson.type === LessonType.PDF && activeLesson.pdfFile) {
+      return activeLesson.pdfFile;
+    }
+    return null;
+  }, [viewingCoursePdf, course, activeLesson]);
+
+  // Load PDF as interactive Blob URL in the browser
+  useEffect(() => {
+    let isCancelled = false;
+    let objectUrl: string | null = null;
+
+    if (!token || !currentPdfFile) {
+      setPdfBlobUrl(null);
+      setLoadingPdf(false);
+      setPdfError("");
+      return;
+    }
+
+    setLoadingPdf(true);
+    setPdfError("");
+
+    coursesService
+      .getPdfBlobUrl(token, currentPdfFile)
+      .then((url) => {
+        if (isCancelled) {
+          URL.revokeObjectURL(url);
+          return;
+        }
+        objectUrl = url;
+        setPdfBlobUrl(url);
+      })
+      .catch((err) => {
+        if (!isCancelled) {
+          setPdfError(err instanceof Error ? err.message : "Erreur de chargement du PDF");
+          setPdfBlobUrl(null);
+        }
+      })
+      .finally(() => {
+        if (!isCancelled) {
+          setLoadingPdf(false);
+        }
+      });
+
+    return () => {
+      isCancelled = true;
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl);
+      }
+    };
+  }, [token, currentPdfFile]);
+
+  const handleDownloadPdf = async (fileName: string) => {
+    if (!token || !fileName) return;
     try {
       setPdfBusy(true);
-      await coursesService.openMaterial(token, fileName);
-    } catch {
-      // Fallback to magazine download
-      await coursesService.openMagazine(token, fileName);
+      await coursesService.downloadPdf(token, fileName);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erreur lors du téléchargement du PDF.");
     } finally {
       setPdfBusy(false);
     }
@@ -125,6 +188,14 @@ export function CourseDetailStudyView({ courseId }: CourseDetailStudyViewProps) 
         </Link>
 
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+            className="inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 transition-colors shadow-xs cursor-pointer"
+            title={sidebarCollapsed ? "Afficher le programme" : "Agrandir l'espace de lecture"}
+          >
+            <span>{sidebarCollapsed ? "📑 Afficher le sommaire" : "⤢ Mode lecture large"}</span>
+          </button>
           <span className="rounded-full px-2.5 py-0.5 text-xs font-bold uppercase font-mono bg-indigo-50 text-indigo-700">
             {course.filiere || "Générale"}
           </span>
@@ -137,14 +208,15 @@ export function CourseDetailStudyView({ courseId }: CourseDetailStudyViewProps) 
       {/* Main Learning Classroom Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* LEFT COLUMN: Course Curriculum & Lessons Navigation (4 cols) */}
-        <div
-          className="lg:col-span-4 rounded-3xl p-5 border flex flex-col justify-between"
-          style={{
-            background: "var(--paper-card)",
-            borderColor: "var(--line)",
-            boxShadow: "0 4px 20px -2px rgba(15,23,42,0.04)",
-          }}
-        >
+        {!sidebarCollapsed && (
+          <div
+            className="lg:col-span-4 rounded-3xl p-5 border flex flex-col justify-between"
+            style={{
+              background: "var(--paper-card)",
+              borderColor: "var(--line)",
+              boxShadow: "0 4px 20px -2px rgba(15,23,42,0.04)",
+            }}
+          >
           <div>
             <div className="border-b pb-4" style={{ borderColor: "var(--line)" }}>
               <span className="text-[11px] font-bold uppercase tracking-wider text-indigo-600 block">
@@ -162,13 +234,46 @@ export function CourseDetailStudyView({ courseId }: CourseDetailStudyViewProps) 
 
             {/* Lessons List */}
             <div className="mt-4 space-y-2 max-h-[520px] overflow-y-auto pr-1">
+              {/* Standalone Course Polycopié PDF button if present */}
+              {course.pdfFile && (
+                <button
+                  type="button"
+                  onClick={() => setViewingCoursePdf(true)}
+                  className={`w-full text-left p-3 rounded-2xl transition-all duration-200 flex items-center justify-between border cursor-pointer ${
+                    viewingCoursePdf
+                      ? "border-rose-400 bg-rose-50/90 shadow-xs"
+                      : "border-slate-200 bg-white hover:bg-slate-50"
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl text-xs bg-rose-100 text-rose-700 font-bold">
+                      📄
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <span className="text-xs font-bold text-slate-800 block truncate">
+                        Polycopié PDF du cours
+                      </span>
+                      <span className="text-[10px] text-slate-500">Document officiel complet</span>
+                    </div>
+                  </div>
+                  {viewingCoursePdf ? (
+                    <span className="h-2 w-2 rounded-full bg-rose-600 shrink-0" />
+                  ) : (
+                    <span className="text-[11px] font-semibold text-rose-600 shrink-0">Lire →</span>
+                  )}
+                </button>
+              )}
+
               {lessons.map((lesson, idx) => {
-                const isSelected = activeLesson?.id === lesson.id;
+                const isSelected = !viewingCoursePdf && activeLesson?.id === lesson.id;
                 return (
                   <button
                     key={lesson.id}
                     type="button"
-                    onClick={() => setSelectedLessonId(lesson.id)}
+                    onClick={() => {
+                      setSelectedLessonId(lesson.id);
+                      setViewingCoursePdf(false);
+                    }}
                     className="w-full text-left p-3 rounded-2xl transition-all duration-200 flex items-center justify-between border cursor-pointer"
                     style={{
                       background: isSelected ? "var(--accent-glow)" : "rgba(15,23,42,0.02)",
@@ -208,45 +313,60 @@ export function CourseDetailStudyView({ courseId }: CourseDetailStudyViewProps) 
                 );
               })}
 
-              {lessons.length === 0 && (
+              {lessons.length === 0 && !course.pdfFile && (
                 <div className="p-6 text-center text-xs text-slate-500 rounded-2xl bg-slate-50">
                   Aucune sous-leçon n&apos;a été enregistrée pour ce cours.
                 </div>
               )}
             </div>
           </div>
-
-          {/* Standalone course support downloads if present */}
-          {(course.pdfFile || course.youtubeUrl) && (
-            <div className="mt-5 pt-4 border-t space-y-2" style={{ borderColor: "var(--line)" }}>
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
-                Ressources globales
-              </span>
-              {course.pdfFile && (
-                <button
-                  type="button"
-                  disabled={pdfBusy}
-                  onClick={() => handleOpenPdf(course.pdfFile!)}
-                  className="w-full flex items-center justify-center gap-2 rounded-xl py-2 px-3 text-xs font-semibold bg-rose-50 text-rose-700 hover:bg-rose-100 transition-colors"
-                >
-                  📄 Polycopié PDF complet du cours
-                </button>
-              )}
-            </div>
-          )}
         </div>
+        )}
 
-        {/* RIGHT COLUMN: Active Lesson Learning Stage (8 cols) */}
+        {/* RIGHT COLUMN: Active Lesson / Course PDF Stage (8 or 12 cols) */}
         <div
-          className="lg:col-span-8 rounded-3xl p-6 sm:p-8 border flex flex-col justify-between min-h-[580px]"
+          className={`${
+            sidebarCollapsed ? "lg:col-span-12" : "lg:col-span-8"
+          } rounded-3xl p-5 sm:p-7 border flex flex-col justify-between min-h-[580px] transition-all duration-300`}
           style={{
             background: "var(--paper-card)",
             borderColor: "var(--line)",
             boxShadow: "0 4px 20px -2px rgba(15,23,42,0.04)",
           }}
         >
-          {/* Active Lesson Header */}
-          {activeLesson ? (
+          {/* VIEW A: Full Course Polycopié PDF in Magazine Viewer */}
+          {viewingCoursePdf && course.pdfFile ? (
+            <div className="space-y-4">
+              <div className="border-b pb-3" style={{ borderColor: "var(--line)" }}>
+                <span className="text-xs font-bold uppercase tracking-wider text-rose-600 font-mono">
+                  Polycopié de cours • Document officiel
+                </span>
+                <h1 className="mt-1 font-serif text-2xl sm:text-3xl font-bold" style={{ color: "var(--ink)" }}>
+                  {course.title}
+                </h1>
+              </div>
+
+              {/* Magazine Flipbook Viewer */}
+              {loadingPdf ? (
+                <div className="flex flex-col items-center justify-center h-[620px] rounded-3xl bg-slate-900 border border-slate-800">
+                  <div className="h-10 w-10 animate-spin rounded-full border-3 border-indigo-500 border-t-transparent" />
+                  <p className="mt-3 text-xs font-semibold text-slate-300">Préparation du magazine interactif…</p>
+                </div>
+              ) : pdfBlobUrl ? (
+                <MagazinePdfViewer
+                  pdfUrl={pdfBlobUrl}
+                  title={course.title}
+                  onDownload={() => handleDownloadPdf(course.pdfFile!)}
+                  downloading={pdfBusy}
+                />
+              ) : (
+                <div className="p-12 text-center text-xs text-slate-400 rounded-3xl border border-dashed">
+                  {pdfError || "Fichier PDF introuvable ou indisponible."}
+                </div>
+              )}
+            </div>
+          ) : activeLesson ? (
+            /* VIEW B: Active Lesson Content */
             <div className="space-y-6">
               <div className="flex flex-wrap items-center justify-between gap-3 border-b pb-4" style={{ borderColor: "var(--line)" }}>
                 <div>
@@ -296,36 +416,38 @@ export function CourseDetailStudyView({ courseId }: CourseDetailStudyViewProps) 
                 </div>
               )}
 
-              {/* 3. PDF LESSON STAGE */}
+              {/* 3. PDF LESSON STAGE (MAGAZINE INTERACTIVE FLIPBOOK + DOWNLOAD) */}
               {activeLesson.type === LessonType.PDF && (
-                <div className="space-y-4 text-center p-8 rounded-2xl bg-indigo-50/50 border border-indigo-100">
-                  <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-indigo-100 text-indigo-700 text-2xl">
-                    📄
-                  </div>
-                  <h3 className="font-serif text-xl font-bold text-slate-900">
-                    Fiche & Polycopié PDF de la Leçon
-                  </h3>
-                  <p className="text-xs text-slate-600 max-w-md mx-auto">
-                    {activeLesson.description || "Consultez ou téléchargez le support de cours officiel pour travailler hors-ligne."}
-                  </p>
+                <div className="space-y-4">
+                  {activeLesson.description && (
+                    <p className="text-xs text-slate-600 px-1">
+                      {activeLesson.description}
+                    </p>
+                  )}
 
-                  {activeLesson.pdfFile ? (
-                    <Button
-                      type="button"
-                      disabled={pdfBusy}
-                      onClick={() => handleOpenPdf(activeLesson.pdfFile!)}
-                      className="text-xs font-bold rounded-xl px-5 py-2.5 mx-auto"
-                    >
-                      {pdfBusy ? "Ouverture en cours…" : "Ouvrir & Télécharger le PDF"}
-                    </Button>
+                  {/* Magazine Flipbook Viewer */}
+                  {loadingPdf ? (
+                    <div className="flex flex-col items-center justify-center h-[620px] rounded-3xl bg-slate-900 border border-slate-800">
+                      <div className="h-10 w-10 animate-spin rounded-full border-3 border-indigo-500 border-t-transparent" />
+                      <p className="mt-3 text-xs font-semibold text-slate-300">Préparation du document interactif…</p>
+                    </div>
+                  ) : pdfBlobUrl ? (
+                    <MagazinePdfViewer
+                      pdfUrl={pdfBlobUrl}
+                      title={activeLesson.title}
+                      onDownload={activeLesson.pdfFile ? () => handleDownloadPdf(activeLesson.pdfFile!) : undefined}
+                      downloading={pdfBusy}
+                    />
                   ) : (
-                    <p className="text-xs text-slate-400">Aucun fichier PDF rattaché.</p>
+                    <div className="p-12 text-center text-xs text-slate-400 rounded-3xl border border-dashed">
+                      {pdfError || "Fichier PDF introuvable ou indisponible."}
+                    </div>
                   )}
                 </div>
               )}
             </div>
           ) : (
-            /* If no lessons, show course overview text */
+            /* VIEW C: If no lessons and no course PDF selected, show course overview text */
             <div className="space-y-6">
               <h1 className="font-serif text-3xl font-bold" style={{ color: "var(--ink)" }}>
                 {course.title}

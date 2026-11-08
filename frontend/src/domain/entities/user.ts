@@ -14,6 +14,8 @@ export type User = {
   phoneNumber?: string | null;
   gender?: string | null;
   studentClass?: string | null;
+  teachingSubjects?: string[] | null;
+  teachingClasses?: string[] | null;
   age?: number | null;
   cin?: string | null;
   parentEmail?: string | null;

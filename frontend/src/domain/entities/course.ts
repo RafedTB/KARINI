@@ -1,5 +1,6 @@
 import type { CourseSection, CourseSubject } from "@/domain/enums";
 import type { Lesson } from "@/domain/entities/lesson";
+import type { User } from "@/domain/entities/user";
 
 export type Course = {
   id: number;
@@ -12,6 +13,7 @@ export type Course = {
   youtubeUrl?: string | null;
   pdfFile?: string | null;
   createdById?: number;
+  instructor?: Partial<User> | null;
   lessons?: Lesson[];
   createdAt: string;
   updatedAt?: string;

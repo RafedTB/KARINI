@@ -41,31 +41,38 @@ export const coursesService = {
     return coursesRepository.uploadFile(token, file);
   },
 
-  async openMagazine(token: string, fileName: string): Promise<void> {
-    const blob = await coursesRepository.downloadMagazine(token, fileName);
+  async getPdfBlobUrl(token: string, fileName: string): Promise<string> {
+    let blob: Blob;
+    try {
+      blob = await coursesRepository.downloadMaterial(token, fileName);
+    } catch {
+      blob = await coursesRepository.downloadMagazine(token, fileName);
+    }
+    return URL.createObjectURL(blob);
+  },
+
+  async downloadPdf(token: string, fileName: string): Promise<void> {
+    let blob: Blob;
+    try {
+      blob = await coursesRepository.downloadMaterial(token, fileName);
+    } catch {
+      blob = await coursesRepository.downloadMagazine(token, fileName);
+    }
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
     link.download = fileName;
-    link.target = "_blank";
-    link.rel = "noopener,noreferrer";
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
   },
 
+  async openMagazine(token: string, fileName: string): Promise<void> {
+    return this.downloadPdf(token, fileName);
+  },
+
   async openMaterial(token: string, fileName: string): Promise<void> {
-    const blob = await coursesRepository.downloadMaterial(token, fileName);
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = fileName;
-    link.target = "_blank";
-    link.rel = "noopener,noreferrer";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    return this.downloadPdf(token, fileName);
   },
 };

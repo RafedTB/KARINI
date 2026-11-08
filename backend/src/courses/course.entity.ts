@@ -1,6 +1,7 @@
-import { Column, CreateDateColumn, Entity, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
+import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
 import { CourseSection } from "../utils/enum.js";
 import type { Lesson } from "./lesson.entity.js";
+import type { User } from "../users/user.entity.js";
 
 @Entity({ name: 'courses' })
 export class Course {
@@ -33,6 +34,10 @@ export class Course {
 
     @Column({ type: 'integer' })
     createdById!: number;
+
+    @ManyToOne('User', { nullable: true, onDelete: 'SET NULL' })
+    @JoinColumn({ name: 'createdById' })
+    instructor?: User | null;
 
     @OneToMany('Lesson', (lesson: any) => lesson.course, { cascade: true })
     lessons!: Lesson[];

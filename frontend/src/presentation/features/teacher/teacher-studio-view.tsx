@@ -63,6 +63,41 @@ export function TeacherStudioView() {
   const isTeacherOrAdmin =
     user?.userType === UserType.INSTRUCTOR || user?.userType === UserType.SUPERADMIN;
 
+  // Filter allowed subjects & classes based on instructor's assigned teaching credentials
+  const allowedSubjects = useMemo(() => {
+    if (user?.userType === UserType.SUPERADMIN || !user?.teachingSubjects || user.teachingSubjects.length === 0) {
+      return subjects;
+    }
+    const cleanAssigned = user.teachingSubjects.map((s) => s.toLowerCase().trim());
+    const filtered = subjects.filter((s) =>
+      cleanAssigned.includes((s.slug || s.code || "").toLowerCase().trim()) ||
+      cleanAssigned.includes(s.name.toLowerCase().trim())
+    );
+    if (filtered.length > 0) return filtered;
+    // Fallback if subjects haven't been seeded with these slugs yet
+    return user.teachingSubjects.map((slug, idx) => ({
+      id: idx + 9999,
+      name: slug.charAt(0).toUpperCase() + slug.slice(1),
+      code: slug.toUpperCase().slice(0, 5),
+      slug,
+      filiere: "all",
+      category: "Enseignement",
+      icon: "math",
+      color: "#4f46e5",
+      createdAt: "",
+      updatedAt: "",
+    }));
+  }, [user, subjects]);
+
+  const allowedFilieres = useMemo(() => {
+    if (user?.userType === UserType.SUPERADMIN || !user?.teachingClasses || user.teachingClasses.length === 0) {
+      return filieres;
+    }
+    const cleanAssigned = user.teachingClasses.map((c) => c.toLowerCase().trim());
+    const filtered = filieres.filter((f) => cleanAssigned.includes(f.toLowerCase().trim()));
+    return filtered.length > 0 ? filtered : user.teachingClasses;
+  }, [user, filieres]);
+
   const showNotification = (msg: string) => {
     setSuccessMsg(msg);
     setTimeout(() => setSuccessMsg(""), 4500);
@@ -349,13 +384,15 @@ export function TeacherStudioView() {
         <Button
           type="button"
           onClick={() => {
+            const initialSub = allowedSubjects[0]?.slug || (user?.teachingSubjects?.[0] ? user.teachingSubjects[0].toLowerCase() : "math");
+            const initialFil = allowedFilieres[0] || (user?.teachingClasses?.[0] || "2ème Informatique");
             setEditingCourse(null);
             setCourseForm({
               title: "",
               description: "",
               section: CourseSection.COURSE,
-              subject: subjects[0]?.slug || "math",
-              filiere: filieres[0] || "2ème Informatique",
+              subject: initialSub,
+              filiere: initialFil,
               textContent: "",
               youtubeUrl: "",
               pdfFile: "",
@@ -371,6 +408,49 @@ export function TeacherStudioView() {
           + Créer un nouveau cours
         </Button>
       </div>
+
+      {/* Teacher Teaching Assignment Info Card */}
+      {user?.userType === UserType.INSTRUCTOR && (
+        <div className="rounded-2xl p-4 bg-gradient-to-r from-indigo-50/80 via-purple-50/50 to-pink-50/40 border border-indigo-100/80 shadow-sm">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div>
+              <h3 className="text-xs font-bold uppercase tracking-wider text-indigo-950 flex items-center gap-1.5">
+                <span>📚</span> Vos Affectations d&apos;Enseignement
+              </h3>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <span className="text-xs font-semibold text-slate-600">Matières autorisées :</span>
+                {user.teachingSubjects && user.teachingSubjects.length > 0 ? (
+                  user.teachingSubjects.map((s) => (
+                    <span key={s} className="rounded-lg px-2 py-0.5 text-xs font-bold uppercase bg-white text-indigo-700 border border-indigo-200 shadow-xs">
+                      {s}
+                    </span>
+                  ))
+                ) : (
+                  <span className="text-xs text-amber-700 italic">Toutes les matières (aucune restriction)</span>
+                )}
+              </div>
+              <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                <span className="text-xs font-semibold text-slate-600">Classes prises en charge :</span>
+                {user.teachingClasses && user.teachingClasses.length > 0 ? (
+                  user.teachingClasses.map((c) => (
+                    <span key={c} className="rounded-lg px-2 py-0.5 text-xs font-medium bg-white text-slate-700 border border-slate-200 shadow-xs">
+                      {c}
+                    </span>
+                  ))
+                ) : (
+                  <span className="text-xs text-slate-500 italic">Toutes les classes</span>
+                )}
+              </div>
+            </div>
+            <div className="text-left sm:text-right sm:border-l sm:pl-4 border-indigo-100">
+              <span className="text-[11px] text-slate-500 block">Enseignant</span>
+              <span className="text-xs font-bold text-slate-800">
+                {user.firstname ? `${user.firstname} ${user.lastname || ""}` : user.username}
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Notifications */}
       {successMsg && (
@@ -662,21 +742,26 @@ export function TeacherStudioView() {
               {/* Matière & Filière */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold mb-1" style={{ color: "var(--ink)" }}>
-                    Matière *
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-semibold" style={{ color: "var(--ink)" }}>
+                      Matière *
+                    </label>
+                    {user?.userType === UserType.INSTRUCTOR && user.teachingSubjects && user.teachingSubjects.length > 0 && (
+                      <span className="text-[10px] font-bold text-indigo-600">Assignée</span>
+                    )}
+                  </div>
                   <select
                     value={courseForm.subject}
                     onChange={(e) => setCourseForm({ ...courseForm, subject: e.target.value })}
                     className="w-full rounded-xl border px-3 py-2 text-sm outline-none focus:border-indigo-500"
                     style={{ borderColor: "var(--line)" }}
                   >
-                    {subjects.map((s) => (
+                    {allowedSubjects.map((s) => (
                       <option key={s.id} value={s.slug || s.code.toLowerCase()}>
                         {s.name} ({s.code})
                       </option>
                     ))}
-                    {subjects.length === 0 && (
+                    {allowedSubjects.length === 0 && (
                       <>
                         <option value="math">Mathématiques (MATH)</option>
                         <option value="physique">Physique - Chimie (PHY)</option>
@@ -688,21 +773,26 @@ export function TeacherStudioView() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold mb-1" style={{ color: "var(--ink)" }}>
-                    Filière scolaire *
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-semibold" style={{ color: "var(--ink)" }}>
+                      Filière scolaire *
+                    </label>
+                    {user?.userType === UserType.INSTRUCTOR && user.teachingClasses && user.teachingClasses.length > 0 && (
+                      <span className="text-[10px] font-bold text-indigo-600">Assignée</span>
+                    )}
+                  </div>
                   <select
                     value={courseForm.filiere}
                     onChange={(e) => setCourseForm({ ...courseForm, filiere: e.target.value })}
                     className="w-full rounded-xl border px-3 py-2 text-sm outline-none focus:border-indigo-500"
                     style={{ borderColor: "var(--line)" }}
                   >
-                    {filieres.map((f) => (
+                    {allowedFilieres.map((f) => (
                       <option key={f} value={f}>
                         {f}
                       </option>
                     ))}
-                    {filieres.length === 0 && (
+                    {allowedFilieres.length === 0 && (
                       <>
                         <option value="2ème Informatique">2ème Informatique</option>
                         <option value="2ème Math">2ème Math</option>

@@ -10,6 +10,9 @@ export type AdminCreateUserData = {
   credits?: number;
   firstname?: string;
   lastname?: string;
+  studentClass?: string | null;
+  teachingSubjects?: string[] | null;
+  teachingClasses?: string[] | null;
 };
 
 export type AdminUpdateUserData = Partial<AdminCreateUserData> & {
@@ -25,7 +28,7 @@ export const adminRepository = {
     return apiClient<User>("/api/users/admin/create-user", {
       token,
       method: "POST",
-      body: JSON.stringify(data),
+      json: data,
     });
   },
 
@@ -33,7 +36,7 @@ export const adminRepository = {
     return apiClient<User>(`/api/users/admin/${id}`, {
       token,
       method: "PUT",
-      body: JSON.stringify(data),
+      json: data,
     });
   },
 
@@ -48,7 +51,7 @@ export const adminRepository = {
     return apiClient<User>(`/api/users/${id}/credits`, {
       token,
       method: "PUT",
-      body: JSON.stringify({ credits }),
+      json: { credits },
     });
   },
 
@@ -56,7 +59,7 @@ export const adminRepository = {
     return apiClient<User>(`/api/users/${id}/membership`, {
       token,
       method: "PUT",
-      body: JSON.stringify({ membership }),
+      json: { membership },
     });
   },
 };

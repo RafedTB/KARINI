@@ -22,7 +22,7 @@ export function CoursesView() {
   const searchParams = useSearchParams();
   const activeTab = searchParams.get("section") || "all";
 
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -83,6 +83,32 @@ export function CoursesView() {
 
   return (
     <div>
+      {/* Student Class Info Banner */}
+      {user?.studentClass && (
+        <div
+          className="mb-6 flex items-center justify-between rounded-2xl px-5 py-3 border"
+          style={{
+            background: "linear-gradient(135deg, rgba(99,102,241,0.06), rgba(236,72,153,0.04))",
+            borderColor: "rgba(99,102,241,0.15)",
+          }}
+        >
+          <div className="flex items-center gap-2.5">
+            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-indigo-500/10 text-base">
+              🎓
+            </span>
+            <div>
+              <span className="text-xs font-medium text-slate-500 block">Votre programme scolaire</span>
+              <span className="text-sm font-bold text-slate-900">
+                Classe : <span className="text-indigo-600">{user.studentClass}</span>
+              </span>
+            </div>
+          </div>
+          <span className="text-xs text-indigo-700 font-semibold hidden sm:inline-block px-2.5 py-1 rounded-lg bg-indigo-50 border border-indigo-100">
+            Contenus adaptés à votre classe
+          </span>
+        </div>
+      )}
+
       {/* Filter tabs */}
       <div
         className="mb-8 flex flex-wrap gap-1 rounded-2xl p-1.5"

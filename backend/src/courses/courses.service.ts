@@ -20,6 +20,11 @@ export class CoursesService {
     ) {}
 
     public async create(dto: CreateCourseDto, userId: number) {
+        const creator = await this.userRepository.findOne({ where: { id: userId } });
+        if (creator?.userType === UserType.INSTRUCTOR) {
+            this.validateInstructorTeaching(creator, dto.subject, dto.filiere);
+        }
+
         this.validateContent(dto.section, dto.youtubeUrl, dto.pdfFile);
         return this.courseRepository.save(this.courseRepository.create({
             ...dto,
@@ -33,6 +38,11 @@ export class CoursesService {
     }
 
     public async createMagazine(title: string, description: string | undefined, pdfFile: string, userId: number, subject?: string) {
+        const creator = await this.userRepository.findOne({ where: { id: userId } });
+        if (creator?.userType === UserType.INSTRUCTOR) {
+            this.validateInstructorTeaching(creator, subject, undefined);
+        }
+
         return this.courseRepository.save(this.courseRepository.create({
             title,
             description,
@@ -52,38 +62,80 @@ export class CoursesService {
         if (section) {
             whereClause.section = section;
         }
-        if (filiere && filiere !== 'all') {
-            whereClause.filiere = filiere;
-        }
         if (teacherId) {
             whereClause.createdById = teacherId;
         }
 
-        const courses = await this.courseRepository.find({
+        let courses = await this.courseRepository.find({
             where: Object.keys(whereClause).length > 0 ? whereClause : undefined,
-            relations: { lessons: true },
+            relations: { lessons: true, instructor: true },
             order: { createdAt: 'DESC' }
         });
 
-        if (user?.userType === UserType.STUDENT && ![MembershipType.GOLD, MembershipType.PLATINUM].includes(user.membership)) {
-            return courses.filter((course) => course.section !== CourseSection.OLDLIVE);
+        // Filter courses for student based on their class
+        if (user?.userType === UserType.STUDENT && user.studentClass) {
+            const sClass = user.studentClass.trim();
+            const isBacInfo = /bac.*info/i.test(sClass) || sClass.toLowerCase() === 'bac informatique';
+            const studentFiliere = isBacInfo ? 'Bac Informatique' : sClass;
+
+            const requestedFiliere = (filiere && filiere !== 'all') ? filiere : studentFiliere;
+            courses = courses.filter((course) => {
+                if (!course.filiere || course.filiere === 'all') return true;
+                const cFil = course.filiere.trim();
+                const cIsBacInfo = /bac.*info/i.test(cFil) || cFil.toLowerCase() === 'bac informatique';
+                const targetCFil = cIsBacInfo ? 'Bac Informatique' : cFil;
+                return targetCFil.toLowerCase() === requestedFiliere.toLowerCase();
+            });
+        } else if (filiere && filiere !== 'all') {
+            courses = courses.filter((course) => course.filiere === filiere || course.filiere === 'all' || !course.filiere);
         }
-        return courses;
+
+        if (user?.userType === UserType.STUDENT && ![MembershipType.GOLD, MembershipType.PLATINUM].includes(user.membership)) {
+            courses = courses.filter((course) => course.section !== CourseSection.OLDLIVE);
+        }
+
+        return courses.map((course) => {
+            if (course.instructor) {
+                const { password, verificationToken, resetPasswordToken, ...safeInstructor } = course.instructor as any;
+                course.instructor = safeInstructor;
+            }
+            return course;
+        });
     }
 
     public async findOne(id: number, payload: JWTPayloadType) {
         const course = await this.courseRepository.findOne({
             where: { id },
-            relations: { lessons: true }
+            relations: { lessons: true, instructor: true }
         });
         if (!course) throw new NotFoundException('Course content not found');
+
+        if (course.instructor) {
+            const { password, verificationToken, resetPasswordToken, ...safeInstructor } = course.instructor as any;
+            course.instructor = safeInstructor;
+        }
 
         if (course.lessons && course.lessons.length > 0) {
             course.lessons.sort((a, b) => a.orderIndex - b.orderIndex);
         }
 
+        const user = await this.userRepository.findOne({ where: { id: payload.id } });
+
+        // Access control: student class restriction
+        if (user?.userType === UserType.STUDENT && user.studentClass && course.filiere && course.filiere !== 'all') {
+            const sClass = user.studentClass.trim();
+            const isBacInfo = /bac.*info/i.test(sClass) || sClass.toLowerCase() === 'bac informatique';
+            const studentFiliere = isBacInfo ? 'Bac Informatique' : sClass;
+            const cFil = course.filiere.trim();
+            const cIsBacInfo = /bac.*info/i.test(cFil) || cFil.toLowerCase() === 'bac informatique';
+            const courseFiliere = cIsBacInfo ? 'Bac Informatique' : cFil;
+
+            if (studentFiliere.toLowerCase() !== courseFiliere.toLowerCase()) {
+                throw new ForbiddenException(`Ce cours est réservé aux élèves de la classe "${course.filiere}".`);
+            }
+        }
+
         if (course.section === CourseSection.OLDLIVE) {
-            const user = await this.userRepository.findOne({ where: { id: payload.id } });
             if (user?.userType === UserType.STUDENT && ![MembershipType.GOLD, MembershipType.PLATINUM].includes(user.membership)) {
                 throw new ForbiddenException('Gold membership or higher is required for old live content');
             }
@@ -93,6 +145,16 @@ export class CoursesService {
 
     public async update(id: number, dto: UpdateCourseDto, userId: number, userType?: UserType | string) {
         const course = await this.getAccessibleCourse(id, userId, userType);
+        if (userType === UserType.INSTRUCTOR) {
+            const instructor = await this.userRepository.findOne({ where: { id: userId } });
+            if (instructor) {
+                this.validateInstructorTeaching(
+                    instructor,
+                    dto.subject ?? course.subject,
+                    dto.filiere ?? course.filiere
+                );
+            }
+        }
         this.validateContent(dto.section ?? course.section, dto.youtubeUrl ?? course.youtubeUrl, dto.pdfFile ?? course.pdfFile);
         Object.assign(course, dto);
         return this.courseRepository.save(course);
@@ -162,6 +224,32 @@ export class CoursesService {
         if (userType === UserType.SUPERADMIN) return course;
         if (course.createdById !== userId) throw new ForbiddenException('You can only manage your own course content');
         return course;
+    }
+
+    private validateInstructorTeaching(instructor: User, subject?: string | null, filiere?: string | null) {
+        if (instructor.teachingSubjects && instructor.teachingSubjects.length > 0 && subject) {
+            const cleanSub = subject.toLowerCase().trim();
+            const allowed = instructor.teachingSubjects.some(
+                (s) => s.toLowerCase().trim() === cleanSub
+            );
+            if (!allowed) {
+                throw new ForbiddenException(
+                    `En tant qu'instructeur, vous n'êtes pas autorisé à enseigner la matière "${subject}". Vos matières assignées sont : ${instructor.teachingSubjects.join(', ')}`
+                );
+            }
+        }
+
+        if (instructor.teachingClasses && instructor.teachingClasses.length > 0 && filiere && filiere !== 'all') {
+            const cleanFil = filiere.toLowerCase().trim();
+            const allowed = instructor.teachingClasses.some(
+                (c) => c.toLowerCase().trim() === cleanFil
+            );
+            if (!allowed) {
+                throw new ForbiddenException(
+                    `En tant qu'instructeur, vous n'êtes pas autorisé à enseigner pour la classe "${filiere}". Vos classes assignées sont : ${instructor.teachingClasses.join(', ')}`
+                );
+            }
+        }
     }
 
     private validateContent(section: CourseSection, youtubeUrl?: string | null, pdfFile?: string | null) {

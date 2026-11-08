@@ -43,7 +43,7 @@ export const coursesRepository = {
     return apiClient<Course>("/api/courses", {
       token,
       method: "POST",
-      body: JSON.stringify(data),
+      json: data,
     });
   },
 
@@ -51,7 +51,7 @@ export const coursesRepository = {
     return apiClient<Course>(`/api/courses/${id}`, {
       token,
       method: "PATCH",
-      body: JSON.stringify(data),
+      json: data,
     });
   },
 
@@ -66,7 +66,7 @@ export const coursesRepository = {
     return apiClient<Lesson>(`/api/courses/${courseId}/lessons`, {
       token,
       method: "POST",
-      body: JSON.stringify(data),
+      json: data,
     });
   },
 
@@ -74,7 +74,7 @@ export const coursesRepository = {
     return apiClient<Lesson>(`/api/courses/lessons/${lessonId}`, {
       token,
       method: "PATCH",
-      body: JSON.stringify(data),
+      json: data,
     });
   },
 
