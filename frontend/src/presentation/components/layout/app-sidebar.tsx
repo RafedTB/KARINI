@@ -9,9 +9,10 @@ import { MembershipType, UserType } from "@/domain/enums";
 type AppSidebarProps = {
   isOpenMobile?: boolean;
   onCloseMobile?: () => void;
+  unreadMessageCount?: number;
 };
 
-export function AppSidebar({ isOpenMobile, onCloseMobile }: AppSidebarProps) {
+export function AppSidebar({ isOpenMobile, onCloseMobile, unreadMessageCount = 0 }: AppSidebarProps) {
   const pathname = usePathname();
   const { user, signOut } = useAuth();
 
@@ -21,11 +22,12 @@ export function AppSidebar({ isOpenMobile, onCloseMobile }: AppSidebarProps) {
   const isInstructor = user.userType === UserType.INSTRUCTOR;
   const isModerator = user.userType === UserType.MODERATOR;
   const isStudent = user.userType === UserType.STUDENT;
+  const isParent = user.userType === UserType.PARENT;
 
   // Build role-tailored navigation items
   const navLinks = [
     {
-      href: "/",
+      href: isParent ? "/parent" : "/",
       label: "Dashboard",
       icon: (
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -83,8 +85,36 @@ export function AppSidebar({ isOpenMobile, onCloseMobile }: AppSidebarProps) {
           },
         ]
       : []),
+    ...(isInstructor
+      ? [{
+          href: "/teacher/messages",
+          label: "Messages Parents",
+          unreadCount: unreadMessageCount,
+          icon: (
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M21 11.5a8.38 8.38 0 0 1-9 8.5 9.5 9.5 0 0 1-4-.8L3 21l1.8-4.3A8.5 8.5 0 1 1 21 11.5Z" />
+            </svg>
+          ),
+          exact: false,
+        }]
+      : []),
+    ...(isParent
+      ? [
+          {
+            href: "/parent/messages",
+            label: "Messages",
+            unreadCount: unreadMessageCount,
+            icon: (
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M21 11.5a8.38 8.38 0 0 1-9 8.5 9.5 9.5 0 0 1-4-.8L3 21l1.8-4.3A8.5 8.5 0 1 1 21 11.5Z" />
+              </svg>
+            ),
+            exact: false,
+          },
+        ]
+      : []),
     // Moderator does NOT have "Mes Cours"
-    ...(!isModerator
+    ...(!isModerator && !isParent
       ? [
           {
             href: "/courses",
@@ -99,7 +129,7 @@ export function AppSidebar({ isOpenMobile, onCloseMobile }: AppSidebarProps) {
           },
         ]
       : []),
-    {
+    ...(!isParent ? [{
       href: "/live",
       label: "Sessions Live",
       badge: isStudent && user.membership !== MembershipType.PLATINUM ? "💎 VIP" : "LIVE",
@@ -110,7 +140,7 @@ export function AppSidebar({ isOpenMobile, onCloseMobile }: AppSidebarProps) {
         </svg>
       ),
       exact: false,
-    },
+    }] : []),
     // Membership link is ONLY for students
     ...(isStudent
       ? [
@@ -205,6 +235,7 @@ export function AppSidebar({ isOpenMobile, onCloseMobile }: AppSidebarProps) {
           <nav className="mt-2 space-y-1">
             {navLinks.map((item) => {
               const active = isLinkActive(item.href, item.exact);
+              const unreadCount = "unreadCount" in item ? item.unreadCount ?? 0 : 0;
               return (
                 <Link
                   key={item.href}
@@ -240,6 +271,14 @@ export function AppSidebar({ isOpenMobile, onCloseMobile }: AppSidebarProps) {
                         {item.badge}
                       </span>
                     )}
+                    {unreadCount > 0 && (
+                      <span
+                        className="flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white"
+                        aria-label={`${unreadCount} message(s) non lu(s)`}
+                      >
+                        {unreadCount > 99 ? "99+" : unreadCount}
+                      </span>
+                    )}
                     {active && (
                       <span
                         className="h-2 w-2 rounded-full"
@@ -254,31 +293,33 @@ export function AppSidebar({ isOpenMobile, onCloseMobile }: AppSidebarProps) {
         </div>
 
         {/* Quick learning sections */}
-        <div className="mt-6">
-          <p className="px-3 text-[11px] font-semibold uppercase tracking-wider" style={{ color: "var(--muted)" }}>
-            {isStudent && isBacInfo ? "Matières (Bac Info)" : "Matières"}
-          </p>
-          <div className="mt-2 space-y-0.5">
-            {subjectQuickLinks.map((sub) => {
-              const active = pathname === sub.href;
-              return (
-                <Link
-                  key={sub.href}
-                  href={sub.href}
-                  onClick={onCloseMobile}
-                  className="flex items-center gap-2.5 rounded-lg px-3.5 py-1.5 text-xs transition-colors hover:bg-black/5 hover:text-slate-900"
-                  style={{
-                    color: active ? "var(--ink)" : "var(--muted)",
-                    fontWeight: active ? 600 : 400,
-                  }}
-                >
-                  <span>{sub.icon}</span>
-                  <span>{sub.label}</span>
-                </Link>
-              );
-            })}
+        {!isParent && (
+          <div className="mt-6">
+            <p className="px-3 text-[11px] font-semibold uppercase tracking-wider" style={{ color: "var(--muted)" }}>
+              {isStudent && isBacInfo ? "Matières (Bac Info)" : "Matières"}
+            </p>
+            <div className="mt-2 space-y-0.5">
+              {subjectQuickLinks.map((sub) => {
+                const active = pathname === sub.href;
+                return (
+                  <Link
+                    key={sub.href}
+                    href={sub.href}
+                    onClick={onCloseMobile}
+                    className="flex items-center gap-2.5 rounded-lg px-3.5 py-1.5 text-xs transition-colors hover:bg-black/5 hover:text-slate-900"
+                    style={{
+                      color: active ? "var(--ink)" : "var(--muted)",
+                      fontWeight: active ? 600 : 400,
+                    }}
+                  >
+                    <span>{sub.icon}</span>
+                    <span>{sub.label}</span>
+                  </Link>
+                );
+              })}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Role-specific bottom card */}
         {isStudent && (

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { Course } from "@/domain/entities/course";
+import type { Quiz, QuizSubmissionResult } from "@/domain/entities/quiz";
 import { CourseSection, MembershipType, UserType } from "@/domain/enums";
 import { coursesService } from "@/application/services/courses-service";
 import { subjectsService } from "@/application/services/subjects-service";
@@ -13,6 +14,7 @@ import { useAuth } from "@/presentation/providers/auth-provider";
 import { getSubjectById, SUBJECTS } from "@/shared/labels/course-subjects";
 import { SubjectIcon } from "@/presentation/features/courses/subject-icons";
 import { VideoStudioView } from "@/presentation/features/courses/video-studio-view";
+import { quizzesService } from "@/application/services/quizzes-service";
 
 type SubjectDetailViewProps = {
   subjectId: string;
@@ -23,6 +25,7 @@ const SECTION_TABS = [
   { key: CourseSection.EXERCISE, label: "Exercices PDF", icon: "✍️" },
   { key: CourseSection.MAGAZINE, label: "Magazines PDF", icon: "📑" },
   { key: CourseSection.OLDLIVE, label: "Direct", icon: "🔴" },
+  { key: "quizzes", label: "Quiz", icon: "📝" },
 ] as const;
 
 export function SubjectDetailView({ subjectId }: SubjectDetailViewProps) {
@@ -36,6 +39,15 @@ export function SubjectDetailView({ subjectId }: SubjectDetailViewProps) {
   const [error, setError] = useState("");
   const [searchFilter, setSearchFilter] = useState("");
   const [videoViewMode, setVideoViewMode] = useState<"studio" | "grid">("studio");
+  const [quizzes, setQuizzes] = useState<Quiz[]>([]);
+  const [quizLoading, setQuizLoading] = useState(false);
+  const [quizError, setQuizError] = useState("");
+  const [quizAnswers, setQuizAnswers] = useState<Record<number, Record<number, number>>>({});
+  const [quizSubmitting, setQuizSubmitting] = useState<number | null>(null);
+  const [quizResults, setQuizResults] = useState<Record<number, { score: number; maxScore: number }>>({});
+  const [quizFeedback, setQuizFeedback] = useState<Record<number, QuizSubmissionResult["answers"]>>({});
+  const [quizTimers, setQuizTimers] = useState<Record<number, number>>({});
+  const [openQuizId, setOpenQuizId] = useState<number | null>(null);
 
   const fallbackSubject = useMemo(() => getSubjectById(subjectId), [subjectId]);
   const [dbSubject, setDbSubject] = useState<import("@/domain/entities/subject").Subject | null>(null);
@@ -152,6 +164,7 @@ export function SubjectDetailView({ subjectId }: SubjectDetailViewProps) {
   }, [courses]);
 
   const displayedCourses = useMemo(() => {
+    if (activeSection === "quizzes") return courses;
     return courses.filter((c) => {
       const matchesSection = c.section === activeSection;
       const matchesSearch =
@@ -161,6 +174,62 @@ export function SubjectDetailView({ subjectId }: SubjectDetailViewProps) {
       return matchesSection && matchesSearch;
     });
   }, [courses, activeSection, searchFilter]);
+
+  useEffect(() => {
+    if (activeSection !== "quizzes" || !token || user?.userType !== UserType.STUDENT) return;
+    if (user.membership !== MembershipType.GOLD && user.membership !== MembershipType.PLATINUM) {
+      setQuizzes([]);
+      return;
+    }
+    setQuizLoading(true);
+    setQuizError("");
+    Promise.all(displayedCourses.map((course) => quizzesService.listForCourse(token, course.id)))
+      .then((results) => setQuizzes(results.flat()))
+      .catch((cause: unknown) => setQuizError(cause instanceof Error ? cause.message : "Impossible de charger les quiz."))
+      .finally(() => setQuizLoading(false));
+  }, [activeSection, displayedCourses, token, user]);
+
+  const submitQuiz = async (quiz: Quiz) => {
+    if (!token || quizSubmitting !== null) return;
+    const answers = quizAnswers[quiz.id] ?? {};
+    const questions = quiz.questions ?? [];
+    if (questions.length === 0 || questions.some((question) => answers[question.id] === undefined)) {
+      setQuizError("Répondez à toutes les questions avant de valider.");
+      return;
+    }
+    try {
+      setQuizSubmitting(quiz.id);
+      setQuizError("");
+      const result = await quizzesService.submitAnswers(
+        token,
+        quiz.id,
+        questions.map((question) => ({ questionId: question.id, selectedOption: answers[question.id] })),
+      );
+      setQuizResults((current) => ({ ...current, [quiz.id]: { score: result.score, maxScore: result.maxScore } }));
+      setQuizFeedback((current) => ({ ...current, [quiz.id]: result.answers }));
+    } catch (cause: unknown) {
+      setQuizError(cause instanceof Error ? cause.message : "Impossible d’enregistrer votre résultat.");
+    } finally {
+      setQuizSubmitting(null);
+    }
+  };
+
+  useEffect(() => {
+    if (openQuizId === null || quizResults[openQuizId]) return;
+    const timer = window.setInterval(() => {
+      setQuizTimers((current) => {
+        const remaining = current[openQuizId] ?? 0;
+        if (remaining <= 1) {
+          window.clearInterval(timer);
+          const quiz = quizzes.find((item) => item.id === openQuizId);
+          if (quiz) void submitQuiz(quiz);
+          return { ...current, [openQuizId]: 0 };
+        }
+        return { ...current, [openQuizId]: remaining - 1 };
+      });
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [openQuizId, quizzes, quizResults]);
 
   if (loading) {
     return <PageLoader label={`Chargement du programme de ${subject.name}…`} />;
@@ -358,7 +427,7 @@ export function SubjectDetailView({ subjectId }: SubjectDetailViewProps) {
           {SECTION_TABS.map((tab) => {
             const isGoldOnlyTab = tab.key === CourseSection.OLDLIVE;
             const isStudentNonGold = user?.userType === UserType.STUDENT && user?.membership !== MembershipType.GOLD;
-            const count = sectionCounts[tab.key] ?? 0;
+            const count = tab.key === "quizzes" ? quizzes.length : sectionCounts[tab.key] ?? 0;
             const isActive = activeSection === tab.key;
             return (
               <button
@@ -478,8 +547,85 @@ export function SubjectDetailView({ subjectId }: SubjectDetailViewProps) {
         </div>
       )}
 
-      {/* Gold Gate Banner for Archive Live */}
-      {activeSection === CourseSection.OLDLIVE && user?.userType === UserType.STUDENT && user?.membership !== MembershipType.GOLD ? (
+      {/* Quiz membership gate */}
+      {activeSection === "quizzes" && user?.userType === UserType.STUDENT && user?.membership !== MembershipType.GOLD && user?.membership !== MembershipType.PLATINUM ? (
+        <div className="glass-card my-6 rounded-3xl border border-amber-300/80 bg-gradient-to-r from-amber-50/80 via-yellow-50/50 to-orange-50/40 p-8 text-center">
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-500 text-2xl text-white shadow-sm">⭐</div>
+          <h3 className="font-serif text-xl font-bold text-slate-900">Quiz réservés aux membres Gold et Platinum</h3>
+          <p className="mx-auto mt-2 max-w-lg text-xs leading-relaxed text-slate-600 sm:text-sm">
+            Accédez aux évaluations et testez vos connaissances avec une formule Gold ou Platinum.
+          </p>
+          <Link href="/membership" className="btn-primary mt-6 inline-flex px-6 py-2.5 text-xs font-bold shadow-sm">
+            Découvrir les formules →
+          </Link>
+        </div>
+      ) : activeSection === "quizzes" ? (
+        <div className="space-y-4">
+          {quizError && <div className="alert-error" role="alert">{quizError}</div>}
+          {quizLoading ? <PageLoader label="Chargement des quiz…" /> : quizzes.length === 0 ? (
+            <div className="glass-card rounded-3xl p-12 text-center text-sm text-slate-500">Aucun quiz disponible pour cette matière.</div>
+          ) : quizzes.map((quiz) => (
+            <details key={quiz.id} onToggle={(event) => {
+              const open = event.currentTarget.open;
+              setOpenQuizId(open ? quiz.id : null);
+              if (open) setQuizTimers((current) => ({ ...current, [quiz.id]: (quiz.durationMinutes ?? 30) * 60 }));
+            }} className="glass-card rounded-2xl p-5">
+              <summary className="cursor-pointer font-bold text-slate-800">{quiz.title}</summary>
+              <div className="mt-4 space-y-3">
+                <div className="flex items-center justify-between rounded-xl bg-indigo-50 px-3 py-2 text-xs font-bold text-indigo-700">
+                  <span>⏱ Temps restant</span>
+                  <span>{Math.floor((quizTimers[quiz.id] ?? (quiz.durationMinutes ?? 30) * 60) / 60)}:{String((quizTimers[quiz.id] ?? (quiz.durationMinutes ?? 30) * 60) % 60).padStart(2, "0")}</span>
+                </div>
+                {(quiz.questions ?? []).map((question) => (
+                  <div key={question.id} className="rounded-xl bg-slate-50 p-4">
+                    <p className="text-sm font-semibold text-slate-800">{question.prompt}</p>
+                    <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                      {question.options.map((option, index) => (
+                        <button
+                          key={`${question.id}-${index}`}
+                          type="button"
+                          onClick={() => setQuizAnswers((current) => ({
+                            ...current,
+                            [quiz.id]: { ...(current[quiz.id] ?? {}), [question.id]: index },
+                          }))}
+                          className={`rounded-lg border px-3 py-2 text-left text-xs transition ${
+                            quizFeedback[quiz.id]?.find((answer) => answer.questionId === question.id)?.correctOption === index
+                              ? "border-emerald-500 bg-emerald-100 font-bold text-emerald-800"
+                              : quizFeedback[quiz.id]?.find((answer) => answer.questionId === question.id)?.selectedOption === index
+                                ? "border-rose-500 bg-rose-100 font-bold text-rose-800"
+                                : quizAnswers[quiz.id]?.[question.id] === index
+                                  ? "border-indigo-500 bg-indigo-100 font-bold text-indigo-800"
+                                  : "border-slate-200 bg-white text-slate-600 hover:border-indigo-300"
+                          }`}
+                        >
+                          {String.fromCharCode(65 + index)}. {option}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+                {(quiz.questions ?? []).length > 0 && (
+                  <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 pt-4">
+                    <button
+                      type="button"
+                      onClick={() => void submitQuiz(quiz)}
+                      disabled={quizSubmitting === quiz.id}
+                      className="btn-primary rounded-xl px-5 py-2.5 text-xs font-bold disabled:opacity-50"
+                    >
+                      {quizSubmitting === quiz.id ? "Envoi…" : "Valider mes réponses"}
+                    </button>
+                    {quizResults[quiz.id] && (
+                      <p className="text-sm font-bold text-emerald-700">
+                        Résultat : {quizResults[quiz.id].score}/{quizResults[quiz.id].maxScore}
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+            </details>
+          ))}
+        </div>
+      ) : activeSection === CourseSection.OLDLIVE && user?.userType === UserType.STUDENT && user?.membership !== MembershipType.GOLD ? (
         <div className="glass-card p-8 sm:p-10 rounded-3xl border border-amber-300/80 bg-gradient-to-r from-amber-50/80 via-yellow-50/50 to-orange-50/40 text-center animate-fade-in my-6">
           <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-500 text-white text-2xl shadow-sm mb-4">
             ⭐

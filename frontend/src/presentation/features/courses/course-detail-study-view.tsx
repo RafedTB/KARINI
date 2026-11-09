@@ -1,16 +1,19 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/presentation/providers/auth-provider";
 import { coursesService } from "@/application/services/courses-service";
 import type { Course } from "@/domain/entities/course";
 import type { Lesson } from "@/domain/entities/lesson";
+import type { Quiz } from "@/domain/entities/quiz";
+import { quizzesService } from "@/application/services/quizzes-service";
 import { LessonType, MembershipType, UserType } from "@/domain/enums";
 import { PageLoader } from "@/presentation/components/ui/page-loader";
 import { Button } from "@/presentation/components/ui/button";
 import { MagazinePdfViewer } from "@/presentation/components/pdf/magazine-pdf-viewer";
+import { progressRepository } from "@/infrastructure/repositories/progress-repository";
 
 type CourseDetailStudyViewProps = {
   courseId: number;
@@ -36,7 +39,25 @@ export function CourseDetailStudyView({ courseId }: CourseDetailStudyViewProps) 
   const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null);
   const [loadingPdf, setLoadingPdf] = useState(false);
   const [pdfError, setPdfError] = useState("");
+  const [quizzes, setQuizzes] = useState<Quiz[]>([]);
+  const [quizError, setQuizError] = useState("");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const lastSavedProgressSecond = useRef(-1);
+
+  const saveLessonProgress = (lessonId: number, currentTime: number, completed = false) => {
+    if (!token || !isStudent) return;
+    const second = Math.floor(currentTime);
+    if (!completed && second % 10 !== 0) return;
+    if (!completed && second === lastSavedProgressSecond.current) return;
+    lastSavedProgressSecond.current = second;
+    void progressRepository.saveLessonProgress(token, lessonId, {
+      watchedSeconds: second,
+      lastPositionSeconds: second,
+      completed,
+    }).catch(() => {
+      // Progress saving is best-effort and must not interrupt lesson playback.
+    });
+  };
 
   useEffect(() => {
     if (!token) return;
@@ -58,6 +79,16 @@ export function CourseDetailStudyView({ courseId }: CourseDetailStudyViewProps) 
       })
       .finally(() => setLoading(false));
   }, [token, courseId]);
+
+  useEffect(() => {
+    if (!token || !isStudent || !["gold", "platinum"].includes(membershipStr)) {
+      setQuizzes([]);
+      return;
+    }
+    quizzesService.listForCourse(token, courseId)
+      .then(setQuizzes)
+      .catch((cause: unknown) => setQuizError(cause instanceof Error ? cause.message : "Impossible de charger les quiz."));
+  }, [token, courseId, isStudent, membershipStr]);
 
   const activeLesson: Lesson | null = useMemo(() => {
     if (!course?.lessons || course.lessons.length === 0) return null;
@@ -289,6 +320,36 @@ export function CourseDetailStudyView({ courseId }: CourseDetailStudyViewProps) 
 
             {/* Lessons List */}
             <div className="mt-4 space-y-2 max-h-[520px] overflow-y-auto pr-1">
+              {isStudent && !["gold", "platinum"].includes(membershipStr) && (
+                <Link href="/membership" className="block rounded-2xl border border-amber-200 bg-amber-50 p-3">
+                  <span className="text-xs font-bold text-amber-900">Quiz réservés aux membres Gold et Platinum</span>
+                  <span className="mt-1 block text-[10px] text-amber-800">Passer à une formule supérieure →</span>
+                </Link>
+              )}
+              {quizzes.length > 0 && (
+                <div className="rounded-2xl border border-amber-200 bg-amber-50/60 p-3">
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-amber-800">Quiz du cours</p>
+                  <div className="mt-2 space-y-2">
+                    {quizzes.map((quiz) => (
+                      <details key={quiz.id} className="rounded-xl bg-white p-2.5">
+                        <summary className="cursor-pointer text-xs font-bold text-slate-800">{quiz.title}</summary>
+                        <div className="mt-2 space-y-2">
+                          {(quiz.questions ?? []).map((question) => (
+                            <div key={question.id} className="rounded-lg bg-slate-50 p-2 text-[11px] text-slate-700">
+                              <p className="font-semibold">{question.prompt}</p>
+                              <ul className="mt-1 list-disc pl-4 text-slate-500">
+                                {question.options.map((option, index) => <li key={`${question.id}-${index}`}>{option}</li>)}
+                              </ul>
+                            </div>
+                          ))}
+                          {(quiz.questions ?? []).length === 0 && <p className="text-[10px] text-slate-500">Questions à venir.</p>}
+                        </div>
+                      </details>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {quizError && <p className="text-[10px] text-rose-600">{quizError}</p>}
               {/* Standalone Course Video button if present */}
               {(course.videoFile || course.youtubeUrl) && (
                 <button
@@ -573,6 +634,11 @@ export function CourseDetailStudyView({ courseId }: CourseDetailStudyViewProps) 
                         preload="metadata"
                         className="h-full w-full object-contain"
                         src={`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000"}/api/courses/videos/${encodeURIComponent(activeLesson.videoFile)}?token=${encodeURIComponent(token || "")}`}
+                        onTimeUpdate={(event) => {
+                          const video = event.currentTarget;
+                          saveLessonProgress(activeLesson.id, video.currentTime);
+                        }}
+                        onEnded={(event) => saveLessonProgress(activeLesson.id, event.currentTarget.currentTime, true)}
                       >
                         Votre navigateur ne prend pas en charge la lecture de vidéos.
                       </video>

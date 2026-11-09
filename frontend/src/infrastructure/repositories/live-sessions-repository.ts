@@ -14,6 +14,10 @@ export const liveSessionsRepository = {
     return apiClient<LiveSession>(`/api/live-sessions/${id}`, { token });
   },
 
+  recordAttendance(token: string, id: number) {
+    return apiClient(`/api/live-sessions/${id}/attendance`, { token, method: "POST" });
+  },
+
   create(token: string, data: CreateLiveSessionInput) {
     return apiClient<LiveSession>("/api/live-sessions", {
       token,
@@ -37,4 +41,3 @@ export const liveSessionsRepository = {
     });
   },
 };
-

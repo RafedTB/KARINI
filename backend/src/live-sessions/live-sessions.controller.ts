@@ -44,6 +44,13 @@ export class LiveSessionsController {
         return this.liveSessionsService.findOne(id);
     }
 
+    @Post(':id/attendance')
+    @Roles(UserType.STUDENT)
+    @ApiOperation({ summary: 'Record attendance when a student joins a live session' })
+    public recordAttendance(@Param('id', ParseIntPipe) id: number, @currentUser() payload: JWTPayloadType) {
+        return this.liveSessionsService.recordAttendance(payload.id, id);
+    }
+
     @Post()
     @Roles(UserType.SUPERADMIN, UserType.MODERATOR)
     @ApiOperation({ summary: 'Schedule a new live session (Superadmin and Moderator only)' })
@@ -65,4 +72,3 @@ export class LiveSessionsController {
         return this.liveSessionsService.remove(id);
     }
 }
-

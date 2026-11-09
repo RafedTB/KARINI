@@ -14,6 +14,10 @@ export const liveSessionsService = {
     return liveSessionsRepository.getById(token, id);
   },
 
+  recordAttendance(token: string, id: number) {
+    return liveSessionsRepository.recordAttendance(token, id);
+  },
+
   create(token: string, data: CreateLiveSessionInput) {
     return liveSessionsRepository.create(token, data);
   },
@@ -26,4 +30,3 @@ export const liveSessionsService = {
     return liveSessionsRepository.delete(token, id);
   },
 };
-

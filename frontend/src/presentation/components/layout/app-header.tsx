@@ -8,9 +8,10 @@ import { UserType } from "@/domain/enums";
 
 type AppHeaderProps = {
   onToggleMobileNav?: () => void;
+  unreadMessageCount?: number;
 };
 
-export function AppHeader({ onToggleMobileNav }: AppHeaderProps) {
+export function AppHeader({ onToggleMobileNav, unreadMessageCount = 0 }: AppHeaderProps) {
   const pathname = usePathname();
   const { user, signOut } = useAuth();
 
@@ -19,6 +20,7 @@ export function AppHeader({ onToggleMobileNav }: AppHeaderProps) {
   const isStudent = user.userType === UserType.STUDENT;
   const isInstructor = user.userType === UserType.INSTRUCTOR;
   const isSuperadmin = user.userType === UserType.SUPERADMIN;
+  const isParent = user.userType === UserType.PARENT;
 
   // Breadcrumb / page title derived from current route & role
   const getPageTitle = () => {
@@ -28,9 +30,12 @@ export function AppHeader({ onToggleMobileNav }: AppHeaderProps) {
     if (pathname.startsWith("/membership")) return "Formules & Abonnements";
     if (pathname.startsWith("/live")) return "Sessions Live & Masterclasses";
     if (pathname.startsWith("/moderator")) return "Gestion des Élèves & Groupes Live";
+    if (pathname.startsWith("/parent/messages")) return "Messages Parents";
+    if (pathname.startsWith("/parent")) return "Suivi Parental";
     if (pathname === "/") {
       if (isSuperadmin) return "Console Superadmin";
       if (isInstructor) return "Espace Enseignant";
+      if (isParent) return "Suivi Parental";
       return "Espace Élève";
     }
     return "Portail Karini";
@@ -125,6 +130,18 @@ export function AppHeader({ onToggleMobileNav }: AppHeaderProps) {
               className="hidden sm:inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold bg-indigo-600 text-white shadow-xs hover:bg-indigo-700 transition-colors"
             >
               <span>+</span> Nouvelle ressource
+            </Link>
+            <Link
+              href="/teacher/messages"
+              className="badge badge-accent hidden items-center gap-1.5 px-3 py-1.5 text-xs font-semibold transition-all hover:scale-105 sm:inline-flex"
+            >
+              <span aria-hidden="true">💬</span>
+              <span>Messages</span>
+              {unreadMessageCount > 0 && (
+                <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white">
+                  {unreadMessageCount > 99 ? "99+" : unreadMessageCount}
+                </span>
+              )}
             </Link>
           </>
         )}

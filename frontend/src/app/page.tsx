@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 import { useAuth } from "@/presentation/providers/auth-provider";
 import { displayName } from "@/shared/utils/display-name";
 import { UserType } from "@/domain/enums";
@@ -95,6 +97,17 @@ const tiers = [
 
 export default function HomePage() {
   const { user, isLoading } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!isLoading && user?.userType === UserType.PARENT) {
+      router.replace("/parent");
+    }
+  }, [isLoading, router, user]);
+
+  if (!isLoading && user?.userType === UserType.PARENT) {
+    return null;
+  }
 
   // If a user is logged in, show their role-tailored dashboard hub
   if (!isLoading && user) {

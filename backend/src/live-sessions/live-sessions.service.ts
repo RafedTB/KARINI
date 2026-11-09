@@ -2,6 +2,7 @@ import { ForbiddenException, Injectable, NotFoundException, OnModuleInit } from 
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { LiveSession } from "./live-session.entity.js";
+import { LiveAttendance } from "./live-attendance.entity.js";
 import { User } from "../users/user.entity.js";
 import { CreateLiveSessionDto } from "./dto/create-live-session.dto.js";
 import { UpdateLiveSessionDto } from "./dto/update-live-session.dto.js";
@@ -15,6 +16,8 @@ export class LiveSessionsService implements OnModuleInit {
         private readonly liveSessionRepository: Repository<LiveSession>,
         @InjectRepository(User)
         private readonly userRepository: Repository<User>,
+        @InjectRepository(LiveAttendance)
+        private readonly attendanceRepository: Repository<LiveAttendance>,
     ) {}
 
     public async onModuleInit() {
@@ -37,6 +40,16 @@ export class LiveSessionsService implements OnModuleInit {
         } catch (err) {
             console.warn("Could not clean up dummy sessions:", err);
         }
+
+    }
+
+    public async recordAttendance(studentId: number, sessionId: number) {
+        const student = await this.userRepository.findOne({ where: { id: studentId, userType: UserType.STUDENT } });
+        if (!student) throw new ForbiddenException("Seuls les élèves peuvent rejoindre une session");
+        const session = await this.liveSessionRepository.findOne({ where: { id: sessionId } });
+        if (!session) throw new NotFoundException("Session introuvable");
+        const existing = await this.attendanceRepository.findOne({ where: { studentId, sessionId } });
+        return existing ?? this.attendanceRepository.save(this.attendanceRepository.create({ studentId, sessionId }));
     }
 
     public async findAll(payload: JWTPayloadType) {

@@ -22,7 +22,7 @@ export class SubjectsController {
     ) {}
 
     @Get()
-    @Roles(UserType.SUPERADMIN, UserType.STUDENT, UserType.INSTRUCTOR, UserType.FINANCE, UserType.MODERATOR, UserType.PARENT)
+    @Roles(UserType.SUPERADMIN, UserType.STUDENT, UserType.INSTRUCTOR, UserType.FINANCE, UserType.MODERATOR)
     @ApiQuery({ name: 'filiere', required: false, type: String })
     @ApiOperation({ summary: 'Get all subjects, optionally filtered by filière' })
     public async findAll(
@@ -42,7 +42,7 @@ export class SubjectsController {
     }
 
     @Get('meta/filieres')
-    @Roles(UserType.SUPERADMIN, UserType.STUDENT, UserType.INSTRUCTOR, UserType.FINANCE, UserType.MODERATOR, UserType.PARENT)
+    @Roles(UserType.SUPERADMIN, UserType.STUDENT, UserType.INSTRUCTOR, UserType.FINANCE, UserType.MODERATOR)
     @ApiOperation({ summary: 'Get all distinct filières list' })
     public async getFilieres(@currentUser() payload?: JWTPayloadType) {
         if (payload?.userType === UserType.STUDENT) {
@@ -58,14 +58,14 @@ export class SubjectsController {
     }
 
     @Get(':id')
-    @Roles(UserType.SUPERADMIN, UserType.STUDENT, UserType.INSTRUCTOR, UserType.FINANCE, UserType.MODERATOR, UserType.PARENT)
+    @Roles(UserType.SUPERADMIN, UserType.STUDENT, UserType.INSTRUCTOR, UserType.FINANCE, UserType.MODERATOR)
     @ApiOperation({ summary: 'Get subject by ID' })
     public findOne(@Param('id', ParseIntPipe) id: number) {
         return this.subjectsService.findOne(id);
     }
 
     @Get('by-slug/:slug')
-    @Roles(UserType.SUPERADMIN, UserType.STUDENT, UserType.INSTRUCTOR, UserType.FINANCE, UserType.MODERATOR, UserType.PARENT)
+    @Roles(UserType.SUPERADMIN, UserType.STUDENT, UserType.INSTRUCTOR, UserType.FINANCE, UserType.MODERATOR)
     @ApiOperation({ summary: 'Get subject by slug' })
     public findBySlug(@Param('slug') slug: string) {
         return this.subjectsService.findBySlug(slug);

@@ -702,6 +702,8 @@ export function LiveCalendarView() {
                     <SessionCard
                       key={session.id}
                       session={session}
+                      token={token}
+                      isStudent={user?.userType === UserType.STUDENT}
                       canManage={canManageLive}
                       onEdit={() => openEditModal(session)}
                       onDelete={() => handleDeleteSession(session.id)}
@@ -730,6 +732,8 @@ export function LiveCalendarView() {
                 <SessionCard
                   key={session.id}
                   session={session}
+                  token={token}
+                  isStudent={user?.userType === UserType.STUDENT}
                   canManage={canManageLive}
                   onEdit={() => openEditModal(session)}
                   onDelete={() => handleDeleteSession(session.id)}
@@ -988,11 +992,15 @@ export function LiveCalendarView() {
 // Session Card Component
 function SessionCard({
   session,
+  token,
+  isStudent,
   canManage,
   onEdit,
   onDelete,
 }: {
   session: LiveSession;
+  token: string | null;
+  isStudent: boolean;
   canManage?: boolean;
   onEdit?: () => void;
   onDelete?: () => void;
@@ -1100,6 +1108,11 @@ function SessionCard({
           href={session.meetingUrl}
           target="_blank"
           rel="noopener noreferrer"
+          onClick={() => {
+            if (token && isStudent) {
+              void liveSessionsService.recordAttendance(token, session.id).catch(() => undefined);
+            }
+          }}
           className={`flex-1 rounded-xl py-2 px-3 text-center text-xs font-bold transition-all ${
             isLiveNow
               ? "bg-rose-600 hover:bg-rose-700 text-white shadow-sm"

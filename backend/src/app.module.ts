@@ -8,6 +8,9 @@ import { CoursesModule } from './courses/courses.module.js';
 import { MembershipsModule } from './memberships/memberships.module.js';
 import { SubjectsModule } from './subjects/subjects.module.js';
 import { LiveSessionsModule } from './live-sessions/live-sessions.module.js';
+import { ParentModule } from './parent/parent.module.js';
+import { ProgressModule } from './progress/progress.module.js';
+import { QuizzesModule } from './quizzes/quizzes.module.js';
 
 @Module({
   imports: [
@@ -30,6 +33,9 @@ import { LiveSessionsModule } from './live-sessions/live-sessions.module.js';
     MembershipsModule,
     SubjectsModule,
     LiveSessionsModule,
+    ParentModule,
+    ProgressModule,
+    QuizzesModule,
   ],
   controllers: [AppController],
   providers: [AppService],
