@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpCode, Post, HttpStatus, UseGuards, Put, Delete, Param, ParseIntPipe, UseInterceptors, UploadedFile, BadRequestException, Res } from "@nestjs/common";
+import { Body, Controller, Get, HttpCode, Post, HttpStatus, UseGuards, Put, Delete, Param, ParseIntPipe, UseInterceptors, UploadedFile, BadRequestException, Res, Req } from "@nestjs/common";
 import { usersService } from "./users.service.js";
 import { RegisterDto } from "./dto/register.dto.js";
 import { LoginDto } from "./dto/login.dto.js";
@@ -10,19 +10,23 @@ import { Roles } from "./decorators/user-role.decorator.js";
 import { UserType } from "../utils/enum.js";
 import { UpdateUserDto } from "./dto/update-user.dto.js";
 import { FileInterceptor } from "@nestjs/platform-express";
-import type { Express, Response } from "express";
+import type { Express, Request, Response } from "express";
 import { ForgotPasswordDto } from "./dto/forgot-password.dto.js";
 import { ResetPasswordDto } from "./dto/reset-password.dto.js";
 import { ApiConsumes, ApiBearerAuth, ApiBody, ApiTags, ApiOperation } from "@nestjs/swagger";
 import { ImageUploadDto } from "./dto/image-upload.dto.js";
 import { UpdateMembershipDto } from "./dto/update-membership.dto.js";
 import { UpdateCreditsDto } from "./dto/update-credits.dto.js";
+import { ConfigService } from "@nestjs/config";
 
 
 @ApiTags('Users')
 @Controller('api/users')
 export class UsersController {
-    constructor(private readonly usersService: usersService) {}
+    constructor(
+        private readonly usersService: usersService,
+        private readonly config: ConfigService,
+    ) {}
 
     // POST /api/users/auth/register
     @Post('auth/register')
@@ -193,14 +197,28 @@ export class UsersController {
         return this.usersService.sendResetPassword(body.email);
     }
 
-    // GET /api/users/reset-password/:Id/:resetPasswordToken
-    @Get('reset-password/:Id/:resetPasswordToken')
-    @ApiOperation({ summary: 'Validate a password reset link' })
-    public getResetPassword(
-        @Param('Id', ParseIntPipe) id: number,
-        @Param('resetPasswordToken') resetPasswordToken: string
+    // GET /api/users/reset-password/:id/:resetPasswordToken
+    @Get(['reset-password/:id/:resetPasswordToken', 'reset-password/:Id/:resetPasswordToken'])
+    @ApiOperation({ summary: 'Validate a password reset link or redirect browser to reset page' })
+    public async getResetPassword(
+        @Param('id') idParam: string | undefined,
+        @Param('Id') IdParam: string | undefined,
+        @Param('resetPasswordToken') resetPasswordToken: string,
+        @Req() req: Request,
+        @Res({ passthrough: true }) res: Response,
     ) {
-        return this.usersService.getResetPasswordLink(id, resetPasswordToken);
+        const id = parseInt(idParam || IdParam || '', 10);
+        if (isNaN(id)) {
+            throw new BadRequestException('Invalid user ID');
+        }
+        const result = await this.usersService.getResetPasswordLink(id, resetPasswordToken);
+        const acceptsHtml = req.headers.accept?.includes('text/html');
+        if (acceptsHtml) {
+            const frontendUrl = (this.config.get<string>('FRONTEND_URL') || 'http://localhost:3001').replace(/\/+$/, '');
+            res.redirect(`${frontendUrl}/reset-password?userId=${id}&token=${encodeURIComponent(resetPasswordToken)}`);
+            return;
+        }
+        return result;
     }
 
     // POST /api/users/reset-password

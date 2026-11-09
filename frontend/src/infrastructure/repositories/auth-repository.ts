@@ -59,6 +59,12 @@ export const authRepository = {
     });
   },
 
+  validateResetToken(userId: number, resetPasswordToken: string) {
+    return apiClient<MessageResponse>(`/api/users/reset-password/${userId}/${resetPasswordToken}`, {
+      method: "GET",
+    });
+  },
+
   getCurrentUser(token: string) {
     return apiClient<User>("/api/users/current-user", { token });
   },

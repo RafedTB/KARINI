@@ -1,4 +1,6 @@
 import { IsString, IsNotEmpty, Length, IsNumber, Min, MinLength } from "class-validator";
+import { Type } from "class-transformer";
+
 export class ResetPasswordDto {
 
     @IsString()
@@ -6,9 +8,10 @@ export class ResetPasswordDto {
     @Length(6, 50)
     newPassword: string = '';
 
+    @Type(() => Number)
     @IsNotEmpty()
     @IsNumber()
-    @Min(0)
+    @Min(1)
     userId: number = 0;
 
     @IsString()

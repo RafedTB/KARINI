@@ -87,7 +87,7 @@ export class AuthProvider {
                         cleanParentEmail,
                         cleanEmail,
                         tempPassword,
-                        `${this.config.get<string>("FRONTEND_URL", "http://localhost:5000")}/login`,
+                        `${(this.config.get<string>("FRONTEND_URL") || "http://localhost:3001").replace(/\/+$/, "")}/login`,
                     ),
                     "parent account credentials",
                 );
@@ -196,7 +196,8 @@ export class AuthProvider {
         if (!user) throw new BadRequestException('User with this email does not exist');
         user.resetPasswordToken = randomBytes(32).toString('hex');
         await this.userRepository.save(user);
-        const resetLink = `${this.config.get<string>("FRONTEND_URL", "http://localhost:5000")}/reset-password?userId=${user.id}&token=${user.resetPasswordToken}`;
+        const frontendUrl = (this.config.get<string>("FRONTEND_URL") || "http://localhost:3001").replace(/\/+$/, "");
+        const resetLink = `${frontendUrl}/reset-password?userId=${user.id}&token=${user.resetPasswordToken}`;
         const emailSent = await this.trySendEmail(
             () => this.mailService.sendPasswordResetEmail(user.email, resetLink),
             "password reset",
@@ -228,7 +229,7 @@ export class AuthProvider {
     public async getResetPasswordLink(userId: number, resetPasswordToken: string) {
         const user = await this.userRepository.findOne({ where: { id: userId } });
         if (!user) throw new BadRequestException('Invalid user ID');
-        if (user.resetPasswordToken === null || user.resetPasswordToken !== resetPasswordToken)
+        if (!user.resetPasswordToken || user.resetPasswordToken !== resetPasswordToken)
             throw new BadRequestException('Invalid reset password token');
         return { message: "Valid reset password link." };
     }
@@ -240,7 +241,7 @@ export class AuthProvider {
         const { newPassword, userId, resetPasswordToken } = dto;
         const user = await this.userRepository.findOne({ where: { id: userId } });
         if (!user) throw new BadRequestException('Invalid user ID');
-        if (user.resetPasswordToken === null || user.resetPasswordToken !== resetPasswordToken)
+        if (!user.resetPasswordToken || user.resetPasswordToken !== resetPasswordToken)
             throw new BadRequestException('Invalid reset password token');
         user.password = await this.HashPassword(newPassword);
         user.resetPasswordToken = null;
