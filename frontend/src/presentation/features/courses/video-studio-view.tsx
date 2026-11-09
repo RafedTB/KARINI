@@ -11,6 +11,7 @@ import {
   UsersIcon,
   GraduationCapIcon,
 } from "@/presentation/components/ui/icons";
+import { ProVideoPlayer } from "@/presentation/components/video/pro-video-player";
 
 export type VideoPlaylistItem = {
   id: string;
@@ -405,21 +406,20 @@ export function VideoStudioView({
                   </div>
                 </div>
               ) : videoFileUrl ? (
-                <div className="relative w-full overflow-hidden rounded-2xl aspect-video bg-black shadow-lg flex items-center justify-center">
-                  <video
-                    key={activeItem.id}
-                    controls
-                    playsInline
-                    autoPlay={false}
-                    preload="metadata"
-                    className="h-full w-full object-contain"
-                    src={videoFileUrl}
-                  >
-                    Votre navigateur ne prend pas en charge la lecture de vidéos.
-                  </video>
-                </div>
+                <ProVideoPlayer
+                  key={activeItem.id}
+                  src={videoFileUrl}
+                  title={activeItem.title}
+                  instructorName={activeItem.instructorName}
+                  subjectName={subjectName}
+                  watermarkText={user ? `${user.username || "Élève"} • ${user.studentClass || "Karini"}` : "Karini Academy"}
+                  onEnded={handleNext}
+                />
               ) : embedUrl ? (
-                <div className="relative w-full overflow-hidden rounded-2xl aspect-video bg-black shadow-lg">
+                <div
+                  onContextMenu={(e) => e.preventDefault()}
+                  className="relative w-full overflow-hidden rounded-2xl aspect-video bg-black shadow-2xl border border-slate-800"
+                >
                   <iframe
                     key={activeItem.id}
                     src={embedUrl}

@@ -20,6 +20,7 @@ import {
   FileTextIcon,
   RadioLiveIcon,
 } from "@/presentation/components/ui/icons";
+import { ProVideoPlayer } from "@/presentation/components/video/pro-video-player";
 
 type CourseDetailStudyViewProps = {
   courseId: number;
@@ -34,6 +35,9 @@ export function CourseDetailStudyView({ courseId }: CourseDetailStudyViewProps) 
   const isStudent = userTypeStr === "student";
   const isPaidStudent = isStudent && ["silver", "gold", "platinum"].includes(membershipStr);
   const isFreeStudent = isStudent && !isPaidStudent;
+  const studentWatermark = user
+    ? `${user.username || [user.firstname, user.lastname].filter(Boolean).join(" ") || "Élève"} • ${user.studentClass || "Karini"}`.trim()
+    : undefined;
 
   const [course, setCourse] = useState<Course | null>(null);
   const [selectedLessonId, setSelectedLessonId] = useState<number | null>(null);
@@ -49,6 +53,11 @@ export function CourseDetailStudyView({ courseId }: CourseDetailStudyViewProps) 
   const [quizError, setQuizError] = useState("");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const lastSavedProgressSecond = useRef(-1);
+
+  const instructorDisplayName = course?.instructor
+    ? [course.instructor.firstname, course.instructor.lastname].filter(Boolean).join(" ") || course.instructor.username || undefined
+    : undefined;
+  const subjectDisplayName = course?.subject ? String(course.subject) : undefined;
 
   const saveLessonProgress = (lessonId: number, currentTime: number, completed = false) => {
     if (!token || !isStudent) return;
@@ -580,25 +589,24 @@ export function CourseDetailStudyView({ courseId }: CourseDetailStudyViewProps) 
                   description="Le visionnage de cette vidéo pédagogique est réservé aux élèves ayant souscrit à une formule Silver, Gold ou Platinum."
                 />
               ) : course.videoFile ? (
-                <div className="relative w-full overflow-hidden rounded-2xl aspect-video bg-black shadow-md flex items-center justify-center">
-                  <video
-                    controls
-                    playsInline
-                    preload="metadata"
-                    className="h-full w-full object-contain"
-                    src={`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000"}/api/courses/videos/${encodeURIComponent(course.videoFile)}?token=${encodeURIComponent(token || "")}`}
-                  >
-                    Votre navigateur ne prend pas en charge la lecture de vidéos.
-                  </video>
-                </div>
+                <ProVideoPlayer
+                  src={`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000"}/api/courses/videos/${encodeURIComponent(course.videoFile)}?token=${encodeURIComponent(token || "")}`}
+                  title={course.title}
+                  instructorName={instructorDisplayName}
+                  subjectName={subjectDisplayName}
+                  watermarkText={studentWatermark}
+                />
               ) : course.youtubeUrl && getEmbedYoutubeUrl(course.youtubeUrl) ? (
-                <div className="relative w-full overflow-hidden rounded-2xl aspect-video bg-black shadow-md">
+                <div
+                  className="relative w-full overflow-hidden rounded-2xl aspect-video bg-black shadow-2xl border border-white/10"
+                  onContextMenu={(e) => e.preventDefault()}
+                >
                   <iframe
                     src={getEmbedYoutubeUrl(course.youtubeUrl) || ""}
                     title={course.title}
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                     allowFullScreen
-                    className="absolute inset-0 h-full w-full border-0"
+                    className="absolute inset-0 h-full w-full border-0 select-none"
                   />
                 </div>
               ) : course.youtubeUrl ? (
@@ -667,31 +675,32 @@ export function CourseDetailStudyView({ courseId }: CourseDetailStudyViewProps) 
                       description="Le visionnage des explications vidéo des professeurs est réservé aux élèves ayant souscrit à une formule Silver, Gold ou Platinum."
                     />
                   ) : activeLesson.videoFile ? (
-                    <div className="relative w-full overflow-hidden rounded-2xl aspect-video bg-black shadow-md flex items-center justify-center">
-                      <video
-                        controls
-                        playsInline
-                        preload="metadata"
-                        className="h-full w-full object-contain"
-                        src={`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000"}/api/courses/videos/${encodeURIComponent(activeLesson.videoFile)}?token=${encodeURIComponent(token || "")}`}
-                        onTimeUpdate={(event) => {
-                          const video = event.currentTarget;
-                          saveLessonProgress(activeLesson.id, video.currentTime);
-                        }}
-                        onEnded={(event) => saveLessonProgress(activeLesson.id, event.currentTarget.currentTime, true)}
-                      >
-                        Votre navigateur ne prend pas en charge la lecture de vidéos.
-                      </video>
-                    </div>
+                    <ProVideoPlayer
+                      src={`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000"}/api/courses/videos/${encodeURIComponent(activeLesson.videoFile)}?token=${encodeURIComponent(token || "")}`}
+                      title={activeLesson.title}
+                      instructorName={instructorDisplayName}
+                      subjectName={subjectDisplayName}
+                      watermarkText={studentWatermark}
+                      onTimeUpdate={(currentTime) => {
+                        saveLessonProgress(activeLesson.id, currentTime);
+                      }}
+                      onEnded={() => {
+                        const totalDuration = activeLesson.durationMinutes ? activeLesson.durationMinutes * 60 : 600;
+                        saveLessonProgress(activeLesson.id, totalDuration, true);
+                      }}
+                    />
                   ) : activeLesson.youtubeUrl ? (
                     getEmbedYoutubeUrl(activeLesson.youtubeUrl) ? (
-                      <div className="relative w-full overflow-hidden rounded-2xl aspect-video bg-black shadow-md">
+                      <div
+                        className="relative w-full overflow-hidden rounded-2xl aspect-video bg-black shadow-2xl border border-white/10"
+                        onContextMenu={(e) => e.preventDefault()}
+                      >
                         <iframe
                           src={getEmbedYoutubeUrl(activeLesson.youtubeUrl) || ""}
                           title={activeLesson.title}
                           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                           allowFullScreen
-                          className="absolute inset-0 h-full w-full border-0"
+                          className="absolute inset-0 h-full w-full border-0 select-none"
                         />
                       </div>
                     ) : (
@@ -793,17 +802,13 @@ export function CourseDetailStudyView({ courseId }: CourseDetailStudyViewProps) 
                     description="La vidéo de cette ressource est réservée aux élèves abonnés Silver, Gold et Platinum."
                   />
                 ) : (
-                  <div className="relative w-full overflow-hidden rounded-2xl aspect-video bg-black shadow-md flex items-center justify-center">
-                    <video
-                      controls
-                      playsInline
-                      preload="metadata"
-                      className="h-full w-full object-contain"
-                      src={`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000"}/api/courses/videos/${encodeURIComponent(course.videoFile)}?token=${encodeURIComponent(token || "")}`}
-                    >
-                      Votre navigateur ne prend pas en charge la lecture de vidéos.
-                    </video>
-                  </div>
+                  <ProVideoPlayer
+                    src={`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000"}/api/courses/videos/${encodeURIComponent(course.videoFile)}?token=${encodeURIComponent(token || "")}`}
+                    title={course.title}
+                    instructorName={instructorDisplayName}
+                    subjectName={subjectDisplayName}
+                    watermarkText={studentWatermark}
+                  />
                 )
               )}
 
@@ -815,12 +820,15 @@ export function CourseDetailStudyView({ courseId }: CourseDetailStudyViewProps) 
                     description="La vidéo de ce cours est réservée aux élèves abonnés Silver, Gold et Platinum."
                   />
                 ) : getEmbedYoutubeUrl(course.youtubeUrl) ? (
-                  <div className="relative w-full overflow-hidden rounded-2xl aspect-video bg-black">
+                  <div
+                    className="relative w-full overflow-hidden rounded-2xl aspect-video bg-black shadow-2xl border border-white/10"
+                    onContextMenu={(e) => e.preventDefault()}
+                  >
                     <iframe
                       src={getEmbedYoutubeUrl(course.youtubeUrl) || ""}
                       title={course.title}
                       allowFullScreen
-                      className="absolute inset-0 h-full w-full border-0"
+                      className="absolute inset-0 h-full w-full border-0 select-none"
                     />
                   </div>
                 ) : (

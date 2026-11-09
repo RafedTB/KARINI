@@ -253,7 +253,7 @@ export class CoursesController {
 
     @Get('videos/:file')
     @Roles(UserType.SUPERADMIN, UserType.STUDENT, UserType.INSTRUCTOR, UserType.MODERATOR)
-    @ApiOperation({ summary: 'Stream or download an uploaded video file' })
+    @ApiOperation({ summary: 'Stream an uploaded video file inline with anti-download protection' })
     public async showVideo(
         @Param('file') file: string,
         @currentUser() payload: JWTPayloadType,
@@ -261,6 +261,9 @@ export class CoursesController {
     ) {
         await this.coursesService.assertMediaAccess(payload.id);
         const resolved = findFileInDirs(file, 'videos') || join(getVideosUploadsDir(), basename(file));
-        return res.sendFile(resolved);
+        res.setHeader('Content-Disposition', 'inline');
+        res.setHeader('X-Content-Type-Options', 'nosniff');
+        res.setHeader('Cache-Control', 'private, no-cache, no-store, must-revalidate');
+        return res.sendFile(resolved, { acceptRanges: true });
     }
 }
