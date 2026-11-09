@@ -349,3 +349,15 @@ select {
   height: 1px;
   background: linear-gradient(90deg, transparent, var(--line), transparent);
 }
+
+/* ── Anti-Screen-Capture & Anti-Recording Blackout Security ── */
+@media print {
+  video,
+  .pro-video-player,
+  iframe[src*="youtube"] {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    background: #000000 !important;
+  }
+}

@@ -77,6 +77,38 @@ export function ProVideoPlayer({
   const [hasEnded, setHasEnded] = useState(false);
   const [showCenterFeedback, setShowCenterFeedback] = useState<"play" | "pause" | "rewind" | "forward" | null>(null);
 
+  // Anti-Screen-Capture & Anti-Recording Blackout Shield
+  const [isCaptureShieldActive, setIsCaptureShieldActive] = useState(false);
+  const captureShieldTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Trigger instantaneous black screen shield
+  const triggerBlackout = useCallback((persistent = false) => {
+    setIsCaptureShieldActive(true);
+    const video = videoRef.current;
+    if (video && !video.paused) {
+      video.pause();
+      setIsPlaying(false);
+    }
+    // Neutralize clipboard so screen capture / paste gets blanked
+    try {
+      if (typeof navigator !== "undefined" && navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText("Contenu protégé Karini • Capture interdite").catch(() => {});
+      }
+    } catch {}
+
+    if (captureShieldTimerRef.current) {
+      clearTimeout(captureShieldTimerRef.current);
+    }
+
+    if (!persistent) {
+      captureShieldTimerRef.current = setTimeout(() => {
+        if (document.hasFocus() && document.visibilityState === "visible") {
+          setIsCaptureShieldActive(false);
+        }
+      }, 3500);
+    }
+  }, []);
+
   // Scrubber hover state
   const [hoverTime, setHoverTime] = useState<number | null>(null);
   const [hoverPosition, setHoverPosition] = useState<number>(0);
@@ -236,10 +268,84 @@ export function ProVideoPlayer({
     return () => document.removeEventListener("fullscreenchange", handleFullscreenChange);
   }, []);
 
-  // Keyboard navigation
+  // Anti-Screen-Capture Listeners (Window blur, visibilitychange, PrintScreen, Snipping Tool)
+  useEffect(() => {
+    const handleBlur = () => {
+      // Snipping Tool (Win+Shift+S), OBS, or Game Bar shifts system focus:
+      // Instantly blank out video to solid black!
+      triggerBlackout(true);
+    };
+
+    const handleFocus = () => {
+      // User is back on the lesson
+      if (captureShieldTimerRef.current) clearTimeout(captureShieldTimerRef.current);
+      captureShieldTimerRef.current = setTimeout(() => {
+        setIsCaptureShieldActive(false);
+      }, 500);
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden") {
+        triggerBlackout(true);
+      } else {
+        handleFocus();
+      }
+    };
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.key === "PrintScreen" || e.code === "PrintScreen" || e.keyCode === 44) {
+        triggerBlackout(false);
+      }
+    };
+
+    window.addEventListener("blur", handleBlur);
+    window.addEventListener("focus", handleFocus);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("keyup", handleKeyUp);
+
+    return () => {
+      window.removeEventListener("blur", handleBlur);
+      window.removeEventListener("focus", handleFocus);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("keyup", handleKeyUp);
+    };
+  }, [triggerBlackout]);
+
+  // Keyboard navigation & anti-capture shortcut interceptor
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Don't intercept if user is typing in an input
+      // Global anti-screenshot interception
+      if (e.key === "PrintScreen" || e.code === "PrintScreen" || e.keyCode === 44) {
+        e.preventDefault();
+        triggerBlackout(false);
+        return;
+      }
+
+      // Windows Snipping Tool (Win+Shift+S) or macOS capture (Cmd+Shift+3/4)
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && ["s", "S", "3", "4"].includes(e.key)) {
+        e.preventDefault();
+        triggerBlackout(true);
+        return;
+      }
+
+      // Windows Game Bar / Screen recording (Win+G)
+      if ((e.metaKey || e.ctrlKey) && (e.key === "g" || e.key === "G")) {
+        e.preventDefault();
+        triggerBlackout(true);
+        return;
+      }
+
+      // Developer Tools shortcuts (Ctrl+Shift+I / J / C or F12)
+      if (
+        ((e.ctrlKey || e.metaKey) && e.shiftKey && ["i", "I", "j", "J", "c", "C"].includes(e.key)) ||
+        e.key === "F12"
+      ) {
+        e.preventDefault();
+        triggerBlackout(false);
+        return;
+      }
+
+      // Don't intercept normal playback keys if user is typing in an input
       if (
         document.activeElement?.tagName === "INPUT" ||
         document.activeElement?.tagName === "TEXTAREA" ||
@@ -274,7 +380,7 @@ export function ProVideoPlayer({
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [togglePlay, skipTime, volume, isMuted, toggleFullscreen]);
+  }, [togglePlay, skipTime, volume, isMuted, toggleFullscreen, triggerBlackout]);
 
   // Scrubber click / drag
   const handleTimelineSeek = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -374,9 +480,38 @@ export function ProVideoPlayer({
             toggleFullscreen();
           }
         }}
-        className="h-full w-full object-contain cursor-pointer"
-        style={{ pointerEvents: "auto" }}
+        className="h-full w-full object-contain cursor-pointer transition-all duration-150"
+        style={{
+          pointerEvents: "auto",
+          filter: isCaptureShieldActive ? "brightness(0) contrast(0)" : "none",
+          opacity: isCaptureShieldActive ? 0 : 1,
+        }}
       />
+
+      {/* Anti-Screen-Capture & Anti-Recording Blackout Shield */}
+      {isCaptureShieldActive && (
+        <div
+          className="absolute inset-0 bg-black z-50 flex flex-col items-center justify-center p-6 text-center select-none animate-fade-in"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-rose-500/10 border border-rose-500/30 text-rose-500 mb-3 animate-pulse">
+            <ShieldLockIcon size={32} />
+          </div>
+          <h4 className="font-sans text-base sm:text-lg font-bold text-white tracking-wide">
+            Contenu Vidéo Protégé • Capture Interdite
+          </h4>
+          <p className="mt-1 text-xs text-white/60 max-w-sm">
+            L&apos;écran s&apos;obscurcit automatiquement lors des tentatives de capture d&apos;écran ou d&apos;enregistrement pour protéger les droits pédagogiques Karini.
+          </p>
+          <button
+            type="button"
+            onClick={() => setIsCaptureShieldActive(false)}
+            className="mt-4 px-4 py-2 rounded-lg text-xs font-semibold bg-white/10 hover:bg-white/20 text-white transition-all cursor-pointer border border-white/20"
+          >
+            Reprendre le visionnage
+          </button>
+        </div>
+      )}
 
       {/* Floating Dynamic Anti-Screen-Record Watermark */}
       {watermarkText && (
