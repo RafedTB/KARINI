@@ -12,6 +12,11 @@ export type Lesson = {
   orderIndex: number;
   durationMinutes?: number | null;
   courseId: number;
+  progress?: {
+    completed: boolean;
+    watchedSeconds: number;
+    lastPositionSeconds: number;
+  } | null;
   createdAt: string;
   updatedAt?: string;
 };

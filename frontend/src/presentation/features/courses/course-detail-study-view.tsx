@@ -13,7 +13,7 @@ import { LessonType, MembershipType, UserType } from "@/domain/enums";
 import { PageLoader } from "@/presentation/components/ui/page-loader";
 import { Button } from "@/presentation/components/ui/button";
 import { MagazinePdfViewer } from "@/presentation/components/pdf/magazine-pdf-viewer";
-import { progressRepository } from "@/infrastructure/repositories/progress-repository";
+import { progressRepository, type LessonProgress } from "@/infrastructure/repositories/progress-repository";
 import {
   BookOpenIcon,
   VideoCameraIcon,
@@ -52,6 +52,7 @@ export function CourseDetailStudyView({ courseId }: CourseDetailStudyViewProps) 
   const [quizzes, setQuizzes] = useState<Quiz[]>([]);
   const [quizError, setQuizError] = useState("");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [lessonProgressMap, setLessonProgressMap] = useState<Record<number, LessonProgress>>({});
   const lastSavedProgressSecond = useRef(-1);
 
   const instructorDisplayName = course?.instructor
@@ -59,15 +60,30 @@ export function CourseDetailStudyView({ courseId }: CourseDetailStudyViewProps) 
     : undefined;
   const subjectDisplayName = course?.subject ? String(course.subject) : undefined;
 
-  const saveLessonProgress = (lessonId: number, currentTime: number, completed = false) => {
+  const saveLessonProgress = (
+    lessonId: number,
+    lastPositionSeconds: number,
+    watchedSeconds: number,
+    completed = false
+  ) => {
     if (!token || !isStudent) return;
-    const second = Math.floor(currentTime);
-    if (!completed && second % 10 !== 0) return;
-    if (!completed && second === lastSavedProgressSecond.current) return;
-    lastSavedProgressSecond.current = second;
+    const posSec = Math.floor(lastPositionSeconds);
+    const watchSec = Math.floor(watchedSeconds);
+
+    // Optimistic state update in memory so UI reflects progress instantly
+    setLessonProgressMap((prev) => ({
+      ...prev,
+      [lessonId]: {
+        lessonId,
+        completed: completed || (prev[lessonId]?.completed ?? false),
+        watchedSeconds: Math.max(prev[lessonId]?.watchedSeconds || 0, watchSec),
+        lastPositionSeconds: posSec,
+      },
+    }));
+
     void progressRepository.saveLessonProgress(token, lessonId, {
-      watchedSeconds: second,
-      lastPositionSeconds: second,
+      watchedSeconds: watchSec,
+      lastPositionSeconds: posSec,
       completed,
     }).catch(() => {
       // Progress saving is best-effort and must not interrupt lesson playback.
@@ -77,6 +93,7 @@ export function CourseDetailStudyView({ courseId }: CourseDetailStudyViewProps) 
   useEffect(() => {
     if (!token) return;
     setLoading(true);
+
     coursesService
       .getById(token, courseId)
       .then((data) => {
@@ -93,6 +110,21 @@ export function CourseDetailStudyView({ courseId }: CourseDetailStudyViewProps) 
         setError(err instanceof Error ? err.message : "Impossible de charger le cours.");
       })
       .finally(() => setLoading(false));
+
+    // Load saved student progress for all lessons in this course
+    if (isStudent) {
+      progressRepository.getCourseProgress(token, courseId)
+        .then((list) => {
+          if (Array.isArray(list)) {
+            const map: Record<number, LessonProgress> = {};
+            list.forEach((p) => {
+              if (p.lessonId) map[p.lessonId] = p;
+            });
+            setLessonProgressMap(map);
+          }
+        })
+        .catch(() => {});
+    }
   }, [token, courseId]);
 
   useEffect(() => {
@@ -335,6 +367,26 @@ export function CourseDetailStudyView({ courseId }: CourseDetailStudyViewProps) 
                   {course.description}
                 </p>
               )}
+
+              {/* Overall Course Progress */}
+              {isStudent && lessons.length > 0 && (
+                <div className="mt-3 p-2.5 rounded-2xl bg-indigo-50/80 border border-indigo-100">
+                  <div className="flex items-center justify-between text-[11px] font-semibold text-slate-700 mb-1">
+                    <span>Progression du cours</span>
+                    <span className="text-indigo-600 font-bold">
+                      {lessons.filter((l) => lessonProgressMap[l.id]?.completed).length}/{lessons.length} validées
+                    </span>
+                  </div>
+                  <div className="h-1.5 w-full rounded-full bg-slate-200 overflow-hidden">
+                    <div
+                      className="h-full bg-indigo-600 rounded-full transition-all duration-300"
+                      style={{
+                        width: `${lessons.length > 0 ? (lessons.filter((l) => lessonProgressMap[l.id]?.completed).length / lessons.length) * 100 : 0}%`,
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Lessons List */}
@@ -448,6 +500,15 @@ export function CourseDetailStudyView({ courseId }: CourseDetailStudyViewProps) 
               {lessons.map((lesson, idx) => {
                 const isSelected = !viewingCoursePdf && !viewingCourseVideo && activeLesson?.id === lesson.id;
                 const isLessonLocked = isFreeStudent && (lesson.type === LessonType.VIDEO || lesson.type === LessonType.PDF);
+                const progress = lessonProgressMap[lesson.id];
+                const isCompleted = Boolean(progress?.completed);
+                const totalSec = (lesson.durationMinutes || 0) * 60;
+                const percent = isCompleted
+                  ? 100
+                  : totalSec > 0 && progress?.watchedSeconds
+                  ? Math.min(100, Math.round((progress.watchedSeconds / totalSec) * 100))
+                  : 0;
+
                 return (
                   <button
                     key={lesson.id}
@@ -463,26 +524,26 @@ export function CourseDetailStudyView({ courseId }: CourseDetailStudyViewProps) 
                       borderColor: isSelected ? "var(--accent)" : "transparent",
                     }}
                   >
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
                       <span
                         className="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl text-xs font-bold font-mono"
                         style={{
-                          backgroundColor: isSelected ? "var(--accent)" : "rgba(15,23,42,0.06)",
-                          color: isSelected ? "#ffffff" : "var(--muted)",
+                          backgroundColor: isCompleted ? "#10b981" : isSelected ? "var(--accent)" : "rgba(15,23,42,0.06)",
+                          color: isCompleted || isSelected ? "#ffffff" : "var(--muted)",
                         }}
                       >
-                        {idx + 1}
+                        {isCompleted ? "✓" : idx + 1}
                       </span>
-                      <div>
+                      <div className="min-w-0">
                         <span
-                          className="text-xs font-semibold block line-clamp-1"
+                          className="text-xs font-semibold block truncate"
                           style={{
                             color: isSelected ? "var(--accent)" : "var(--ink)",
                           }}
                         >
                           {lesson.title} {isLessonLocked ? "(VIP)" : ""}
                         </span>
-                        <span className="text-[10px] text-slate-400 font-medium flex items-center gap-1">
+                        <div className="text-[10px] text-slate-400 font-medium flex items-center gap-1.5 flex-wrap">
                           {lesson.type === LessonType.VIDEO ? (
                             <>
                               <VideoCameraIcon size={11} />
@@ -501,13 +562,24 @@ export function CourseDetailStudyView({ courseId }: CourseDetailStudyViewProps) 
                           )}
                           {isLessonLocked ? " • Verrouillé" : ""}
                           {lesson.durationMinutes ? ` • ${lesson.durationMinutes} min` : ""}
-                        </span>
+                        </div>
                       </div>
                     </div>
 
-                    {isSelected && (
-                      <span className="h-2 w-2 rounded-full bg-indigo-600 shrink-0" />
-                    )}
+                    <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                      {isCompleted ? (
+                        <span className="rounded-full px-2 py-0.5 text-[9px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                          ✓ Vu
+                        </span>
+                      ) : percent > 0 ? (
+                        <span className="rounded-full px-2 py-0.5 text-[9px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                          {percent}%
+                        </span>
+                      ) : null}
+                      {isSelected && (
+                        <span className="h-2 w-2 rounded-full bg-indigo-600 shrink-0" />
+                      )}
+                    </div>
                   </button>
                 );
               })}
@@ -590,6 +662,8 @@ export function CourseDetailStudyView({ courseId }: CourseDetailStudyViewProps) 
                 />
               ) : course.videoFile ? (
                 <ProVideoPlayer
+                  key={`course-main-video-${course.id}`}
+                  lessonId={course.id * 100000}
                   src={`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000"}/api/courses/videos/${encodeURIComponent(course.videoFile)}?token=${encodeURIComponent(token || "")}`}
                   title={course.title}
                   instructorName={instructorDisplayName}
@@ -676,17 +750,24 @@ export function CourseDetailStudyView({ courseId }: CourseDetailStudyViewProps) 
                     />
                   ) : activeLesson.videoFile ? (
                     <ProVideoPlayer
+                      key={`lesson-video-${activeLesson.id}`}
+                      lessonId={activeLesson.id}
+                      initialTime={lessonProgressMap[activeLesson.id]?.lastPositionSeconds ?? activeLesson.progress?.lastPositionSeconds ?? 0}
+                      savedWatchedSeconds={lessonProgressMap[activeLesson.id]?.watchedSeconds ?? activeLesson.progress?.watchedSeconds ?? 0}
+                      savedCompleted={lessonProgressMap[activeLesson.id]?.completed ?? activeLesson.progress?.completed ?? false}
+                      totalDurationSeconds={activeLesson.durationMinutes ? activeLesson.durationMinutes * 60 : undefined}
                       src={`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000"}/api/courses/videos/${encodeURIComponent(activeLesson.videoFile)}?token=${encodeURIComponent(token || "")}`}
                       title={activeLesson.title}
                       instructorName={instructorDisplayName}
                       subjectName={subjectDisplayName}
                       watermarkText={studentWatermark}
-                      onTimeUpdate={(currentTime) => {
-                        saveLessonProgress(activeLesson.id, currentTime);
+                      onProgressUpdate={({ watchedSeconds, lastPositionSeconds, completed }) => {
+                        saveLessonProgress(activeLesson.id, lastPositionSeconds, watchedSeconds, completed);
                       }}
-                      onEnded={() => {
+                      onEnded={(completed) => {
                         const totalDuration = activeLesson.durationMinutes ? activeLesson.durationMinutes * 60 : 600;
-                        saveLessonProgress(activeLesson.id, totalDuration, true);
+                        const watched = lessonProgressMap[activeLesson.id]?.watchedSeconds || totalDuration;
+                        saveLessonProgress(activeLesson.id, totalDuration, watched, completed);
                       }}
                     />
                   ) : activeLesson.youtubeUrl ? (
@@ -803,6 +884,8 @@ export function CourseDetailStudyView({ courseId }: CourseDetailStudyViewProps) 
                   />
                 ) : (
                   <ProVideoPlayer
+                    key={`course-video-overview-${course.id}`}
+                    lessonId={course.id * 100000}
                     src={`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000"}/api/courses/videos/${encodeURIComponent(course.videoFile)}?token=${encodeURIComponent(token || "")}`}
                     title={course.title}
                     instructorName={instructorDisplayName}

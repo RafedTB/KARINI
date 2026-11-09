@@ -6,9 +6,10 @@ import { Lesson } from "./lesson.entity.js";
 import { CoursesController } from "./courses.controller.js";
 import { CoursesService } from "./courses.service.js";
 import { User } from "../users/user.entity.js";
+import { LessonProgress } from "../progress/lesson-progress.entity.js";
 
 @Module({
-    imports: [TypeOrmModule.forFeature([Course, Lesson, User]), UsersModule],
+    imports: [TypeOrmModule.forFeature([Course, Lesson, User, LessonProgress]), UsersModule],
     controllers: [CoursesController],
     providers: [CoursesService],
     exports: [CoursesService],

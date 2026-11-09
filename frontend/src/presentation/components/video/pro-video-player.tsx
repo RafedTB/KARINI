@@ -24,8 +24,18 @@ export type ProVideoPlayerProps = {
   subjectName?: string | null;
   watermarkText?: string | null;
   initialTime?: number;
+  savedWatchedSeconds?: number;
+  savedCompleted?: boolean;
+  totalDurationSeconds?: number;
+  lessonId?: number;
   onTimeUpdate?: (currentTime: number, duration: number) => void;
-  onEnded?: () => void;
+  onProgressUpdate?: (data: {
+    watchedSeconds: number;
+    watchPercent: number;
+    lastPositionSeconds: number;
+    completed: boolean;
+  }) => void;
+  onEnded?: (completed: boolean) => void;
   className?: string;
   poster?: string;
   autoPlay?: boolean;
@@ -51,7 +61,12 @@ export function ProVideoPlayer({
   subjectName,
   watermarkText,
   initialTime = 0,
+  savedWatchedSeconds = 0,
+  savedCompleted = false,
+  totalDurationSeconds = 0,
+  lessonId,
   onTimeUpdate,
+  onProgressUpdate,
   onEnded,
   className = "",
   poster,
@@ -61,6 +76,9 @@ export function ProVideoPlayer({
   const videoRef = useRef<HTMLVideoElement>(null);
   const timelineRef = useRef<HTMLDivElement>(null);
   const hideControlsTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Storage key for per-video/per-lesson persistent caching
+  const storageKey = lessonId ? `lesson_${lessonId}` : `src_${encodeURIComponent(src.split("?")[0] || "vid")}`;
 
   // Player state
   const [isPlaying, setIsPlaying] = useState(false);
@@ -76,6 +94,52 @@ export function ProVideoPlayer({
   const [showSpeedMenu, setShowSpeedMenu] = useState(false);
   const [hasEnded, setHasEnded] = useState(false);
   const [showCenterFeedback, setShowCenterFeedback] = useState<"play" | "pause" | "rewind" | "forward" | null>(null);
+
+  // Effective duration (known immediately from props or HTML5 video)
+  const effectiveDuration = duration > 0 ? duration : (totalDurationSeconds && totalDurationSeconds > 0 ? totalDurationSeconds : 0);
+
+  // Helper to compute realistic watch percentage
+  const computeWatchPercent = useCallback((watchedCount: number, dur: number, completed: boolean) => {
+    if (completed) return 100;
+    if (dur <= 0 || watchedCount <= 0) return 0;
+    return Math.min(100, Math.round((watchedCount / dur) * 100));
+  }, []);
+
+  // Anti-Cheat Watch Progress & Resume State (Initialized with stored/props progress, NEVER 0% if watched!)
+  const watchedSecondsSetRef = useRef<Set<number>>(new Set());
+  const lastPlayheadRef = useRef<number>(0);
+  const lastReportedSecRef = useRef<number>(-1);
+
+  const [watchPercent, setWatchPercent] = useState<number>(() => {
+    if (savedCompleted) return 100;
+    if (typeof window !== "undefined") {
+      try {
+        if (localStorage.getItem(`karini_completed_${storageKey}`) === "true") return 100;
+        const localWatched = Number(localStorage.getItem(`karini_watched_${storageKey}`)) || 0;
+        const effectiveWatched = Math.max(savedWatchedSeconds || 0, localWatched);
+        const dur = effectiveDuration > 0 ? effectiveDuration : (totalDurationSeconds || 0);
+        if (dur > 0 && effectiveWatched > 0) {
+          return Math.min(100, Math.round((effectiveWatched / dur) * 100));
+        }
+      } catch {}
+    }
+    const dur = effectiveDuration > 0 ? effectiveDuration : (totalDurationSeconds || 0);
+    return computeWatchPercent(savedWatchedSeconds || 0, dur, Boolean(savedCompleted));
+  });
+
+  const [isCompletedState, setIsCompletedState] = useState<boolean>(() => {
+    if (savedCompleted) return true;
+    if (typeof window !== "undefined") {
+      try {
+        return localStorage.getItem(`karini_completed_${storageKey}`) === "true";
+      } catch {}
+    }
+    return false;
+  });
+
+  const [isCheatAttempt, setIsCheatAttempt] = useState<boolean>(false);
+  const [showResumeToast, setShowResumeToast] = useState<boolean>(false);
+  const [resumeTimeDisplay, setResumeTimeDisplay] = useState<number>(0);
 
   // Anti-Screen-Capture & Anti-Recording Blackout Shield
   const [isCaptureShieldActive, setIsCaptureShieldActive] = useState(false);
@@ -140,12 +204,53 @@ export function ProVideoPlayer({
     }
   }, [isPlaying, showSpeedMenu]);
 
-  // Sync initial time
+  // Load and sync initial resume position & previously saved watch time
   useEffect(() => {
-    if (videoRef.current && initialTime > 0) {
-      videoRef.current.currentTime = initialTime;
+    // 1. Get initial watched count (props or localStorage)
+    let initialWatched = savedWatchedSeconds || 0;
+    let initialCompleted = Boolean(savedCompleted);
+    let targetResume = initialTime || 0;
+
+    if (typeof window !== "undefined") {
+      try {
+        const localWatched = Number(localStorage.getItem(`karini_watched_${storageKey}`)) || 0;
+        if (localWatched > initialWatched) initialWatched = localWatched;
+
+        const localCompleted = localStorage.getItem(`karini_completed_${storageKey}`) === "true";
+        if (localCompleted) initialCompleted = true;
+
+        const localPos = Number(localStorage.getItem(`karini_pos_${storageKey}`)) || 0;
+        if (targetResume <= 3 && localPos > 3) targetResume = localPos;
+      } catch {}
     }
-  }, [initialTime, src]);
+
+    // Populate watchedSecondsSet
+    if (initialWatched > 0) {
+      for (let i = 0; i < initialWatched; i++) {
+        watchedSecondsSetRef.current.add(i);
+      }
+    }
+
+    if (initialCompleted) {
+      setIsCompletedState(true);
+      setWatchPercent(100);
+    } else if (effectiveDuration > 0 && initialWatched > 0) {
+      const calculated = computeWatchPercent(initialWatched, effectiveDuration, false);
+      setWatchPercent(calculated);
+      if (calculated >= 80) setIsCompletedState(true);
+    }
+
+    // 2. Prepare and trigger resume position
+    if (targetResume > 3) {
+      setResumeTimeDisplay(targetResume);
+      setShowResumeToast(true);
+      if (videoRef.current && videoRef.current.readyState >= 1) {
+        videoRef.current.currentTime = targetResume;
+      }
+      const t = setTimeout(() => setShowResumeToast(false), 5500);
+      return () => clearTimeout(t);
+    }
+  }, [initialTime, lessonId, src, savedWatchedSeconds, savedCompleted, storageKey, effectiveDuration, computeWatchPercent]);
 
   // Toggle play/pause
   const togglePlay = useCallback(() => {
@@ -441,9 +546,72 @@ export function ProVideoPlayer({
         controlsList="nodownload nofullscreen noremoteplayback"
         disablePictureInPicture={false}
         draggable={false}
+        onLoadedMetadata={(e) => {
+          const v = e.currentTarget;
+          setDuration(v.duration);
+
+          // Restore resume position once video metadata is loaded by the browser
+          let targetResume = initialTime || 0;
+          if (typeof window !== "undefined") {
+            try {
+              const stored = Number(localStorage.getItem(`karini_pos_${storageKey}`)) || 0;
+              if (targetResume <= 3 && stored > 3) targetResume = stored;
+            } catch {}
+          }
+          if (targetResume > 3 && v.duration > targetResume && v.currentTime < 2) {
+            v.currentTime = targetResume;
+          }
+
+          // Compute accurate percentage now that duration is definitively known
+          const watchedCount = watchedSecondsSetRef.current.size;
+          if (watchedCount > 0 && !isCompletedState) {
+            const calculated = computeWatchPercent(watchedCount, v.duration, isCompletedState);
+            setWatchPercent(calculated);
+            if (calculated >= 80) setIsCompletedState(true);
+          }
+        }}
         onTimeUpdate={(e) => {
           const v = e.currentTarget;
           setCurrentTime(v.currentTime);
+
+          // Anti-Cheat: accumulate ONLY real, continuous played seconds (no seek skips)
+          const currentSec = Math.floor(v.currentTime);
+          const diff = Math.abs(v.currentTime - lastPlayheadRef.current);
+          if (diff < 2 && !v.paused && !v.seeking) {
+            watchedSecondsSetRef.current.add(currentSec);
+          }
+          lastPlayheadRef.current = v.currentTime;
+
+          const currentWatchedCount = watchedSecondsSetRef.current.size;
+          const dur = v.duration > 0 ? v.duration : effectiveDuration;
+          const currentPercent = computeWatchPercent(currentWatchedCount, dur, isCompletedState);
+          setWatchPercent(currentPercent);
+
+          const isEligible = currentPercent >= 80 || isCompletedState;
+          if (isEligible && !isCompletedState) {
+            setIsCompletedState(true);
+          }
+
+          // Save resume position and watch progress to localStorage every 2 seconds
+          if (currentSec % 2 === 0 && currentSec > 3) {
+            try {
+              localStorage.setItem(`karini_pos_${storageKey}`, String(currentSec));
+              localStorage.setItem(`karini_watched_${storageKey}`, String(currentWatchedCount));
+              if (isEligible) localStorage.setItem(`karini_completed_${storageKey}`, "true");
+            } catch {}
+          }
+
+          // Periodic progress callback every 4s
+          if (onProgressUpdate && currentSec % 4 === 0 && currentSec !== lastReportedSecRef.current) {
+            lastReportedSecRef.current = currentSec;
+            onProgressUpdate({
+              watchedSeconds: currentWatchedCount,
+              watchPercent: currentPercent,
+              lastPositionSeconds: currentSec,
+              completed: isEligible,
+            });
+          }
+
           if (v.duration && onTimeUpdate) {
             onTimeUpdate(v.currentTime, v.duration);
           }
@@ -453,19 +621,75 @@ export function ProVideoPlayer({
           }
         }}
         onDurationChange={(e) => {
-          setDuration(e.currentTarget.duration);
+          const v = e.currentTarget;
+          setDuration(v.duration);
+          const watchedCount = watchedSecondsSetRef.current.size;
+          if (watchedCount > 0 && !isCompletedState) {
+            const calculated = computeWatchPercent(watchedCount, v.duration, isCompletedState);
+            setWatchPercent(calculated);
+            if (calculated >= 80) setIsCompletedState(true);
+          }
         }}
         onWaiting={() => setIsBuffering(true)}
         onPlaying={() => {
           setIsBuffering(false);
           setIsPlaying(true);
         }}
-        onPause={() => setIsPlaying(false)}
+        onPause={() => {
+          setIsPlaying(false);
+          // Save on pause immediately to ensure no loss
+          const currentSec = Math.floor(videoRef.current?.currentTime || 0);
+          const watchedCount = watchedSecondsSetRef.current.size;
+          if (currentSec > 3) {
+            try {
+              localStorage.setItem(`karini_pos_${storageKey}`, String(currentSec));
+              localStorage.setItem(`karini_watched_${storageKey}`, String(watchedCount));
+            } catch {}
+          }
+        }}
         onEnded={() => {
           setIsPlaying(false);
           setHasEnded(true);
           setShowControls(true);
-          if (onEnded) onEnded();
+
+          const watchedCount = watchedSecondsSetRef.current.size;
+          const dur = duration > 0 ? duration : effectiveDuration;
+          const currentPercent = computeWatchPercent(watchedCount, dur, isCompletedState);
+
+          // Anti-Cheat Verification:
+          // Student must have genuinely watched >= 80% of video to validate!
+          // If student jumped to the end, currentPercent will be small -> blocked!
+          const meetsRequirement = currentPercent >= 80 || (dur > 0 && dur < 30) || isCompletedState;
+
+          if (!meetsRequirement) {
+            setIsCheatAttempt(true);
+            if (onProgressUpdate) {
+              onProgressUpdate({
+                watchedSeconds: watchedCount,
+                watchPercent: currentPercent,
+                lastPositionSeconds: Math.floor(currentTime),
+                completed: false,
+              });
+            }
+            if (onEnded) onEnded(false);
+          } else {
+            setIsCheatAttempt(false);
+            setIsCompletedState(true);
+            setWatchPercent(100);
+            try {
+              localStorage.setItem(`karini_completed_${storageKey}`, "true");
+              localStorage.setItem(`karini_watched_${storageKey}`, String(Math.max(watchedCount, Math.floor(dur))));
+            } catch {}
+            if (onProgressUpdate) {
+              onProgressUpdate({
+                watchedSeconds: Math.max(watchedCount, Math.floor(dur)),
+                watchPercent: 100,
+                lastPositionSeconds: Math.floor(currentTime),
+                completed: true,
+              });
+            }
+            if (onEnded) onEnded(true);
+          }
         }}
         onClick={togglePlay}
         onDoubleClick={(e) => {
@@ -559,31 +783,104 @@ export function ProVideoPlayer({
         </div>
       )}
 
+      {/* Floating Resume Playback Toast */}
+      {showResumeToast && resumeTimeDisplay > 5 && (
+        <div className="absolute top-14 left-4 z-30 animate-fade-in bg-slate-950/90 backdrop-blur-md border border-white/20 text-white px-3 py-2 rounded-xl shadow-2xl flex items-center gap-3 text-xs select-none">
+          <div className="flex items-center gap-1.5 text-indigo-300 font-semibold">
+            <RotateCcwIcon size={14} />
+            <span>Reprise de la lecture à {formatTime(resumeTimeDisplay)}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              if (videoRef.current) {
+                videoRef.current.currentTime = 0;
+                setCurrentTime(0);
+              }
+              setShowResumeToast(false);
+            }}
+            className="text-[11px] text-slate-300 hover:text-white underline cursor-pointer"
+          >
+            Recommencer (0:00)
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowResumeToast(false)}
+            className="text-slate-400 hover:text-white ml-0.5 text-xs font-bold cursor-pointer"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       {/* Finished Replay Screen */}
       {hasEnded && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-950/90 backdrop-blur-md text-white p-6 z-30 animate-fade-in text-center">
-          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-indigo-600/30 border border-indigo-500/40 text-indigo-400 mb-4 shadow-lg">
-            <RotateCcwIcon size={28} />
-          </div>
-          <span className="rounded-full px-3 py-0.5 text-xs font-bold uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-            Leçon Terminée • Bravo !
-          </span>
-          <h3 className="mt-3 font-serif text-2xl font-bold max-w-md line-clamp-2">
-            {title}
-          </h3>
-          <p className="mt-2 text-xs text-slate-300 max-w-sm">
-            Votre progression a été enregistrée avec succès. Vous pouvez revoir la vidéo ou passer aux exercices interactifs.
-          </p>
-          <div className="mt-6 flex flex-wrap items-center gap-3">
-            <button
-              type="button"
-              onClick={togglePlay}
-              className="inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-xs font-bold bg-white text-slate-950 hover:bg-slate-200 transition-all shadow-md cursor-pointer"
-            >
-              <RotateCcwIcon size={14} />
-              Revoir la vidéo
-            </button>
-          </div>
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-950/95 backdrop-blur-md text-white p-6 z-30 animate-fade-in text-center select-none">
+          {isCheatAttempt ? (
+            <>
+              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-500/20 border border-amber-500/40 text-amber-400 mb-3 shadow-lg">
+                <ShieldLockIcon size={30} />
+              </div>
+              <span className="rounded-full px-3 py-0.5 text-xs font-bold uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                Visionnage Incomplet • {watchPercent}% visionné
+              </span>
+              <h3 className="mt-3 font-serif text-xl sm:text-2xl font-bold max-w-md line-clamp-2">
+                {title}
+              </h3>
+              <p className="mt-2 text-xs text-slate-300 max-w-sm leading-relaxed">
+                Vous avez avancé directement vers la fin de la leçon sans la visionner. Pour valider ce cours dans votre espace élève, vous devez regarder au moins <strong>80%</strong> du contenu.
+              </p>
+              <div className="mt-4 w-48 h-2 rounded-full bg-white/20 overflow-hidden">
+                <div
+                  className="h-full bg-amber-400 rounded-full transition-all duration-300"
+                  style={{ width: `${watchPercent}%` }}
+                />
+              </div>
+              <div className="mt-6 flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (videoRef.current) {
+                      videoRef.current.currentTime = 0;
+                      videoRef.current.play();
+                      setIsPlaying(true);
+                    }
+                    setHasEnded(false);
+                    setIsCheatAttempt(false);
+                  }}
+                  className="inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-xs font-bold bg-white text-slate-950 hover:bg-slate-200 transition-all shadow-md cursor-pointer"
+                >
+                  <RotateCcwIcon size={14} />
+                  Visionner la leçon en entier
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-600/30 border border-emerald-500/40 text-emerald-400 mb-3 shadow-lg">
+                <RotateCcwIcon size={28} />
+              </div>
+              <span className="rounded-full px-3 py-0.5 text-xs font-bold uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                Leçon Validée • {Math.max(watchPercent, 100)}%
+              </span>
+              <h3 className="mt-3 font-serif text-xl sm:text-2xl font-bold max-w-md line-clamp-2">
+                {title}
+              </h3>
+              <p className="mt-2 text-xs text-slate-300 max-w-sm">
+                Félicitations ! Votre progression a été enregistrée avec succès. Vous pouvez revoir la vidéo ou passer aux exercices.
+              </p>
+              <div className="mt-6 flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  onClick={togglePlay}
+                  className="inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-xs font-bold bg-white text-slate-950 hover:bg-slate-200 transition-all shadow-md cursor-pointer"
+                >
+                  <RotateCcwIcon size={14} />
+                  Revoir la vidéo
+                </button>
+              </div>
+            </>
+          )}
         </div>
       )}
 
@@ -612,6 +909,26 @@ export function ProVideoPlayer({
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
+          {/* Watch Percentage Badge & Mini Bar */}
+          <div className="flex items-center gap-1.5 bg-black/60 backdrop-blur-md px-2.5 py-1 rounded-full border border-white/10 text-white text-[11px] font-medium shadow-xs">
+            {isCompletedState ? (
+              <span className="text-emerald-400 font-semibold flex items-center gap-1">
+                <span>✓</span> 100% Validé
+              </span>
+            ) : (
+              <>
+                <span className="text-white/60">Vu :</span>
+                <span className="font-bold text-white font-mono">{watchPercent}%</span>
+                <div className="w-12 h-1.5 rounded-full bg-white/20 overflow-hidden ml-0.5">
+                  <div
+                    className="h-full bg-emerald-400 rounded-full transition-all duration-300"
+                    style={{ width: `${watchPercent}%` }}
+                  />
+                </div>
+              </>
+            )}
+          </div>
+
           <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-400 bg-black/50 px-2 py-0.5 rounded-full border border-emerald-500/20">
             <ShieldLockIcon size={11} />
             <span>Sécurisé</span>

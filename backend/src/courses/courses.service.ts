@@ -1,6 +1,6 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
+import { In, Repository } from "typeorm";
 import { Course } from "./course.entity.js";
 import { Lesson } from "./lesson.entity.js";
 import { CreateCourseDto } from "./dto/create-course.dto.js";
@@ -10,6 +10,7 @@ import { UpdateLessonDto } from "./dto/update-lesson.dto.js";
 import { CourseSection, CourseSubject, MembershipType, UserType } from "../utils/enum.js";
 import { User } from "../users/user.entity.js";
 import { JWTPayloadType } from "../utils/types.js";
+import { LessonProgress } from "../progress/lesson-progress.entity.js";
 
 @Injectable()
 export class CoursesService {
@@ -17,6 +18,7 @@ export class CoursesService {
         @InjectRepository(Course) private readonly courseRepository: Repository<Course>,
         @InjectRepository(Lesson) private readonly lessonRepository: Repository<Lesson>,
         @InjectRepository(User) private readonly userRepository: Repository<User>,
+        @InjectRepository(LessonProgress) private readonly progressRepository: Repository<LessonProgress>,
     ) {}
 
     public async create(dto: CreateCourseDto, userId: number) {
@@ -175,6 +177,26 @@ export class CoursesService {
                     l.videoFile = null;
                 }
             }
+        }
+
+        // Attach student lesson progress so frontend has immediate progress data
+        if (user?.userType === UserType.STUDENT && course.lessons && course.lessons.length > 0) {
+            const lessonIds = course.lessons.map((l) => l.id);
+            const progressList = await this.progressRepository.find({
+                where: { studentId: user.id, lessonId: In(lessonIds) },
+            });
+            const progressMap = new Map(progressList.map((p) => [p.lessonId, p]));
+            course.lessons = course.lessons.map((l) => {
+                const p = progressMap.get(l.id);
+                (l as any).progress = p
+                    ? {
+                          completed: p.completed,
+                          watchedSeconds: p.watchedSeconds,
+                          lastPositionSeconds: p.lastPositionSeconds,
+                      }
+                    : null;
+                return l;
+            });
         }
 
         return course;
