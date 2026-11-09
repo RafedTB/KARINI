@@ -5,6 +5,12 @@ import { usePathname } from "next/navigation";
 import { useAuth } from "@/presentation/providers/auth-provider";
 import { displayName } from "@/shared/utils/display-name";
 import { UserType } from "@/domain/enums";
+import {
+  BookOpenIcon,
+  MessageSquareIcon,
+  CrownIcon,
+  SettingsIcon,
+} from "@/presentation/components/ui/icons";
 
 type AppHeaderProps = {
   onToggleMobileNav?: () => void;
@@ -123,7 +129,7 @@ export function AppHeader({ onToggleMobileNav, unreadMessageCount = 0 }: AppHead
         {isInstructor && (
           <>
             <span className="hidden sm:inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wider bg-indigo-50 text-indigo-700 border border-indigo-200">
-              <span>👨‍🏫</span> Enseignant
+              <BookOpenIcon size={14} /> Enseignant
             </span>
             <Link
               href="/teacher"
@@ -135,7 +141,7 @@ export function AppHeader({ onToggleMobileNav, unreadMessageCount = 0 }: AppHead
               href="/teacher/messages"
               className="badge badge-accent hidden items-center gap-1.5 px-3 py-1.5 text-xs font-semibold transition-all hover:scale-105 sm:inline-flex"
             >
-              <span aria-hidden="true">💬</span>
+              <MessageSquareIcon size={14} />
               <span>Messages</span>
               {unreadMessageCount > 0 && (
                 <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white">
@@ -150,13 +156,13 @@ export function AppHeader({ onToggleMobileNav, unreadMessageCount = 0 }: AppHead
         {isSuperadmin && (
           <>
             <span className="hidden sm:inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wider bg-rose-50 text-rose-700 border border-rose-200">
-              <span>👑</span> Superadmin
+              <CrownIcon size={14} /> Superadmin
             </span>
             <Link
               href="/admin"
               className="hidden sm:inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold bg-slate-900 text-white shadow-xs hover:bg-slate-800 transition-colors"
             >
-              <span>⚙️</span> Panneau Admin
+              <SettingsIcon size={14} /> Panneau Admin
             </Link>
           </>
         )}

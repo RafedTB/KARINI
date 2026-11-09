@@ -9,12 +9,13 @@ import { moderatorService } from "@/application/services/moderator-service";
 import { subjectsService } from "@/application/services/subjects-service";
 import { PageLoader } from "@/presentation/components/ui/page-loader";
 import { Button } from "@/presentation/components/ui/button";
+import { BookOpenIcon, VideoCameraIcon, GraduationCapIcon } from "@/presentation/components/ui/icons";
 
 const GROUPS = [
-  { key: StudentGroup.DABA_DABA, label: "DabaDaba", color: "text-emerald-700 bg-emerald-50 border-emerald-300", badge: "🟢 DabaDaba" },
-  { key: StudentGroup.STANDARD, label: "Standard", color: "text-blue-700 bg-blue-50 border-blue-300", badge: "🔵 Standard" },
-  { key: StudentGroup.EXCELLENT, label: "Excellent", color: "text-purple-700 bg-purple-50 border-purple-300", badge: "🟣 Excellent" },
-  { key: StudentGroup.TOP, label: "Top", color: "text-amber-700 bg-amber-50 border-amber-300", badge: "🟡 Top" },
+  { key: StudentGroup.DABA_DABA, label: "DabaDaba", color: "text-emerald-700 bg-emerald-50 border-emerald-300", badge: "DabaDaba" },
+  { key: StudentGroup.STANDARD, label: "Standard", color: "text-blue-700 bg-blue-50 border-blue-300", badge: "Standard" },
+  { key: StudentGroup.EXCELLENT, label: "Excellent", color: "text-purple-700 bg-purple-50 border-purple-300", badge: "Excellent" },
+  { key: StudentGroup.TOP, label: "Top", color: "text-amber-700 bg-amber-50 border-amber-300", badge: "Top" },
 ];
 
 export function ModeratorStudentsView() {
@@ -149,7 +150,12 @@ export function ModeratorStudentsView() {
   if (!isModeratorOrAdmin) {
     return (
       <div className="p-8 text-center glass-card rounded-3xl max-w-lg mx-auto mt-12">
-        <span className="text-4xl block mb-3">🔒</span>
+        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-100 text-amber-800 mb-3">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+            <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+          </svg>
+        </div>
         <h2 className="font-serif text-xl font-bold text-slate-800">Accès Réservé aux Modérateurs & Superadmins</h2>
         <p className="text-xs text-slate-500 mt-2">
           Cet espace permet d&apos;attacher les élèves à une classe et de leur affecter un groupe Live (DabaDaba, Standard, Excellent, Top).
@@ -178,17 +184,25 @@ export function ModeratorStudentsView() {
             </span>
           </div>
           <h1 className="mt-3 font-serif text-3xl md:text-4xl font-bold text-slate-900">
-            Assignation des <span className="gradient-text">Classes & Groupes Live</span>
+            Assignation des <span className="gradient-text">Classes &amp; Groupes Live</span>
           </h1>
           <p className="mt-1 text-sm text-slate-600 max-w-2xl leading-relaxed">
             En tant que modérateur ou administrateur, affectez chaque élève à sa classe d&apos;étude et à son groupe de niveau Live. Les élèves Platinum verront uniquement les sessions Live correspondant à leur groupe et classe.
           </p>
         </div>
 
-        <div className="flex items-center gap-2 self-start md:self-auto">
+        <div className="flex flex-wrap items-center gap-2 self-start md:self-auto">
+          <Link
+            href="/admin?tab=courses"
+            className="btn-primary text-xs px-4 py-2.5 rounded-xl flex items-center gap-2 shadow-sm font-bold"
+            style={{ background: "linear-gradient(135deg, #4f46e5, #06b6d4)" }}
+          >
+            <BookOpenIcon size={14} />
+            <span>Gérer les Cours (Admin)</span>
+          </Link>
           <Link href="/live" className="btn-secondary text-xs px-4 py-2.5 rounded-xl flex items-center gap-2 shadow-xs">
-            <span>🎥</span>
-            <span>Ouvrir Calendrier Live</span>
+            <VideoCameraIcon size={14} />
+            <span>Calendrier Live</span>
           </Link>
         </div>
       </div>
@@ -220,27 +234,42 @@ export function ModeratorStudentsView() {
         </div>
 
         <div className="glass-card p-4 rounded-2xl border border-emerald-200 bg-emerald-50/30">
-          <span className="text-xs uppercase font-bold text-emerald-700">🟢 DabaDaba</span>
+          <span className="text-xs uppercase font-bold text-emerald-700 flex items-center gap-1.5">
+            <span className="h-2 w-2 rounded-full bg-emerald-500" />
+            DabaDaba
+          </span>
           <p className="font-serif text-2xl font-bold text-emerald-800 mt-1">{stats.dabadaba}</p>
         </div>
 
         <div className="glass-card p-4 rounded-2xl border border-blue-200 bg-blue-50/30">
-          <span className="text-xs uppercase font-bold text-blue-700">🔵 Standard</span>
+          <span className="text-xs uppercase font-bold text-blue-700 flex items-center gap-1.5">
+            <span className="h-2 w-2 rounded-full bg-blue-500" />
+            Standard
+          </span>
           <p className="font-serif text-2xl font-bold text-blue-800 mt-1">{stats.standard}</p>
         </div>
 
         <div className="glass-card p-4 rounded-2xl border border-purple-200 bg-purple-50/30">
-          <span className="text-xs uppercase font-bold text-purple-700">🟣 Excellent</span>
+          <span className="text-xs uppercase font-bold text-purple-700 flex items-center gap-1.5">
+            <span className="h-2 w-2 rounded-full bg-purple-500" />
+            Excellent
+          </span>
           <p className="font-serif text-2xl font-bold text-purple-800 mt-1">{stats.excellent}</p>
         </div>
 
         <div className="glass-card p-4 rounded-2xl border border-amber-200 bg-amber-50/30">
-          <span className="text-xs uppercase font-bold text-amber-700">🟡 Top</span>
+          <span className="text-xs uppercase font-bold text-amber-700 flex items-center gap-1.5">
+            <span className="h-2 w-2 rounded-full bg-amber-500" />
+            Top
+          </span>
           <p className="font-serif text-2xl font-bold text-amber-800 mt-1">{stats.top}</p>
         </div>
 
         <div className="glass-card p-4 rounded-2xl border border-indigo-200 bg-indigo-50/30">
-          <span className="text-xs uppercase font-bold text-indigo-700">💎 Platinum</span>
+          <span className="text-xs uppercase font-bold text-indigo-700 flex items-center gap-1.5">
+            <span className="h-2 w-2 rounded-full bg-indigo-500" />
+            Platinum
+          </span>
           <p className="font-serif text-2xl font-bold text-indigo-800 mt-1">{stats.platinum}</p>
         </div>
       </div>
@@ -313,7 +342,12 @@ export function ModeratorStudentsView() {
               {filteredStudents.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="py-12 text-center text-slate-400">
-                    <span className="text-3xl block mb-2">🔍</span>
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-400 mx-auto mb-2">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="11" cy="11" r="8" />
+                        <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                      </svg>
+                    </div>
                     Aucun élève ne correspond à votre recherche.
                   </td>
                 </tr>
@@ -349,7 +383,7 @@ export function ModeratorStudentsView() {
                               : "bg-slate-100 text-slate-600 border border-slate-200"
                           }`}
                         >
-                          {isPlatinumStudent ? "💎 Platinum" : s.membership || "Standard"}
+                          {isPlatinumStudent ? "Platinum" : s.membership || "Standard"}
                         </span>
                       </td>
 
@@ -364,7 +398,7 @@ export function ModeratorStudentsView() {
                           <option value="">Sélectionner une classe…</option>
                           {classes.map((c) => (
                             <option key={c} value={c}>
-                              🎓 {c}
+                              {c}
                             </option>
                           ))}
                         </select>

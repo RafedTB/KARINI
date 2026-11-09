@@ -8,6 +8,7 @@ import type { JWTPayloadType } from "../utils/types.js";
 import { CreateConversationDto } from "./dto/create-conversation.dto.js";
 import { SendMessageDto } from "./dto/send-message.dto.js";
 import { MessagingService } from "./messaging.service.js";
+import { MessagingGateway } from "./messaging.gateway.js";
 
 @ApiTags('Parent Messaging')
 @ApiBearerAuth()
@@ -15,7 +16,10 @@ import { MessagingService } from "./messaging.service.js";
 @UseGuards(AuthRolesGuard)
 @Roles(UserType.PARENT)
 export class MessagingController {
-    constructor(private readonly messagingService: MessagingService) {}
+    constructor(
+        private readonly messagingService: MessagingService,
+        private readonly messagingGateway: MessagingGateway,
+    ) {}
 
     @Get()
     @ApiOperation({ summary: 'List conversations for the authenticated parent' })
@@ -43,17 +47,31 @@ export class MessagingController {
 
     @Post(':id/messages')
     @ApiOperation({ summary: 'Send a message in a parent conversation' })
-    public send(
+    public async send(
         @currentUser() payload: JWTPayloadType,
         @Param('id', ParseIntPipe) id: number,
         @Body() dto: SendMessageDto,
     ) {
-        return this.messagingService.sendMessage(payload.id, id, dto);
+        const message = await this.messagingService.sendMessage(payload.id, id, dto);
+        try {
+            const conversation = await this.messagingService.getConversationForParent(payload.id, id);
+            this.messagingGateway.notifyNewMessage(conversation, message);
+        } catch {
+            // Ignored if socket notification cannot determine conversation
+        }
+        return message;
     }
 
     @Post(':id/read')
     @ApiOperation({ summary: 'Mark teacher messages as read' })
-    public markRead(@currentUser() payload: JWTPayloadType, @Param('id', ParseIntPipe) id: number) {
-        return this.messagingService.markAsRead(payload.id, id);
+    public async markRead(@currentUser() payload: JWTPayloadType, @Param('id', ParseIntPipe) id: number) {
+        const result = await this.messagingService.markAsRead(payload.id, id);
+        try {
+            const conversation = await this.messagingService.getConversationForParent(payload.id, id);
+            this.messagingGateway.notifyMessagesRead(id, payload.id, conversation.teacherId);
+        } catch {
+            // Ignored if socket notification cannot determine conversation
+        }
+        return result;
     }
 }

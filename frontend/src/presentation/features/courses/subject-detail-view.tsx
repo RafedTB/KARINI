@@ -15,17 +15,24 @@ import { getSubjectById, SUBJECTS } from "@/shared/labels/course-subjects";
 import { SubjectIcon } from "@/presentation/features/courses/subject-icons";
 import { VideoStudioView } from "@/presentation/features/courses/video-studio-view";
 import { quizzesService } from "@/application/services/quizzes-service";
+import {
+  VideoCameraIcon,
+  FileTextIcon,
+  BookOpenIcon,
+  RadioLiveIcon,
+  PenEditIcon,
+} from "@/presentation/components/ui/icons";
 
 type SubjectDetailViewProps = {
   subjectId: string;
 };
 
 const SECTION_TABS = [
-  { key: CourseSection.COURSE, label: "Cours Vidéo", icon: "🎬" },
-  { key: CourseSection.EXERCISE, label: "Exercices PDF", icon: "✍️" },
-  { key: CourseSection.MAGAZINE, label: "Magazines PDF", icon: "📑" },
-  { key: CourseSection.OLDLIVE, label: "Direct", icon: "🔴" },
-  { key: "quizzes", label: "Quiz", icon: "📝" },
+  { key: CourseSection.COURSE, label: "Cours Vidéo", IconComp: VideoCameraIcon },
+  { key: CourseSection.EXERCISE, label: "Exercices PDF", IconComp: FileTextIcon },
+  { key: CourseSection.MAGAZINE, label: "Magazines PDF", IconComp: BookOpenIcon },
+  { key: CourseSection.OLDLIVE, label: "Direct", IconComp: RadioLiveIcon },
+  { key: "quizzes", label: "Quiz", IconComp: PenEditIcon },
 ] as const;
 
 export function SubjectDetailView({ subjectId }: SubjectDetailViewProps) {
@@ -109,17 +116,21 @@ export function SubjectDetailView({ subjectId }: SubjectDetailViewProps) {
         const targetSlug = subjectId.toLowerCase();
         const subCode = loadedSub?.code?.toLowerCase();
         const subSlug = loadedSub?.slug?.toLowerCase();
+        const subName = loadedSub?.name?.toLowerCase();
         const subIdStr = loadedSub ? String(loadedSub.id) : null;
         const fallbackCode = fallbackSubject?.shortCode?.toLowerCase();
+        const fallbackName = fallbackSubject?.name?.toLowerCase();
 
         const filtered = coursesData.filter((c) => {
-          const itemSubject = (c.subject || "").toLowerCase();
+          const itemSubject = (c.subject || "").toLowerCase().trim();
           return (
             itemSubject === targetSlug ||
             (subSlug && itemSubject === subSlug) ||
             (subCode && itemSubject === subCode) ||
             (subIdStr && itemSubject === subIdStr) ||
+            (subName && itemSubject === subName) ||
             (fallbackCode && itemSubject === fallbackCode) ||
+            (fallbackName && itemSubject === fallbackName) ||
             (c.title && subCode && c.title.toLowerCase().includes(subCode))
           );
         });
@@ -390,22 +401,22 @@ export function SubjectDetailView({ subjectId }: SubjectDetailViewProps) {
 
             <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
               <div className="flex items-center gap-1.5 text-slate-600">
-                <span>🎬</span>
+                <VideoCameraIcon size={13} className="text-slate-400" />
                 <span className="font-bold">{sectionCounts[CourseSection.COURSE] ?? 0}</span>
                 <span className="text-[10px] text-slate-400">vidéos</span>
               </div>
               <div className="flex items-center gap-1.5 text-slate-600">
-                <span>✍️</span>
+                <FileTextIcon size={13} className="text-slate-400" />
                 <span className="font-bold">{sectionCounts[CourseSection.EXERCISE] ?? 0}</span>
                 <span className="text-[10px] text-slate-400">séries</span>
               </div>
               <div className="flex items-center gap-1.5 text-slate-600">
-                <span>📑</span>
+                <BookOpenIcon size={13} className="text-slate-400" />
                 <span className="font-bold">{sectionCounts[CourseSection.MAGAZINE] ?? 0}</span>
                 <span className="text-[10px] text-slate-400">revues</span>
               </div>
               <div className="flex items-center gap-1.5 text-slate-600">
-                <span>🔴</span>
+                <RadioLiveIcon size={13} className="text-rose-500" />
                 <span className="font-bold">{sectionCounts[CourseSection.OLDLIVE] ?? 0}</span>
                 <span className="text-[10px] text-slate-400">directs</span>
               </div>
@@ -429,6 +440,7 @@ export function SubjectDetailView({ subjectId }: SubjectDetailViewProps) {
             const isStudentNonGold = user?.userType === UserType.STUDENT && user?.membership !== MembershipType.GOLD;
             const count = tab.key === "quizzes" ? quizzes.length : sectionCounts[tab.key] ?? 0;
             const isActive = activeSection === tab.key;
+            const Icon = tab.IconComp;
             return (
               <button
                 key={tab.key}
@@ -442,11 +454,11 @@ export function SubjectDetailView({ subjectId }: SubjectDetailViewProps) {
                   border: isActive ? `1px solid ${subject.accentColor}30` : "1px solid transparent",
                 }}
               >
-                <span>{tab.icon}</span>
+                <Icon size={14} />
                 <span>{tab.label}</span>
                 {isGoldOnlyTab && isStudentNonGold ? (
                   <span className="badge text-[9px] px-1.5 py-0.2 bg-amber-100 text-amber-800 border-amber-200">
-                    ⭐ Gold
+                    Gold
                   </span>
                 ) : (
                   <span
@@ -484,7 +496,7 @@ export function SubjectDetailView({ subjectId }: SubjectDetailViewProps) {
                     : "text-slate-600 hover:text-slate-900"
                 }`}
               >
-                <span>🎬</span>
+                <VideoCameraIcon size={14} />
                 <span>Lecteur Vidéo</span>
               </button>
               <button

@@ -14,6 +14,12 @@ import { PageLoader } from "@/presentation/components/ui/page-loader";
 import { Button } from "@/presentation/components/ui/button";
 import { MagazinePdfViewer } from "@/presentation/components/pdf/magazine-pdf-viewer";
 import { progressRepository } from "@/infrastructure/repositories/progress-repository";
+import {
+  BookOpenIcon,
+  VideoCameraIcon,
+  FileTextIcon,
+  RadioLiveIcon,
+} from "@/presentation/components/ui/icons";
 
 type CourseDetailStudyViewProps = {
   courseId: number;
@@ -255,7 +261,8 @@ export function CourseDetailStudyView({ courseId }: CourseDetailStudyViewProps) 
             className="inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 transition-colors shadow-xs cursor-pointer"
             title={sidebarCollapsed ? "Afficher le programme" : "Agrandir l'espace de lecture"}
           >
-            <span>{sidebarCollapsed ? "📑 Afficher le sommaire" : "⤢ Mode lecture large"}</span>
+            <FileTextIcon size={14} />
+            <span>{sidebarCollapsed ? "Afficher le sommaire" : "Mode lecture large"}</span>
           </button>
           <span className="rounded-full px-2.5 py-0.5 text-xs font-bold uppercase font-mono bg-indigo-50 text-indigo-700">
             {course.filiere || "Générale"}
@@ -270,8 +277,11 @@ export function CourseDetailStudyView({ courseId }: CourseDetailStudyViewProps) 
       {isFreeStudent && (
         <div className="flex flex-wrap items-center justify-between gap-3 p-4 rounded-2xl border border-amber-200 bg-amber-50/90 text-amber-950 shadow-xs animate-fade-in">
           <div className="flex items-center gap-3">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-200/80 text-xl">
-              🔒
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-200/80 text-amber-900">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+              </svg>
             </span>
             <div className="text-xs">
               <p className="font-bold text-amber-950 text-sm">
@@ -367,11 +377,11 @@ export function CourseDetailStudyView({ courseId }: CourseDetailStudyViewProps) 
                 >
                   <div className="flex items-center gap-2.5">
                     <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl text-xs bg-indigo-100 text-indigo-700 font-bold">
-                      {isFreeStudent ? "🔒" : "🎬"}
+                      <VideoCameraIcon size={14} />
                     </span>
                     <div className="min-w-0 flex-1">
                       <span className="text-xs font-bold text-slate-800 block truncate">
-                        Vidéo de la ressource {isFreeStudent ? "🔒" : ""}
+                        Vidéo de la ressource {isFreeStudent ? "(VIP)" : ""}
                       </span>
                       <span className="text-[10px] text-slate-500">
                         {isFreeStudent ? "Réservé aux abonnés" : "Visionner la vidéo"}
@@ -382,7 +392,7 @@ export function CourseDetailStudyView({ courseId }: CourseDetailStudyViewProps) 
                     <span className="h-2 w-2 rounded-full bg-indigo-600 shrink-0" />
                   ) : (
                     <span className="text-[11px] font-semibold text-indigo-600 shrink-0">
-                      {isFreeStudent ? "🔒" : "Regarder →"}
+                      {isFreeStudent ? "VIP" : "Regarder →"}
                     </span>
                   )}
                 </button>
@@ -405,11 +415,11 @@ export function CourseDetailStudyView({ courseId }: CourseDetailStudyViewProps) 
                 >
                   <div className="flex items-center gap-2.5">
                     <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl text-xs bg-rose-100 text-rose-700 font-bold">
-                      {isFreeStudent ? "🔒" : "📄"}
+                      <FileTextIcon size={14} />
                     </span>
                     <div className="min-w-0 flex-1">
                       <span className="text-xs font-bold text-slate-800 block truncate">
-                        Polycopié PDF du cours {isFreeStudent ? "🔒" : ""}
+                        Polycopié PDF du cours {isFreeStudent ? "(VIP)" : ""}
                       </span>
                       <span className="text-[10px] text-slate-500">
                         {isFreeStudent ? "Réservé aux abonnés" : "Document officiel complet"}
@@ -420,7 +430,7 @@ export function CourseDetailStudyView({ courseId }: CourseDetailStudyViewProps) 
                     <span className="h-2 w-2 rounded-full bg-rose-600 shrink-0" />
                   ) : (
                     <span className="text-[11px] font-semibold text-rose-600 shrink-0">
-                      {isFreeStudent ? "🔒" : "Lire →"}
+                      {isFreeStudent ? "VIP" : "Lire →"}
                     </span>
                   )}
                 </button>
@@ -461,10 +471,25 @@ export function CourseDetailStudyView({ courseId }: CourseDetailStudyViewProps) 
                             color: isSelected ? "var(--accent)" : "var(--ink)",
                           }}
                         >
-                          {lesson.title} {isLessonLocked ? "🔒" : ""}
+                          {lesson.title} {isLessonLocked ? "(VIP)" : ""}
                         </span>
-                        <span className="text-[10px] text-slate-400 font-medium">
-                          {lesson.type === LessonType.VIDEO ? "🎬 Vidéo" : lesson.type === LessonType.PDF ? "📄 Document PDF" : "📝 Notes écrites"}
+                        <span className="text-[10px] text-slate-400 font-medium flex items-center gap-1">
+                          {lesson.type === LessonType.VIDEO ? (
+                            <>
+                              <VideoCameraIcon size={11} />
+                              <span>Vidéo</span>
+                            </>
+                          ) : lesson.type === LessonType.PDF ? (
+                            <>
+                              <FileTextIcon size={11} />
+                              <span>Document PDF</span>
+                            </>
+                          ) : (
+                            <>
+                              <FileTextIcon size={11} />
+                              <span>Notes écrites</span>
+                            </>
+                          )}
                           {isLessonLocked ? " • Verrouillé" : ""}
                           {lesson.durationMinutes ? ` • ${lesson.durationMinutes} min` : ""}
                         </span>
@@ -578,7 +603,7 @@ export function CourseDetailStudyView({ courseId }: CourseDetailStudyViewProps) 
                 </div>
               ) : course.youtubeUrl ? (
                 <div className="p-8 rounded-2xl bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200 text-center">
-                  <span className="text-3xl block mb-2">🔴</span>
+                  <RadioLiveIcon size={32} className="text-rose-500 mx-auto mb-2" />
                   <h4 className="font-serif text-lg font-bold text-slate-800">Lien Direct / Session</h4>
                   <p className="text-xs text-slate-600 mt-1 mb-4">Cliquez sur le lien ci-dessous pour rejoindre ou visionner ce direct.</p>
                   <a
@@ -612,8 +637,23 @@ export function CourseDetailStudyView({ courseId }: CourseDetailStudyViewProps) 
                   </h1>
                 </div>
 
-                <span className="rounded-full px-3 py-1 text-xs font-bold uppercase font-mono bg-slate-100 text-slate-700">
-                  {activeLesson.type === LessonType.VIDEO ? "🎬 Vidéo" : activeLesson.type === LessonType.PDF ? "📄 Document PDF" : "📝 Cours Écrit"}
+                <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold uppercase font-mono bg-slate-100 text-slate-700">
+                  {activeLesson.type === LessonType.VIDEO ? (
+                    <>
+                      <VideoCameraIcon size={12} />
+                      <span>Vidéo</span>
+                    </>
+                  ) : activeLesson.type === LessonType.PDF ? (
+                    <>
+                      <FileTextIcon size={12} />
+                      <span>Document PDF</span>
+                    </>
+                  ) : (
+                    <>
+                      <FileTextIcon size={12} />
+                      <span>Cours Écrit</span>
+                    </>
+                  )}
                 </span>
               </div>
 
@@ -656,7 +696,7 @@ export function CourseDetailStudyView({ courseId }: CourseDetailStudyViewProps) 
                       </div>
                     ) : (
                       <div className="p-8 rounded-2xl bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200 text-center">
-                        <span className="text-3xl block mb-2">🔴</span>
+                        <RadioLiveIcon size={32} className="text-rose-500 mx-auto mb-2" />
                         <h4 className="font-serif text-lg font-bold text-slate-800">Lien Direct / Session</h4>
                         <p className="text-xs text-slate-600 mt-1 mb-4">Cliquez sur le lien ci-dessous pour rejoindre ou visionner ce contenu.</p>
                         <a
@@ -785,7 +825,7 @@ export function CourseDetailStudyView({ courseId }: CourseDetailStudyViewProps) 
                   </div>
                 ) : (
                   <div className="p-8 rounded-2xl bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200 text-center">
-                    <span className="text-3xl block mb-2">🔴</span>
+                    <RadioLiveIcon size={32} className="text-rose-500 mx-auto mb-2" />
                     <h4 className="font-serif text-lg font-bold text-slate-800">Lien Direct / Session</h4>
                     <p className="text-xs text-slate-600 mt-1 mb-4">Cliquez sur le lien ci-dessous pour rejoindre ou visionner ce direct.</p>
                     <a
@@ -855,8 +895,11 @@ function LockedMediaCard({
   const isVideo = type === "video";
   return isVideo ? (
     <div className="relative w-full overflow-hidden rounded-2xl aspect-video bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 border border-slate-800 flex flex-col items-center justify-center p-6 text-center shadow-xl">
-      <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-500/20 text-indigo-300 text-2xl border border-indigo-500/30 shadow-inner">
-        🔒
+      <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 shadow-inner">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+          <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+        </svg>
       </div>
       <span className="mt-3 inline-flex items-center gap-1.5 rounded-full px-3 py-0.5 text-[11px] font-bold uppercase font-mono bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
         Vidéo Verrouillée • Formule Free
@@ -880,8 +923,11 @@ function LockedMediaCard({
     </div>
   ) : (
     <div className="flex flex-col items-center justify-center py-16 px-6 text-center rounded-3xl border border-dashed border-rose-300 bg-rose-50/60 shadow-xs">
-      <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-rose-100 text-3xl shadow-xs border border-rose-200">
-        🔒
+      <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-rose-100 text-rose-700 shadow-xs border border-rose-200">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+          <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+        </svg>
       </div>
       <span className="mt-4 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold uppercase font-mono bg-rose-100 text-rose-700 border border-rose-200">
         Document PDF Verrouillé

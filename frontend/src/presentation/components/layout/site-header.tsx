@@ -6,16 +6,28 @@ import { useState } from "react";
 import { useAuth } from "@/presentation/providers/auth-provider";
 import { displayName } from "@/shared/utils/display-name";
 
-const navItems = [
-  { href: "/", label: "Home" },
-  { href: "/courses", label: "Courses" },
-  { href: "/membership", label: "Membership" },
-];
-
 export function SiteHeader() {
   const pathname = usePathname();
   const { user, signOut } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  const dynamicNavItems = [
+    { href: "/", label: "Accueil" },
+    { href: "/courses", label: "Cours" },
+    { href: "/membership", label: "Abonnement" },
+    ...(user?.userType === "superadmin" || user?.userType === "moderator"
+      ? [{ href: "/admin", label: "Admin & Cours" }]
+      : []),
+    ...(user?.userType === "moderator"
+      ? [{ href: "/moderator", label: "Élèves" }]
+      : []),
+    ...(user?.userType === "instructor"
+      ? [{ href: "/teacher", label: "Studio" }]
+      : []),
+    ...(user?.userType === "parent"
+      ? [{ href: "/parent", label: "Espace Parent" }]
+      : []),
+  ];
 
   return (
     <header
@@ -35,7 +47,7 @@ export function SiteHeader() {
 
         {/* Desktop Nav */}
         <nav className="hidden items-center gap-1 md:flex" aria-label="Main">
-          {navItems.map((item) => {
+          {dynamicNavItems.map((item) => {
             const isActive = pathname === item.href;
             return (
               <Link
@@ -125,7 +137,7 @@ export function SiteHeader() {
             boxShadow: "var(--card-shadow)",
           }}
         >
-          {navItems.map((item) => {
+          {dynamicNavItems.map((item) => {
             const isActive = pathname === item.href;
             return (
               <Link

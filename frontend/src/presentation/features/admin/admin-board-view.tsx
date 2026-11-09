@@ -1,26 +1,50 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
+import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/presentation/providers/auth-provider";
 import { adminService } from "@/application/services/admin-service";
 import { subjectsService } from "@/application/services/subjects-service";
+import { coursesService } from "@/application/services/courses-service";
 import type { User } from "@/domain/entities/user";
 import type { Subject } from "@/domain/entities/subject";
+import type { Course } from "@/domain/entities/course";
+import type { Filiere } from "@/domain/entities/filiere";
 import { UserType, MembershipType } from "@/domain/enums";
 import { SubjectIcon } from "@/presentation/features/courses/subject-icons";
 import { PageLoader } from "@/presentation/components/ui/page-loader";
 import { Button } from "@/presentation/components/ui/button";
 import { TUNISIAN_CLASS_GROUPS, FILIERE_OPTIONS } from "@/shared/constants/filiere-options";
 import { SUBJECTS } from "@/shared/labels/course-subjects";
+import { AdminCoursesTab } from "@/presentation/features/admin/admin-courses-tab";
+import { AdminFilieresTab } from "@/presentation/features/admin/admin-filieres-tab";
+import {
+  GraduationCapIcon,
+  BookOpenIcon,
+  SchoolIcon,
+  UsersIcon,
+  ShieldCheckIcon,
+  CrownIcon,
+  RulerIcon,
+  CoinsIcon,
+} from "@/presentation/components/ui/icons";
 
 export function AdminBoardView() {
   const { token, user: currentUser } = useAuth();
+  const searchParams = useSearchParams();
+  const initialTab = searchParams.get("tab");
 
   // State
-  const [activeTab, setActiveTab] = useState<"users" | "subjects">("users");
+  const [activeTab, setActiveTab] = useState<"courses" | "filieres" | "users" | "subjects">(
+    initialTab === "users" || initialTab === "subjects" || initialTab === "courses" || initialTab === "filieres"
+      ? (initialTab as "courses" | "filieres" | "users" | "subjects")
+      : "courses"
+  );
+  const [courses, setCourses] = useState<Course[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [filieres, setFilieres] = useState<string[]>([]);
+  const [filieresDetailed, setFilieresDetailed] = useState<Filiere[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
@@ -74,14 +98,18 @@ export function AdminBoardView() {
     try {
       setLoading(true);
       setError("");
-      const [usersData, subjectsData, filieresData] = await Promise.all([
-        adminService.getAllUsers(token),
-        subjectsService.list(token),
-        subjectsService.getFilieres(token),
+      const [usersData, subjectsData, filieresData, coursesData, detailedFilieres] = await Promise.all([
+        adminService.getAllUsers(token).catch(() => []),
+        subjectsService.list(token).catch(() => []),
+        subjectsService.getFilieres(token).catch(() => []),
+        coursesService.list(token).catch(() => []),
+        subjectsService.getFilieresDetailed(token).catch(() => []),
       ]);
       setUsers(usersData);
       setSubjects(subjectsData);
       setFilieres(filieresData);
+      setCourses(coursesData);
+      setFilieresDetailed(detailedFilieres);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erreur de chargement des données d'administration.");
     } finally {
@@ -312,13 +340,14 @@ export function AdminBoardView() {
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <div className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wider bg-rose-500/10 text-rose-600 border border-rose-500/20">
-            <span>👑</span> Espace Superadministrateur
+            {currentUser?.userType === UserType.MODERATOR ? <ShieldCheckIcon size={14} /> : <CrownIcon size={14} />}
+            {currentUser?.userType === UserType.MODERATOR ? "Espace Modérateur" : "Espace Superadministrateur"}
           </div>
           <h1 className="mt-2 font-serif text-3xl sm:text-4xl font-bold" style={{ color: "var(--ink)" }}>
-            Tableau de bord <span className="gradient-text">Superadmin</span>
+            Tableau de bord <span className="gradient-text">{currentUser?.userType === UserType.MODERATOR ? "Modérateur" : "Superadmin"}</span>
           </h1>
           <p className="mt-1 text-sm" style={{ color: "var(--muted)" }}>
-            Gérez les utilisateurs (Finance, Instructeur, Étudiant, Modérateur, Parent) et configurez les matières par filière (2ème Info, 2ème Math, etc.).
+            Gérez les cours pour chaque niveau scolaire (ex: Bac Informatique, 2ème Info), administrez les matières et supervisez les utilisateurs. Tout est synchronisé en temps réel avec la base de données.
           </p>
         </div>
 
@@ -326,6 +355,17 @@ export function AdminBoardView() {
         <div className="flex flex-wrap items-center gap-2.5">
           <Button
             type="button"
+            onClick={() => setActiveTab("courses")}
+            className="flex items-center gap-2 rounded-xl text-xs sm:text-sm font-semibold shadow-md"
+            style={{ background: "linear-gradient(135deg, #4f46e5, #06b6d4)" }}
+          >
+            <BookOpenIcon size={15} />
+            Gérer les Cours ({courses.length})
+          </Button>
+
+          <Button
+            type="button"
+            variant="secondary"
             onClick={() => setShowAddUserModal(true)}
             className="flex items-center gap-2 rounded-xl text-xs sm:text-sm font-semibold"
           >
@@ -335,7 +375,18 @@ export function AdminBoardView() {
               <line x1="20" y1="8" x2="20" y2="14" />
               <line x1="23" y1="11" x2="17" y2="11" />
             </svg>
-            + Ajouter Utilisateur
+            + Utilisateur
+          </Button>
+
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => setActiveTab("filieres")}
+            className="flex items-center gap-2 rounded-xl text-xs sm:text-sm font-semibold"
+            style={{ color: "#059669", borderColor: "rgba(5, 150, 105, 0.3)" }}
+          >
+            <SchoolIcon size={15} />
+            + Filière
           </Button>
 
           <Button
@@ -350,7 +401,7 @@ export function AdminBoardView() {
               <line x1="12" y1="6" x2="12" y2="12" />
               <line x1="9" y1="9" x2="15" y2="9" />
             </svg>
-            + Nouvelle Matière
+            + Matière
           </Button>
         </div>
       </div>
@@ -374,11 +425,32 @@ export function AdminBoardView() {
 
       {/* Metric Cards Row */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Total Courses in DB */}
+        <div
+          onClick={() => setActiveTab("courses")}
+          className="glass-card p-5 rounded-2xl flex flex-col justify-between cursor-pointer hover:shadow-md transition-all border border-indigo-200/50"
+        >
+          <div className="flex items-center justify-between text-xs font-semibold" style={{ color: "var(--muted)" }}>
+            <span>Cours en Base de Données</span>
+            <span className="p-1.5 rounded-lg bg-indigo-500/10 text-indigo-600">
+              <BookOpenIcon size={16} />
+            </span>
+          </div>
+          <div className="mt-3">
+            <span className="font-serif text-3xl font-bold gradient-text">{courses.length}</span>
+            <p className="mt-1 text-xs text-indigo-600 font-medium">
+              Vidéos, exercices et supports
+            </p>
+          </div>
+        </div>
+
         {/* Total Users */}
         <div className="glass-card p-5 rounded-2xl flex flex-col justify-between">
           <div className="flex items-center justify-between text-xs font-semibold" style={{ color: "var(--muted)" }}>
             <span>Utilisateurs Totaux</span>
-            <span className="p-1.5 rounded-lg bg-indigo-500/10 text-indigo-600">👥</span>
+            <span className="p-1.5 rounded-lg bg-indigo-500/10 text-indigo-600">
+              <UsersIcon size={16} />
+            </span>
           </div>
           <div className="mt-3">
             <span className="font-serif text-3xl font-bold gradient-text">{stats.totalUsers}</span>
@@ -400,7 +472,9 @@ export function AdminBoardView() {
         <div className="glass-card p-5 rounded-2xl flex flex-col justify-between">
           <div className="flex items-center justify-between text-xs font-semibold" style={{ color: "var(--muted)" }}>
             <span>Matières Actives</span>
-            <span className="p-1.5 rounded-lg bg-purple-500/10 text-purple-600">📚</span>
+            <span className="p-1.5 rounded-lg bg-purple-500/10 text-purple-600">
+              <RulerIcon size={16} />
+            </span>
           </div>
           <div className="mt-3">
             <span className="font-serif text-3xl font-bold text-purple-600">{stats.totalSubjects}</span>
@@ -410,32 +484,21 @@ export function AdminBoardView() {
           </div>
         </div>
 
-        {/* Roles Distribution */}
-        <div className="glass-card p-5 rounded-2xl flex flex-col justify-between">
-          <div className="flex items-center justify-between text-xs font-semibold" style={{ color: "var(--muted)" }}>
-            <span>Modérateurs & Parents</span>
-            <span className="p-1.5 rounded-lg bg-amber-500/10 text-amber-600">🛡️</span>
-          </div>
-          <div className="mt-3">
-            <span className="font-serif text-3xl font-bold text-amber-600">
-              {(stats.rolesCount[UserType.MODERATOR] || 0) + (stats.rolesCount[UserType.PARENT] || 0)}
-            </span>
-            <p className="mt-1 text-xs" style={{ color: "var(--muted)" }}>
-              {stats.rolesCount[UserType.MODERATOR] || 0} modérateurs • {stats.rolesCount[UserType.PARENT] || 0} parents
-            </p>
-          </div>
-        </div>
-
         {/* Filières Total */}
-        <div className="glass-card p-5 rounded-2xl flex flex-col justify-between">
+        <div
+          onClick={() => setActiveTab("filieres")}
+          className="glass-card p-5 rounded-2xl flex flex-col justify-between cursor-pointer hover:shadow-md transition-all border border-cyan-200/50"
+        >
           <div className="flex items-center justify-between text-xs font-semibold" style={{ color: "var(--muted)" }}>
-            <span>Filières Disponibles</span>
-            <span className="p-1.5 rounded-lg bg-cyan-500/10 text-cyan-600">🎓</span>
+            <span>Gestionnaire Filières</span>
+            <span className="p-1.5 rounded-lg bg-cyan-500/10 text-cyan-600">
+              <SchoolIcon size={16} />
+            </span>
           </div>
           <div className="mt-3">
             <span className="font-serif text-3xl font-bold text-cyan-600">{filieres.length}</span>
-            <p className="mt-1 text-xs" style={{ color: "var(--muted)" }}>
-              2ème Info, 2ème Math, Bac, etc.
+            <p className="mt-1 text-xs text-cyan-600 font-medium">
+              Gérer les niveaux scolaires →
             </p>
           </div>
         </div>
@@ -443,35 +506,90 @@ export function AdminBoardView() {
 
       {/* Main Board Tabs Navigation */}
       <div
-        className="flex items-center gap-2 border-b pb-1"
+        className="flex items-center gap-2 border-b pb-1 overflow-x-auto"
         style={{ borderColor: "var(--line)" }}
       >
         <button
           type="button"
-          onClick={() => setActiveTab("users")}
-          className="flex items-center gap-2 px-5 py-3 text-sm font-semibold border-b-2 transition-all cursor-pointer"
+          onClick={() => setActiveTab("courses")}
+          className="flex items-center gap-2 px-4 py-3 text-sm font-semibold border-b-2 transition-all cursor-pointer whitespace-nowrap"
           style={{
-            borderColor: activeTab === "users" ? "var(--accent)" : "transparent",
-            color: activeTab === "users" ? "var(--accent)" : "var(--muted)",
+            borderColor: activeTab === "courses" ? "var(--accent)" : "transparent",
+            color: activeTab === "courses" ? "var(--accent)" : "var(--muted)",
           }}
         >
-          <span>👥</span>
-          Gestion des Utilisateurs ({users.length})
+          <BookOpenIcon size={16} />
+          Cours &amp; Leçons ({courses.length})
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab("filieres")}
+          className="flex items-center gap-2 px-4 py-3 text-sm font-semibold border-b-2 transition-all cursor-pointer whitespace-nowrap"
+          style={{
+            borderColor: activeTab === "filieres" ? "var(--accent)" : "transparent",
+            color: activeTab === "filieres" ? "var(--accent)" : "var(--muted)",
+          }}
+        >
+          <SchoolIcon size={16} />
+          Gestionnaire Filières ({filieres.length})
         </button>
 
         <button
           type="button"
           onClick={() => setActiveTab("subjects")}
-          className="flex items-center gap-2 px-5 py-3 text-sm font-semibold border-b-2 transition-all cursor-pointer"
+          className="flex items-center gap-2 px-4 py-3 text-sm font-semibold border-b-2 transition-all cursor-pointer whitespace-nowrap"
           style={{
             borderColor: activeTab === "subjects" ? "var(--accent)" : "transparent",
             color: activeTab === "subjects" ? "var(--accent)" : "var(--muted)",
           }}
         >
-          <span>📐</span>
-          Matières & Filières ({subjects.length})
+          <RulerIcon size={16} />
+          Matières &amp; Programmes ({subjects.length})
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab("users")}
+          className="flex items-center gap-2 px-4 py-3 text-sm font-semibold border-b-2 transition-all cursor-pointer whitespace-nowrap"
+          style={{
+            borderColor: activeTab === "users" ? "var(--accent)" : "transparent",
+            color: activeTab === "users" ? "var(--accent)" : "var(--muted)",
+          }}
+        >
+          <UsersIcon size={16} />
+          Gestion des Utilisateurs ({users.length})
         </button>
       </div>
+
+      {/* TAB 0: COURSES MANAGEMENT */}
+      {activeTab === "courses" && (
+        <AdminCoursesTab
+          courses={courses}
+          subjects={subjects}
+          filieres={filieres}
+          token={token!}
+          onRefresh={fetchData}
+          showNotification={showNotification}
+        />
+      )}
+
+      {/* TAB 1: FILIERES MANAGEMENT (GESTIONNAIRE FILIÈRES) */}
+      {activeTab === "filieres" && (
+        <AdminFilieresTab
+          filieresDetailed={filieresDetailed}
+          token={token!}
+          onRefresh={fetchData}
+          showNotification={showNotification}
+          onSelectFiliereForCourses={(fName) => {
+            setActiveTab("courses");
+          }}
+          onSelectFiliereForSubjects={(fName) => {
+            setFiliereFilter(fName);
+            setActiveTab("subjects");
+          }}
+        />
+      )}
 
       {/* TAB 1: USERS MANAGEMENT */}
       {activeTab === "users" && (
@@ -833,13 +951,14 @@ export function AdminBoardView() {
                 </label>
                 <div className="grid grid-cols-3 gap-2">
                   {[
-                    { role: UserType.FINANCE, label: "Finance", icon: "💰" },
-                    { role: UserType.INSTRUCTOR, label: "Instructeur", icon: "👨‍🏫" },
-                    { role: UserType.STUDENT, label: "Étudiant", icon: "🎓" },
-                    { role: UserType.MODERATOR, label: "Modérateur", icon: "🛡️" },
-                    { role: UserType.PARENT, label: "Parent", icon: "👨‍👩‍👦" },
+                    { role: UserType.FINANCE, label: "Finance", IconComp: CoinsIcon },
+                    { role: UserType.INSTRUCTOR, label: "Instructeur", IconComp: BookOpenIcon },
+                    { role: UserType.STUDENT, label: "Étudiant", IconComp: GraduationCapIcon },
+                    { role: UserType.MODERATOR, label: "Modérateur", IconComp: ShieldCheckIcon },
+                    { role: UserType.PARENT, label: "Parent", IconComp: UsersIcon },
                   ].map((r) => {
                     const isSelected = newUserForm.userType === r.role;
+                    const Icon = r.IconComp;
                     return (
                       <button
                         key={r.role}
@@ -852,7 +971,7 @@ export function AdminBoardView() {
                           border: isSelected ? "1.5px solid var(--accent)" : "1px solid var(--line)",
                         }}
                       >
-                        <span>{r.icon}</span>
+                        <Icon size={14} />
                         <span>{r.label}</span>
                       </button>
                     );
@@ -1463,16 +1582,16 @@ export function AdminBoardView() {
                     className="w-full rounded-xl border px-3 py-2 text-sm outline-none focus:border-indigo-500"
                     style={{ borderColor: "var(--line)" }}
                   >
-                    <option value="informatique">💻 Informatique / Code</option>
-                    <option value="math">📐 Mathématiques</option>
-                    <option value="physique">⚡ Physique - Chimie</option>
-                    <option value="science">🧬 Sciences (SVT)</option>
-                    <option value="francais">📖 Français</option>
-                    <option value="anglais">🌍 Anglais</option>
-                    <option value="arabe">📜 Arabe</option>
-                    <option value="philosophie">💡 Philosophie</option>
-                    <option value="economie">📈 Économie & Gestion</option>
-                    <option value="histoire_geo">🧭 Histoire - Géo</option>
+                    <option value="informatique">Informatique / Code</option>
+                    <option value="math">Mathématiques</option>
+                    <option value="physique">Physique - Chimie</option>
+                    <option value="science">Sciences (SVT)</option>
+                    <option value="francais">Français</option>
+                    <option value="anglais">Anglais</option>
+                    <option value="arabe">Arabe</option>
+                    <option value="philosophie">Philosophie</option>
+                    <option value="economie">Économie &amp; Gestion</option>
+                    <option value="histoire_geo">Histoire - Géographie</option>
                   </select>
                 </div>
 

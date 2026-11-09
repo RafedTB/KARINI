@@ -2,14 +2,22 @@ import { BadRequestException, Injectable, NotFoundException, OnModuleInit } from
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { Subject } from "./subject.entity.js";
+import { Filiere } from "./filiere.entity.js";
+import { Course } from "../courses/course.entity.js";
 import { CreateSubjectDto } from "./dto/create-subject.dto.js";
 import { UpdateSubjectDto } from "./dto/update-subject.dto.js";
+import { CreateFiliereDto } from "./dto/create-filiere.dto.js";
+import { UpdateFiliereDto } from "./dto/update-filiere.dto.js";
 
 @Injectable()
 export class SubjectsService implements OnModuleInit {
     constructor(
         @InjectRepository(Subject)
         private readonly subjectRepository: Repository<Subject>,
+        @InjectRepository(Filiere)
+        private readonly filiereRepository: Repository<Filiere>,
+        @InjectRepository(Course)
+        private readonly courseRepository: Repository<Course>,
     ) {}
 
     public async onModuleInit() {
@@ -41,14 +49,116 @@ export class SubjectsService implements OnModuleInit {
     }
 
     public async getFilieres(): Promise<string[]> {
-        // Return all distinct filières stored in the database, sorted alphabetically.
-        // The DB is seeded on startup with all standard Tunisian curriculum filières.
+        // Return all distinct filières stored in the database, combining the filieres table and subjects table.
+        const filieresFromTable = await this.filiereRepository.find({ order: { name: 'ASC' } });
+        const fromTableNames = filieresFromTable.map((f) => f.name.trim());
+
         const rows = await this.subjectRepository
             .createQueryBuilder('s')
             .select('DISTINCT s.filiere', 'filiere')
             .orderBy('s.filiere', 'ASC')
             .getRawMany<{ filiere: string }>();
-        return rows.map((r) => r.filiere);
+        const fromSubjectNames = rows.map((r) => r.filiere.trim());
+
+        const set = new Set([...fromTableNames, ...fromSubjectNames]);
+        return Array.from(set).filter(Boolean).sort();
+    }
+
+    // =========================================================================
+    // GESTIONNAIRE DE FILIÈRES (ADMIN & MODÉRATEUR)
+    // =========================================================================
+
+    public async getAllFilieresDetailed() {
+        // Fetch all filiere entities from DB
+        const filieres = await this.filiereRepository.find({ order: { name: 'ASC' } });
+        const allSubjects = await this.subjectRepository.find();
+        const allCourses = await this.courseRepository.find();
+
+        return filieres.map((f) => {
+            const cleanName = f.name.toLowerCase().trim();
+            const subjectsCount = allSubjects.filter((s) => (s.filiere || '').toLowerCase().trim() === cleanName).length;
+            const coursesCount = allCourses.filter((c) => (c.filiere || '').toLowerCase().trim() === cleanName).length;
+
+            return {
+                id: f.id,
+                name: f.name,
+                cycle: f.cycle || 'Secondaire',
+                description: f.description || '',
+                createdAt: f.createdAt,
+                updatedAt: f.updatedAt,
+                subjectsCount,
+                coursesCount,
+            };
+        });
+    }
+
+    public async createFiliere(dto: CreateFiliereDto) {
+        const cleanName = dto.name.trim();
+        const existing = await this.filiereRepository
+            .createQueryBuilder('f')
+            .where('LOWER(TRIM(f.name)) = LOWER(:name)', { name: cleanName })
+            .getOne();
+
+        if (existing) {
+            throw new BadRequestException(`La filière "${cleanName}" existe déjà dans la base de données.`);
+        }
+
+        const filiere = this.filiereRepository.create({
+            name: cleanName,
+            cycle: dto.cycle?.trim() || 'Secondaire',
+            description: dto.description?.trim() || '',
+        });
+
+        return this.filiereRepository.save(filiere);
+    }
+
+    public async updateFiliere(id: number, dto: UpdateFiliereDto) {
+        const filiere = await this.filiereRepository.findOne({ where: { id } });
+        if (!filiere) throw new NotFoundException('Filière introuvable');
+
+        const oldName = filiere.name;
+        if (dto.name !== undefined) {
+            const nextName = dto.name.trim();
+            if (nextName.toLowerCase() !== oldName.toLowerCase()) {
+                const existing = await this.filiereRepository
+                    .createQueryBuilder('f')
+                    .where('LOWER(TRIM(f.name)) = LOWER(:name) AND f.id != :id', { name: nextName, id })
+                    .getOne();
+                if (existing) {
+                    throw new BadRequestException(`Une autre filière nommée "${nextName}" existe déjà.`);
+                }
+                filiere.name = nextName;
+
+                // Sync associated subjects with the new filière name
+                await this.subjectRepository
+                    .createQueryBuilder()
+                    .update(Subject)
+                    .set({ filiere: nextName })
+                    .where('LOWER(TRIM(filiere)) = LOWER(:oldName)', { oldName: oldName.trim() })
+                    .execute();
+
+                // Sync associated courses with the new filière name
+                await this.courseRepository
+                    .createQueryBuilder()
+                    .update(Course)
+                    .set({ filiere: nextName })
+                    .where('LOWER(TRIM(filiere)) = LOWER(:oldName)', { oldName: oldName.trim() })
+                    .execute();
+            }
+        }
+
+        if (dto.cycle !== undefined) filiere.cycle = dto.cycle?.trim() || null;
+        if (dto.description !== undefined) filiere.description = dto.description?.trim() || null;
+
+        return this.filiereRepository.save(filiere);
+    }
+
+    public async removeFiliere(id: number) {
+        const filiere = await this.filiereRepository.findOne({ where: { id } });
+        if (!filiere) throw new NotFoundException('Filière introuvable');
+
+        await this.filiereRepository.remove(filiere);
+        return { message: `La filière "${filiere.name}" a été supprimée avec succès.` };
     }
 
     public async create(dto: CreateSubjectDto, userId?: number) {
@@ -114,6 +224,53 @@ export class SubjectsService implements OnModuleInit {
     }
 
     private async seedDefaultsIfEmpty() {
+        // Seed standard filières if empty
+        const filiereCount = await this.filiereRepository.count();
+        if (filiereCount === 0) {
+            const defaultFilieres: { name: string; cycle: string; description: string }[] = [
+                { name: 'Bac Informatique', cycle: 'Baccalauréat', description: 'Sciences informatiques, algorithmique et bases de données.' },
+                { name: 'Bac Mathématiques', cycle: 'Baccalauréat', description: 'Mathématiques avancées et sciences physiques.' },
+                { name: 'Bac Sciences Expérimentales', cycle: 'Baccalauréat', description: 'Sciences de la vie et de la terre, physique-chimie.' },
+                { name: 'Bac Sciences Techniques', cycle: 'Baccalauréat', description: 'Génie électrique et mécanique, physique.' },
+                { name: 'Bac Économie & Gestion', cycle: 'Baccalauréat', description: 'Économie, gestion, mathématiques appliquées.' },
+                { name: 'Bac Lettres', cycle: 'Baccalauréat', description: 'Littérature, langues vivantes, philosophie et histoire-géographie.' },
+                { name: '3ème Informatique', cycle: '3ème Année', description: 'Algorithmique, TIC et technologies de programmation.' },
+                { name: '3ème Mathématiques', cycle: '3ème Année', description: 'Analyse et algèbre préparatoire au baccalauréat.' },
+                { name: '3ème Sciences Expérimentales', cycle: '3ème Année', description: 'SVT et sciences physiques approfondies.' },
+                { name: '3ème Sciences Techniques', cycle: '3ème Année', description: 'Génie mécanique et électrique.' },
+                { name: '3ème Économie & Gestion', cycle: '3ème Année', description: 'Sciences économiques et comptabilité.' },
+                { name: '2ème Informatique', cycle: '2ème Année', description: 'Initiation aux sciences du numérique et algorithmique.' },
+                { name: '2ème Math', cycle: '2ème Année', description: 'Tronc commun scientifique orienté mathématiques.' },
+                { name: '2ème Sciences', cycle: '2ème Année', description: 'Sciences expérimentales et physiques.' },
+                { name: '2ème Économie & Services', cycle: '2ème Année', description: 'Économie et gestion de base.' },
+                { name: '2ème Lettres', cycle: '2ème Année', description: 'Humanités, langues et lettres.' },
+                { name: '1ère Année Secondaire', cycle: '1ère Année', description: 'Tronc commun secondaire.' },
+                { name: '9ème Année de Base', cycle: 'Collège', description: 'Enseignement préparatoire au brevet.' },
+            ];
+
+            for (const f of defaultFilieres) {
+                await this.filiereRepository.save(this.filiereRepository.create(f));
+            }
+        }
+
+        // Also ensure any filière present in Subject exists in Filiere table
+        const subjectRows = await this.subjectRepository
+            .createQueryBuilder('s')
+            .select('DISTINCT s.filiere', 'filiere')
+            .getRawMany<{ filiere: string }>();
+        for (const row of subjectRows) {
+            const name = row.filiere?.trim();
+            if (name) {
+                const exists = await this.filiereRepository.findOne({ where: { name } });
+                if (!exists) {
+                    await this.filiereRepository.save(this.filiereRepository.create({
+                        name,
+                        cycle: name.toLowerCase().includes('bac') ? 'Baccalauréat' : 'Secondaire',
+                    }));
+                }
+            }
+        }
+
         // If the database already has subjects, do not re-seed or overwrite user changes!
         const count = await this.subjectRepository.count();
         if (count > 0) {

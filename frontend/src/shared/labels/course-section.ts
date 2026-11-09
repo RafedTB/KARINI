@@ -13,10 +13,10 @@ export function formatCourseSection(section: string): string {
 
 export function courseSectionIcon(section: string): string {
   switch (section) {
-    case CourseSection.COURSE: return "🎬";
-    case CourseSection.EXERCISE: return "✍️";
-    case CourseSection.MAGAZINE: return "📑";
-    case CourseSection.OLDLIVE: return "🔴";
+    case CourseSection.COURSE: return "▶";
+    case CourseSection.EXERCISE: return "✎";
+    case CourseSection.MAGAZINE: return "≡";
+    case CourseSection.OLDLIVE: return "●";
     default: return "•";
   }
 }

@@ -5,6 +5,12 @@ import Link from "next/link";
 import type { Course } from "@/domain/entities/course";
 import { LessonType } from "@/domain/enums";
 import { useAuth } from "@/presentation/providers/auth-provider";
+import {
+  VideoCameraIcon,
+  RadioLiveIcon,
+  UsersIcon,
+  GraduationCapIcon,
+} from "@/presentation/components/ui/icons";
 
 export type VideoPlaylistItem = {
   id: string;
@@ -132,10 +138,10 @@ export function VideoStudioView({
         style={{ borderStyle: "dashed" }}
       >
         <div
-          className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl text-3xl mb-4"
+          className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl mb-4"
           style={{ backgroundColor: `${accentColor}18`, color: accentColor }}
         >
-          🎬
+          <VideoCameraIcon size={32} />
         </div>
         <h3 className="font-serif text-xl font-bold" style={{ color: "var(--ink)" }}>
           Aucune vidéo enregistrée pour le moment
@@ -158,8 +164,11 @@ export function VideoStudioView({
       {isFreeStudent && (
         <div className="flex flex-wrap items-center justify-between gap-3 p-4 rounded-2xl border border-amber-200 bg-amber-50/90 text-amber-950 shadow-xs">
           <div className="flex items-center gap-3">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-200/80 text-xl">
-              🔒
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-200/80 text-amber-800">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+              </svg>
             </span>
             <div className="text-xs">
               <p className="font-bold text-amber-950 text-sm">
@@ -193,8 +202,8 @@ export function VideoStudioView({
             {/* Header */}
             <div className="flex items-center justify-between pb-3 border-b" style={{ borderColor: "var(--line)" }}>
               <div className="flex items-center gap-2">
-                <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-indigo-500/10 text-indigo-600 font-bold text-sm">
-                  🎬
+                <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-indigo-500/10 text-indigo-600 font-bold">
+                  <VideoCameraIcon size={16} />
                 </span>
                 <div>
                   <h3 className="font-serif text-base font-bold" style={{ color: "var(--ink)" }}>
@@ -278,7 +287,11 @@ export function VideoStudioView({
                         >
                           {item.title}
                         </span>
-                        {isFreeStudent && <span className="text-xs">🔒</span>}
+                        {isFreeStudent && (
+                          <span className="text-[10px] font-semibold text-amber-600 bg-amber-50 px-1 py-0.5 rounded border border-amber-200">
+                            VIP
+                          </span>
+                        )}
                       </div>
 
                       <span className="text-[10px] text-slate-500 block truncate mt-0.5">
@@ -368,7 +381,10 @@ export function VideoStudioView({
               {isFreeStudent ? (
                 <div className="flex flex-col items-center justify-center py-16 px-6 text-center rounded-3xl border border-slate-800 bg-slate-950 text-white shadow-md">
                   <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-500/20 text-3xl shadow-sm border border-amber-500/30 text-amber-400">
-                    🔒
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                    </svg>
                   </div>
                   <span className="mt-4 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold uppercase font-mono bg-amber-500/20 text-amber-300 border border-amber-500/30">
                     Vidéo Verrouillée
@@ -415,7 +431,7 @@ export function VideoStudioView({
                 </div>
               ) : activeItem.youtubeUrl ? (
                 <div className="p-8 rounded-2xl bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200 text-center">
-                  <span className="text-3xl block mb-2">🔴</span>
+                  <RadioLiveIcon size={32} className="text-rose-500 mx-auto mb-2" />
                   <h4 className="font-serif text-lg font-bold text-slate-800">Lien Direct / Vidéo</h4>
                   <p className="text-xs text-slate-600 mt-1 mb-4">
                     Cette vidéo est accessible directement via le lien ci-dessous.
@@ -431,7 +447,7 @@ export function VideoStudioView({
                 </div>
               ) : (
                 <div className="flex flex-col items-center justify-center py-16 px-6 text-center rounded-2xl border border-dashed border-slate-300 bg-slate-50">
-                  <span className="text-3xl mb-2">🎥</span>
+                  <VideoCameraIcon size={32} className="text-slate-400 mb-2" />
                   <h4 className="font-serif text-lg font-bold text-slate-800">Vidéo en préparation</h4>
                   <p className="text-xs text-slate-500 max-w-sm mt-1">
                     L&apos;enseignant n&apos;a pas encore téléversé le fichier vidéo pour cette leçon. Consultez les notes de cours et exercices associés ci-dessous.
@@ -443,13 +459,15 @@ export function VideoStudioView({
               <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
                 <div className="flex flex-wrap items-center gap-2 text-xs">
                   {activeItem.instructorName && (
-                    <span className="rounded-lg px-2.5 py-1 font-semibold bg-slate-100 text-slate-700 border border-slate-200">
-                      👨‍🏫 {activeItem.instructorName}
+                    <span className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1 font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+                      <UsersIcon size={12} />
+                      <span>{activeItem.instructorName}</span>
                     </span>
                   )}
                   {activeItem.filiere && (
-                    <span className="rounded-lg px-2.5 py-1 font-bold bg-sky-50 text-sky-700 border border-sky-100">
-                      🎓 {activeItem.filiere}
+                    <span className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1 font-bold bg-sky-50 text-sky-700 border border-sky-100">
+                      <GraduationCapIcon size={12} />
+                      <span>{activeItem.filiere}</span>
                     </span>
                   )}
                   {activeItem.durationMinutes && (

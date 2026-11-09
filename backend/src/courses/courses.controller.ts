@@ -70,7 +70,7 @@ export class CoursesController {
     constructor(private readonly coursesService: CoursesService) {}
 
     @Get()
-    @Roles(UserType.SUPERADMIN, UserType.STUDENT, UserType.INSTRUCTOR)
+    @Roles(UserType.SUPERADMIN, UserType.STUDENT, UserType.INSTRUCTOR, UserType.MODERATOR)
     @ApiQuery({ name: 'subject', required: false, type: String })
     @ApiQuery({ name: 'section', required: false, enum: CourseSection })
     @ApiQuery({ name: 'filiere', required: false, type: String })
@@ -87,21 +87,21 @@ export class CoursesController {
     }
 
     @Get(':id')
-    @Roles(UserType.SUPERADMIN, UserType.STUDENT, UserType.INSTRUCTOR)
+    @Roles(UserType.SUPERADMIN, UserType.STUDENT, UserType.INSTRUCTOR, UserType.MODERATOR)
     @ApiOperation({ summary: 'Get course details with lessons' })
     public findOne(@Param('id', ParseIntPipe) id: number, @currentUser() payload: JWTPayloadType) {
         return this.coursesService.findOne(id, payload);
     }
 
     @Post()
-    @Roles(UserType.SUPERADMIN, UserType.INSTRUCTOR)
-    @ApiOperation({ summary: 'Create a new course (Teacher or Admin)' })
+    @Roles(UserType.SUPERADMIN, UserType.INSTRUCTOR, UserType.MODERATOR)
+    @ApiOperation({ summary: 'Create a new course (Teacher, Admin or Moderator)' })
     public create(@Body() dto: CreateCourseDto, @currentUser() payload: JWTPayloadType) {
         return this.coursesService.create(dto, payload.id);
     }
 
     @Post('upload-file')
-    @Roles(UserType.SUPERADMIN, UserType.INSTRUCTOR)
+    @Roles(UserType.SUPERADMIN, UserType.INSTRUCTOR, UserType.MODERATOR)
     @UseInterceptors(FileInterceptor('file', {
         storage: diskStorage({
             destination: (req, file, cb) => cb(null, getUploadsDir()),
@@ -122,7 +122,7 @@ export class CoursesController {
     }
 
     @Post('upload-video')
-    @Roles(UserType.SUPERADMIN, UserType.INSTRUCTOR)
+    @Roles(UserType.SUPERADMIN, UserType.INSTRUCTOR, UserType.MODERATOR)
     @UseInterceptors(FileInterceptor('video', {
         storage: diskStorage({
             destination: (req, file, cb) => cb(null, getVideosUploadsDir()),
@@ -147,7 +147,7 @@ export class CoursesController {
     }
 
     @Post('magazine')
-    @Roles(UserType.SUPERADMIN, UserType.INSTRUCTOR)
+    @Roles(UserType.SUPERADMIN, UserType.INSTRUCTOR, UserType.MODERATOR)
     @UseInterceptors(FileInterceptor('pdf', {
         storage: diskStorage({
             destination: (req, file, cb) => cb(null, getUploadsDir()),
@@ -163,7 +163,7 @@ export class CoursesController {
     }
 
     @Patch(':id')
-    @Roles(UserType.SUPERADMIN, UserType.INSTRUCTOR)
+    @Roles(UserType.SUPERADMIN, UserType.INSTRUCTOR, UserType.MODERATOR)
     @ApiOperation({ summary: 'Update a course' })
     public update(
         @Param('id', ParseIntPipe) id: number,
@@ -174,7 +174,7 @@ export class CoursesController {
     }
 
     @Delete(':id')
-    @Roles(UserType.SUPERADMIN, UserType.INSTRUCTOR)
+    @Roles(UserType.SUPERADMIN, UserType.INSTRUCTOR, UserType.MODERATOR)
     @ApiOperation({ summary: 'Delete a course' })
     public remove(@Param('id', ParseIntPipe) id: number, @currentUser() payload: JWTPayloadType) {
         return this.coursesService.remove(id, payload.id, payload.userType);
@@ -185,7 +185,7 @@ export class CoursesController {
     // ==========================================
 
     @Post(':courseId/lessons')
-    @Roles(UserType.SUPERADMIN, UserType.INSTRUCTOR)
+    @Roles(UserType.SUPERADMIN, UserType.INSTRUCTOR, UserType.MODERATOR)
     @ApiOperation({ summary: 'Add a lesson (Text, Video, PDF) to a course' })
     public createLesson(
         @Param('courseId', ParseIntPipe) courseId: number,
@@ -196,7 +196,7 @@ export class CoursesController {
     }
 
     @Patch('lessons/:lessonId')
-    @Roles(UserType.SUPERADMIN, UserType.INSTRUCTOR)
+    @Roles(UserType.SUPERADMIN, UserType.INSTRUCTOR, UserType.MODERATOR)
     @ApiOperation({ summary: 'Update a lesson' })
     public updateLesson(
         @Param('lessonId', ParseIntPipe) lessonId: number,
@@ -207,7 +207,7 @@ export class CoursesController {
     }
 
     @Delete('lessons/:lessonId')
-    @Roles(UserType.SUPERADMIN, UserType.INSTRUCTOR)
+    @Roles(UserType.SUPERADMIN, UserType.INSTRUCTOR, UserType.MODERATOR)
     @ApiOperation({ summary: 'Delete a lesson' })
     public deleteLesson(
         @Param('lessonId', ParseIntPipe) lessonId: number,
@@ -217,7 +217,7 @@ export class CoursesController {
     }
 
     @Get(':courseId/lessons')
-    @Roles(UserType.SUPERADMIN, UserType.STUDENT, UserType.INSTRUCTOR)
+    @Roles(UserType.SUPERADMIN, UserType.STUDENT, UserType.INSTRUCTOR, UserType.MODERATOR)
     @ApiOperation({ summary: 'Get all lessons for a course' })
     public getCourseLessons(
         @Param('courseId', ParseIntPipe) courseId: number,
@@ -227,7 +227,7 @@ export class CoursesController {
     }
 
     @Get('materials/:file')
-    @Roles(UserType.SUPERADMIN, UserType.STUDENT, UserType.INSTRUCTOR)
+    @Roles(UserType.SUPERADMIN, UserType.STUDENT, UserType.INSTRUCTOR, UserType.MODERATOR)
     @ApiOperation({ summary: 'Download or view a PDF lesson/material file' })
     public async showMaterial(
         @Param('file') file: string,
@@ -240,7 +240,7 @@ export class CoursesController {
     }
 
     @Get('magazines/:file')
-    @Roles(UserType.SUPERADMIN, UserType.STUDENT, UserType.INSTRUCTOR)
+    @Roles(UserType.SUPERADMIN, UserType.STUDENT, UserType.INSTRUCTOR, UserType.MODERATOR)
     public async showMagazine(
         @Param('file') file: string,
         @currentUser() payload: JWTPayloadType,
@@ -252,7 +252,7 @@ export class CoursesController {
     }
 
     @Get('videos/:file')
-    @Roles(UserType.SUPERADMIN, UserType.STUDENT, UserType.INSTRUCTOR)
+    @Roles(UserType.SUPERADMIN, UserType.STUDENT, UserType.INSTRUCTOR, UserType.MODERATOR)
     @ApiOperation({ summary: 'Stream or download an uploaded video file' })
     public async showVideo(
         @Param('file') file: string,

@@ -10,6 +10,7 @@ import { CourseCard } from "@/presentation/features/courses/course-card";
 import { PageLoader } from "@/presentation/components/ui/page-loader";
 import { useAuth } from "@/presentation/providers/auth-provider";
 import { VideoStudioView } from "@/presentation/features/courses/video-studio-view";
+import { GraduationCapIcon, VideoCameraIcon, BookOpenIcon } from "@/presentation/components/ui/icons";
 
 const TABS = [
   { key: CourseSection.COURSE, label: "Cours Vidéo" },
@@ -89,8 +90,8 @@ export function CoursesView() {
           }}
         >
           <div className="flex items-center gap-2.5">
-            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-indigo-500/10 text-base">
-              🎓
+            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-indigo-500/10 text-indigo-600">
+              <GraduationCapIcon size={18} />
             </span>
             <div>
               <span className="text-xs font-medium text-slate-500 block">Votre programme scolaire</span>
@@ -131,7 +132,7 @@ export function CoursesView() {
                 <span>{tab.label}</span>
                 {isGoldOnlyTab && isStudentNonGold ? (
                   <span className="badge text-[9px] px-1.5 py-0.2 bg-amber-100 text-amber-800 border-amber-200">
-                    ⭐ Gold
+                    Gold
                   </span>
                 ) : (
                   <span
@@ -163,7 +164,7 @@ export function CoursesView() {
                   : "text-slate-600 hover:text-slate-900"
               }`}
             >
-              <span>🎬</span>
+              <VideoCameraIcon size={14} />
               <span>Lecteur Vidéo</span>
             </button>
             <button
@@ -219,8 +220,8 @@ export function CoursesView() {
               className="glass-card px-8 py-12 text-center rounded-3xl mt-6"
               style={{ borderStyle: "dashed" }}
             >
-              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600 mb-3 text-2xl">
-                📂
+              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600 mb-3">
+                <BookOpenIcon size={26} />
               </div>
               <h3 className="font-serif text-lg font-bold" style={{ color: "var(--ink)" }}>
                 Aucun contenu dans cette section

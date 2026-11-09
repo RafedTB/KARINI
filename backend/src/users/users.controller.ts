@@ -50,10 +50,10 @@ export class UsersController {
 
     // GET /api/users
     @Get()
-    @Roles(UserType.SUPERADMIN)
+    @Roles(UserType.SUPERADMIN, UserType.MODERATOR)
     @UseGuards(AuthRolesGuard)
     @ApiBearerAuth()
-    @ApiOperation({ summary: 'Get all users (Superadmin only)' })
+    @ApiOperation({ summary: 'Get all users (Superadmin and Moderator)' })
     public getAllUsers() {
         return this.usersService.getAllUsers();
     }

@@ -9,6 +9,7 @@ import { messagingService } from "@/application/services/messaging-service";
 import { parentService } from "@/application/services/parent-service";
 import { useAuth } from "@/presentation/providers/auth-provider";
 import { PageLoader } from "@/presentation/components/ui/page-loader";
+import { getMessagingSocket } from "@/infrastructure/socket/socket-client";
 
 function formatTime(value: string): string {
   return new Intl.DateTimeFormat("fr-TN", {
@@ -52,7 +53,10 @@ export function ParentMessagesView() {
   const [composerLoading, setComposerLoading] = useState(false);
   const [composerError, setComposerError] = useState<string | null>(null);
   const [hasPlatinumChild, setHasPlatinumChild] = useState<boolean | null>(null);
+  const [isOtherTyping, setIsOtherTyping] = useState(false);
+  const [wsConnected, setWsConnected] = useState(false);
   const threadRef = useRef<HTMLDivElement>(null);
+  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const selectedConversation = useMemo(
     () => conversations.find((conversation) => conversation.id === selectedId) ?? null,
@@ -111,18 +115,155 @@ export function ParentMessagesView() {
     if (selectedId !== null) void Promise.resolve().then(() => loadMessages(selectedId));
   }, [loadMessages, selectedId]);
 
+  // WebSocket real-time subscription
   useEffect(() => {
     if (!token) return;
-    const interval = window.setInterval(() => {
-      void loadConversations();
-      if (selectedId !== null) void loadMessages(selectedId, true);
-    }, 15_000);
-    return () => window.clearInterval(interval);
-  }, [loadConversations, loadMessages, selectedId, token]);
+    const socket = getMessagingSocket(token);
+    if (!socket) return;
+
+    const onConnect = () => setWsConnected(true);
+    const onDisconnect = () => setWsConnected(false);
+
+    if (socket.connected) {
+      setWsConnected(true);
+    }
+
+    socket.on("connect", onConnect);
+    socket.on("disconnect", onDisconnect);
+
+    const handleNewMessage = (newMessage: Message) => {
+      if (newMessage.conversationId === selectedId) {
+        setMessages((current) => {
+          if (current.some((item) => item.id === newMessage.id)) return current;
+          const pendingIdx = current.findIndex(
+            (item) => item.pending && item.body === newMessage.body && item.senderId === newMessage.senderId,
+          );
+          if (pendingIdx !== -1) {
+            const copy = [...current];
+            copy[pendingIdx] = newMessage;
+            return copy;
+          }
+          return [...current, newMessage];
+        });
+
+        if (newMessage.senderId !== user?.id) {
+          socket.emit("markAsRead", { conversationId: selectedId });
+        }
+      }
+
+      setConversations((current) => {
+        const updated = current.map((conv) => {
+          if (conv.id === newMessage.conversationId) {
+            const isCurrent = conv.id === selectedId;
+            return {
+              ...conv,
+              lastMessage: newMessage.body,
+              lastMessageAt: newMessage.createdAt,
+              unreadCount: isCurrent || newMessage.senderId === user?.id ? 0 : (conv.unreadCount || 0) + 1,
+            };
+          }
+          return conv;
+        });
+
+        return updated.sort((a, b) => {
+          const tA = a.lastMessageAt ? new Date(a.lastMessageAt).getTime() : 0;
+          const tB = b.lastMessageAt ? new Date(b.lastMessageAt).getTime() : 0;
+          return tB - tA;
+        });
+      });
+    };
+
+    const handleMessagesRead = (data: { conversationId: number; readBy: number }) => {
+      if (data.conversationId === selectedId) {
+        setMessages((current) => current.map((m) => ({ ...m, isRead: true })));
+      }
+      setConversations((current) =>
+        current.map((c) => (c.id === data.conversationId ? { ...c, unreadCount: 0 } : c)),
+      );
+    };
+
+    const handleConversationUpdated = (data: {
+      conversationId: number;
+      lastMessage: string;
+      lastMessageAt: string;
+      senderId: number;
+    }) => {
+      setConversations((current) => {
+        const found = current.some((c) => c.id === data.conversationId);
+        if (!found) {
+          void loadConversations();
+          return current;
+        }
+        const updated = current.map((c) => {
+          if (c.id === data.conversationId) {
+            return {
+              ...c,
+              lastMessage: data.lastMessage,
+              lastMessageAt: data.lastMessageAt,
+              unreadCount: c.id === selectedId ? 0 : (c.unreadCount || 0) + 1,
+            };
+          }
+          return c;
+        });
+        return updated.sort((a, b) => {
+          const tA = a.lastMessageAt ? new Date(a.lastMessageAt).getTime() : 0;
+          const tB = b.lastMessageAt ? new Date(b.lastMessageAt).getTime() : 0;
+          return tB - tA;
+        });
+      });
+    };
+
+    const handleTyping = (data: { conversationId: number; userId: number; isTyping: boolean }) => {
+      if (data.conversationId === selectedId && data.userId !== user?.id) {
+        setIsOtherTyping(data.isTyping);
+      }
+    };
+
+    socket.on("newMessage", handleNewMessage);
+    socket.on("messagesRead", handleMessagesRead);
+    socket.on("conversationUpdated", handleConversationUpdated);
+    socket.on("typing", handleTyping);
+
+    return () => {
+      socket.off("connect", onConnect);
+      socket.off("disconnect", onDisconnect);
+      socket.off("newMessage", handleNewMessage);
+      socket.off("messagesRead", handleMessagesRead);
+      socket.off("conversationUpdated", handleConversationUpdated);
+      socket.off("typing", handleTyping);
+    };
+  }, [token, selectedId, user?.id, loadConversations]);
+
+  // Join/leave conversation room
+  useEffect(() => {
+    if (!token || selectedId === null) return;
+    const socket = getMessagingSocket(token);
+    if (!socket) return;
+
+    socket.emit("joinConversation", { conversationId: selectedId });
+    setIsOtherTyping(false);
+
+    return () => {
+      socket.emit("leaveConversation", { conversationId: selectedId });
+    };
+  }, [token, selectedId]);
 
   useEffect(() => {
     threadRef.current?.scrollTo({ top: threadRef.current.scrollHeight, behavior: "smooth" });
   }, [messages]);
+
+  const handleBodyChange = (value: string) => {
+    setBody(value);
+    if (!token || selectedId === null) return;
+    const socket = getMessagingSocket(token);
+    if (socket && socket.connected) {
+      socket.emit("typing", { conversationId: selectedId, isTyping: true });
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+      typingTimeoutRef.current = setTimeout(() => {
+        socket.emit("typing", { conversationId: selectedId, isTyping: false });
+      }, 2000);
+    }
+  };
 
   const send = async () => {
     const trimmed = body.trim();
@@ -140,13 +281,44 @@ export function ParentMessagesView() {
     setMessages((current) => [...current, optimistic]);
     setBody("");
     setSending(true);
+
+    const socket = getMessagingSocket(token);
+    if (socket && socket.connected) {
+      socket.emit("typing", { conversationId: selectedId, isTyping: false });
+    }
+
     try {
-      const sent = await messagingService.sendMessage(token, selectedId, { body: trimmed });
-      setMessages((current) => current.map((message) => message.id === temporaryId ? sent : message));
+      if (socket && socket.connected) {
+        await new Promise<Message>((resolve, reject) => {
+          socket.emit(
+            "sendMessage",
+            { conversationId: selectedId, body: trimmed },
+            (res: { event?: string; message?: Message; error?: string }) => {
+              if (res?.error) {
+                reject(new Error(res.error));
+              } else if (res?.message) {
+                resolve(res.message);
+              } else {
+                resolve(optimistic);
+              }
+            },
+          );
+          setTimeout(() => resolve(optimistic), 3000);
+        }).then((sentMessage) => {
+          if (sentMessage && sentMessage.id !== temporaryId) {
+            setMessages((current) => current.map((m) => (m.id === temporaryId ? sentMessage : m)));
+          }
+        });
+      } else {
+        const sent = await messagingService.sendMessage(token, selectedId, { body: trimmed });
+        setMessages((current) => current.map((message) => (message.id === temporaryId ? sent : message)));
+      }
     } catch (cause: unknown) {
-      setMessages((current) => current.map((message) =>
-        message.id === temporaryId ? { ...message, pending: false, failed: true } : message,
-      ));
+      setMessages((current) =>
+        current.map((message) =>
+          message.id === temporaryId ? { ...message, pending: false, failed: true } : message,
+        ),
+      );
       setError(cause instanceof Error ? cause.message : "Envoi impossible. Réessayez.");
     } finally {
       setSending(false);
@@ -179,23 +351,23 @@ export function ParentMessagesView() {
         setComposerTeacherId(availableTeachers[0]?.id ?? null);
         setComposerSubject(availableTeachers[0]?.subject ?? "");
       }
-    } catch (cause: unknown) {
-      setComposerError(cause instanceof Error ? cause.message : "Impossible de charger les enseignants.");
+    } catch {
+      setComposerError("Impossible de charger les enseignants disponibles.");
     }
   };
 
   const selectComposerChild = async (childId: number) => {
     if (!token) return;
     setComposerChildId(childId);
-    setComposerTeacherId(null);
-    setComposerSubject("");
     try {
       const availableTeachers = await parentService.listTeachers(token, childId);
       setTeachers(availableTeachers);
       setComposerTeacherId(availableTeachers[0]?.id ?? null);
       setComposerSubject(availableTeachers[0]?.subject ?? "");
-    } catch (cause: unknown) {
-      setComposerError(cause instanceof Error ? cause.message : "Impossible de charger les enseignants.");
+    } catch {
+      setTeachers([]);
+      setComposerTeacherId(null);
+      setComposerSubject("");
     }
   };
 
@@ -230,14 +402,26 @@ export function ParentMessagesView() {
     <div className="animate-fade-in-up space-y-5">
       <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <span className="badge badge-accent text-xs font-bold uppercase tracking-wider">Communication</span>
+          <div className="flex items-center gap-2">
+            <span className="badge badge-accent text-xs font-bold uppercase tracking-wider">Communication</span>
+            <span
+              className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                wsConnected ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-slate-100 text-slate-500"
+              }`}
+            >
+              <span className={`h-1.5 w-1.5 rounded-full ${wsConnected ? "bg-emerald-500 animate-pulse" : "bg-slate-400"}`} />
+              {wsConnected ? "WebSocket connecté" : "Connexion…"}
+            </span>
+          </div>
           <h1 className="mt-3 font-serif text-3xl font-bold" style={{ color: "var(--ink)" }}>Messages Parents</h1>
-          <p className="mt-2 text-sm" style={{ color: "var(--muted)" }}>Échangez avec les enseignants de votre enfant.</p>
+          <p className="mt-2 text-sm" style={{ color: "var(--muted)" }}>Échangez en direct avec les enseignants de votre enfant.</p>
         </div>
         <div className="flex items-center gap-3">
-          {hasPlatinumChild !== false && <button type="button" onClick={() => void openComposer()} className="btn-primary rounded-xl text-sm font-semibold">
-            + Nouvelle conversation
-          </button>}
+          {hasPlatinumChild !== false && (
+            <button type="button" onClick={() => void openComposer()} className="btn-primary rounded-xl text-sm font-semibold">
+              + Nouvelle conversation
+            </button>
+          )}
           <Link href="/parent" className="text-sm font-semibold text-indigo-600 hover:text-indigo-700">← Retour au suivi</Link>
         </div>
       </header>
@@ -314,15 +498,20 @@ export function ParentMessagesView() {
             </div>
           ) : (
             <>
-              <div className="flex items-center gap-3 border-b border-slate-200 p-4">
-                <button type="button" onClick={() => setSelectedId(null)} className="rounded-lg p-2 text-slate-500 hover:bg-black/5 md:hidden" aria-label="Retour aux conversations">←</button>
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-cyan-400 text-sm font-bold text-white">
-                  {teacherLabel(selectedConversation).charAt(0).toUpperCase()}
+              <div className="flex items-center justify-between border-b border-slate-200 p-4">
+                <div className="flex items-center gap-3">
+                  <button type="button" onClick={() => setSelectedId(null)} className="rounded-lg p-2 text-slate-500 hover:bg-black/5 md:hidden" aria-label="Retour aux conversations">←</button>
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-cyan-400 text-sm font-bold text-white">
+                    {teacherLabel(selectedConversation).charAt(0).toUpperCase()}
+                  </div>
+                  <div>
+                    <h2 className="text-sm font-bold" style={{ color: "var(--ink)" }}>{teacherLabel(selectedConversation)}</h2>
+                    <p className="text-xs text-indigo-600">{selectedConversation.subject || "Suivi pédagogique"}</p>
+                  </div>
                 </div>
-                <div>
-                  <h2 className="text-sm font-bold" style={{ color: "var(--ink)" }}>{teacherLabel(selectedConversation)}</h2>
-                  <p className="text-xs text-indigo-600">{selectedConversation.subject || "Suivi pédagogique"}</p>
-                </div>
+                <span className="text-[11px] text-slate-400">
+                  {wsConnected ? "⚡ En direct" : ""}
+                </span>
               </div>
               <div ref={threadRef} className="flex-1 space-y-3 overflow-y-auto p-4 sm:p-6">
                 {loadingMessages ? <p className="text-center text-sm text-slate-400">Chargement…</p> : messages.length === 0 ? (
@@ -335,6 +524,11 @@ export function ParentMessagesView() {
                         <p className="whitespace-pre-wrap break-words">{message.body}</p>
                         <div className={`mt-1 flex items-center justify-end gap-2 text-[10px] ${mine ? "text-indigo-100" : "text-slate-400"}`}>
                           <span>{formatTime(message.createdAt)}</span>
+                          {mine && (
+                            <span title={message.isRead ? "Lu" : "Envoyé"}>
+                              {message.isRead ? "✓✓" : "✓"}
+                            </span>
+                          )}
                           {message.failed && <button type="button" onClick={() => retry(message)} className="font-bold underline">Réessayer</button>}
                           {message.pending && <span>Envoi…</span>}
                         </div>
@@ -343,6 +537,11 @@ export function ParentMessagesView() {
                   );
                 })}
               </div>
+              {isOtherTyping && (
+                <div className="px-4 py-1 text-xs italic text-slate-500 animate-pulse">
+                  {teacherLabel(selectedConversation)} est en train d&apos;écrire…
+                </div>
+              )}
               {error && <p className="px-4 text-xs text-rose-600" role="alert">{error}</p>}
               <form
                 className="border-t border-slate-200 p-3 sm:p-4"
@@ -351,7 +550,7 @@ export function ParentMessagesView() {
                 <div className="flex items-end gap-2">
                   <textarea
                     value={body}
-                    onChange={(event) => setBody(event.target.value)}
+                    onChange={(event) => handleBodyChange(event.target.value)}
                     onKeyDown={(event) => {
                       if (event.key === "Enter" && !event.shiftKey) {
                         event.preventDefault();
@@ -360,7 +559,7 @@ export function ParentMessagesView() {
                     }}
                     rows={2}
                     maxLength={2000}
-                    placeholder="Écrire un message…"
+                    placeholder="Écrire un message en direct…"
                     aria-label="Message à envoyer"
                     className="min-h-12 flex-1 resize-none rounded-2xl border border-slate-200 bg-white/70 px-4 py-3 text-sm outline-none transition focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
                   />

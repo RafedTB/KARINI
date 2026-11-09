@@ -11,6 +11,12 @@ import { UserType } from "@/domain/enums";
 import { SubjectIcon } from "@/presentation/features/courses/subject-icons";
 import { PageLoader } from "@/presentation/components/ui/page-loader";
 import { Button } from "@/presentation/components/ui/button";
+import {
+  BookOpenIcon,
+  VideoCameraIcon,
+  FileTextIcon,
+  GraduationCapIcon,
+} from "@/presentation/components/ui/icons";
 
 const PRESET_COLORS = [
   { label: "Indigo", value: "#4f46e5" },
@@ -24,16 +30,16 @@ const PRESET_COLORS = [
 ];
 
 const PRESET_ICONS = [
-  { id: "informatique", label: "Informatique", emoji: "💻" },
-  { id: "math", label: "Mathématiques", emoji: "📐" },
-  { id: "physique", label: "Physique - Chimie", emoji: "⚡" },
-  { id: "science", label: "Sciences (SVT)", emoji: "🧬" },
-  { id: "francais", label: "Français", emoji: "📖" },
-  { id: "anglais", label: "Anglais", emoji: "🌍" },
-  { id: "arabe", label: "Arabe", emoji: "📜" },
-  { id: "philosophie", label: "Philosophie", emoji: "💡" },
-  { id: "economie", label: "Économie & Gestion", emoji: "📈" },
-  { id: "histoire_geo", label: "Histoire - Géo", emoji: "🧭" },
+  { id: "informatique", label: "Informatique / Code" },
+  { id: "math", label: "Mathématiques" },
+  { id: "physique", label: "Physique - Chimie" },
+  { id: "science", label: "Sciences (SVT)" },
+  { id: "francais", label: "Français" },
+  { id: "anglais", label: "Anglais" },
+  { id: "arabe", label: "Arabe" },
+  { id: "philosophie", label: "Philosophie" },
+  { id: "economie", label: "Économie & Gestion" },
+  { id: "histoire_geo", label: "Histoire - Géographie" },
 ];
 
 const PRESET_CATEGORIES = [
@@ -473,8 +479,8 @@ export function SubjectsView() {
           }}
         >
           <div className="flex items-center gap-2 text-xs font-medium" style={{ color: "var(--muted)" }}>
-            <span className="flex h-7 w-7 items-center justify-center rounded-xl bg-indigo-500/10 text-indigo-600 text-sm">
-              📚
+            <span className="flex h-7 w-7 items-center justify-center rounded-xl bg-indigo-500/10 text-indigo-600">
+              <BookOpenIcon size={15} />
             </span>
             <span>Matières</span>
           </div>
@@ -494,8 +500,8 @@ export function SubjectsView() {
           }}
         >
           <div className="flex items-center gap-2 text-xs font-medium" style={{ color: "var(--muted)" }}>
-            <span className="flex h-7 w-7 items-center justify-center rounded-xl bg-cyan-500/10 text-cyan-600 text-sm">
-              🎬
+            <span className="flex h-7 w-7 items-center justify-center rounded-xl bg-cyan-500/10 text-cyan-600">
+              <VideoCameraIcon size={15} />
             </span>
             <span>Cours Vidéo</span>
           </div>
@@ -515,8 +521,8 @@ export function SubjectsView() {
           }}
         >
           <div className="flex items-center gap-2 text-xs font-medium" style={{ color: "var(--muted)" }}>
-            <span className="flex h-7 w-7 items-center justify-center rounded-xl bg-rose-500/10 text-rose-600 text-sm">
-              ✍️
+            <span className="flex h-7 w-7 items-center justify-center rounded-xl bg-rose-500/10 text-rose-600">
+              <FileTextIcon size={15} />
             </span>
             <span>Exercices &amp; PDF</span>
           </div>
@@ -536,8 +542,8 @@ export function SubjectsView() {
           }}
         >
           <div className="flex items-center gap-2 text-xs font-medium" style={{ color: "var(--muted)" }}>
-            <span className="flex h-7 w-7 items-center justify-center rounded-xl bg-amber-500/10 text-amber-600 text-sm">
-              🎓
+            <span className="flex h-7 w-7 items-center justify-center rounded-xl bg-amber-500/10 text-amber-600">
+              <GraduationCapIcon size={15} />
             </span>
             <span>Filière</span>
           </div>
@@ -1251,7 +1257,7 @@ export function SubjectsView() {
                   >
                     {PRESET_ICONS.map((ico) => (
                       <option key={ico.id} value={ico.id}>
-                        {ico.emoji} {ico.label}
+                        {ico.label}
                       </option>
                     ))}
                   </select>
@@ -1451,7 +1457,7 @@ export function SubjectsView() {
                   >
                     {PRESET_ICONS.map((ico) => (
                       <option key={ico.id} value={ico.id}>
-                        {ico.emoji} {ico.label}
+                        {ico.label}
                       </option>
                     ))}
                   </select>

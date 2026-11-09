@@ -5,6 +5,7 @@ import type { Message, TeacherConversation } from "@/domain/entities/messaging";
 import { teacherMessagingRepository } from "@/infrastructure/repositories/teacher-messaging-repository";
 import { useAuth } from "@/presentation/providers/auth-provider";
 import { PageLoader } from "@/presentation/components/ui/page-loader";
+import { getMessagingSocket } from "@/infrastructure/socket/socket-client";
 
 const formatTime = (value: string) => new Intl.DateTimeFormat("fr-TN", {
   hour: "2-digit", minute: "2-digit", timeZone: "Africa/Tunis",
@@ -18,7 +19,10 @@ export function TeacherMessagesView() {
   const [body, setBody] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isOtherTyping, setIsOtherTyping] = useState(false);
+  const [wsConnected, setWsConnected] = useState(false);
   const threadRef = useRef<HTMLDivElement>(null);
+  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const loadConversations = useCallback(async () => {
     if (!token) return;
@@ -44,26 +48,206 @@ export function TeacherMessagesView() {
   }, [token]);
 
   useEffect(() => { void Promise.resolve().then(loadConversations); }, [loadConversations]);
+
   useEffect(() => {
     if (selectedId !== null) void Promise.resolve().then(() => loadMessages(selectedId));
   }, [loadMessages, selectedId]);
+
+  // WebSocket real-time subscription
   useEffect(() => {
     if (!token) return;
-    const interval = window.setInterval(() => {
-      void loadConversations();
-      if (selectedId !== null) void loadMessages(selectedId);
-    }, 15_000);
-    return () => window.clearInterval(interval);
-  }, [loadConversations, loadMessages, selectedId, token]);
+    const socket = getMessagingSocket(token);
+    if (!socket) return;
+
+    const onConnect = () => setWsConnected(true);
+    const onDisconnect = () => setWsConnected(false);
+
+    if (socket.connected) {
+      setWsConnected(true);
+    }
+
+    socket.on("connect", onConnect);
+    socket.on("disconnect", onDisconnect);
+
+    const handleNewMessage = (newMessage: Message) => {
+      if (newMessage.conversationId === selectedId) {
+        setMessages((current) => {
+          if (current.some((m) => m.id === newMessage.id)) return current;
+          return [...current, newMessage];
+        });
+
+        if (newMessage.senderId !== user?.id) {
+          socket.emit("markAsRead", { conversationId: selectedId });
+        }
+      }
+
+      setConversations((current) => {
+        const updated = current.map((c) => {
+          if (c.id === newMessage.conversationId) {
+            const isCurrent = c.id === selectedId;
+            return {
+              ...c,
+              lastMessage: newMessage.body,
+              lastMessageAt: newMessage.createdAt,
+              unreadCount: isCurrent || newMessage.senderId === user?.id ? 0 : (c.unreadCount || 0) + 1,
+            };
+          }
+          return c;
+        });
+
+        return updated.sort((a, b) => {
+          const tA = a.lastMessageAt ? new Date(a.lastMessageAt).getTime() : 0;
+          const tB = b.lastMessageAt ? new Date(b.lastMessageAt).getTime() : 0;
+          return tB - tA;
+        });
+      });
+    };
+
+    const handleMessagesRead = (data: { conversationId: number; readBy: number }) => {
+      if (data.conversationId === selectedId) {
+        setMessages((current) => current.map((m) => ({ ...m, isRead: true })));
+      }
+      setConversations((current) =>
+        current.map((c) => (c.id === data.conversationId ? { ...c, unreadCount: 0 } : c)),
+      );
+    };
+
+    const handleConversationUpdated = (data: {
+      conversationId: number;
+      lastMessage: string;
+      lastMessageAt: string;
+      senderId: number;
+    }) => {
+      setConversations((current) => {
+        const found = current.some((c) => c.id === data.conversationId);
+        if (!found) {
+          void loadConversations();
+          return current;
+        }
+        const updated = current.map((c) => {
+          if (c.id === data.conversationId) {
+            return {
+              ...c,
+              lastMessage: data.lastMessage,
+              lastMessageAt: data.lastMessageAt,
+              unreadCount: c.id === selectedId ? 0 : (c.unreadCount || 0) + 1,
+            };
+          }
+          return c;
+        });
+        return updated.sort((a, b) => {
+          const tA = a.lastMessageAt ? new Date(a.lastMessageAt).getTime() : 0;
+          const tB = b.lastMessageAt ? new Date(b.lastMessageAt).getTime() : 0;
+          return tB - tA;
+        });
+      });
+    };
+
+    const handleTyping = (data: { conversationId: number; userId: number; isTyping: boolean }) => {
+      if (data.conversationId === selectedId && data.userId !== user?.id) {
+        setIsOtherTyping(data.isTyping);
+      }
+    };
+
+    socket.on("newMessage", handleNewMessage);
+    socket.on("messagesRead", handleMessagesRead);
+    socket.on("conversationUpdated", handleConversationUpdated);
+    socket.on("typing", handleTyping);
+
+    return () => {
+      socket.off("connect", onConnect);
+      socket.off("disconnect", onDisconnect);
+      socket.off("newMessage", handleNewMessage);
+      socket.off("messagesRead", handleMessagesRead);
+      socket.off("conversationUpdated", handleConversationUpdated);
+      socket.off("typing", handleTyping);
+    };
+  }, [token, selectedId, user?.id, loadConversations]);
+
+  // Join/leave conversation room
+  useEffect(() => {
+    if (!token || selectedId === null) return;
+    const socket = getMessagingSocket(token);
+    if (!socket) return;
+
+    socket.emit("joinConversation", { conversationId: selectedId });
+    setIsOtherTyping(false);
+
+    return () => {
+      socket.emit("leaveConversation", { conversationId: selectedId });
+    };
+  }, [token, selectedId]);
+
   useEffect(() => { threadRef.current?.scrollTo({ top: threadRef.current.scrollHeight }); }, [messages]);
+
+  const handleBodyChange = (value: string) => {
+    setBody(value);
+    if (!token || selectedId === null) return;
+    const socket = getMessagingSocket(token);
+    if (socket && socket.connected) {
+      socket.emit("typing", { conversationId: selectedId, isTyping: true });
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+      typingTimeoutRef.current = setTimeout(() => {
+        socket.emit("typing", { conversationId: selectedId, isTyping: false });
+      }, 2000);
+    }
+  };
 
   const send = async () => {
     if (!token || selectedId === null || !body.trim()) return;
     const text = body.trim();
     setBody("");
+
+    const socket = getMessagingSocket(token);
+    if (socket && socket.connected) {
+      socket.emit("typing", { conversationId: selectedId, isTyping: false });
+    }
+
     try {
-      const message = await teacherMessagingRepository.sendMessage(token, selectedId, { body: text });
-      setMessages((items) => [...items, message]);
+      if (socket && socket.connected) {
+        await new Promise<Message>((resolve, reject) => {
+          socket.emit(
+            "sendMessage",
+            { conversationId: selectedId, body: text },
+            (res: { event?: string; message?: Message; error?: string }) => {
+              if (res?.error) {
+                reject(new Error(res.error));
+              } else if (res?.message) {
+                resolve(res.message);
+              } else {
+                resolve({
+                  id: Date.now(),
+                  conversationId: selectedId,
+                  senderId: user?.id ?? 0,
+                  body: text,
+                  isRead: true,
+                  createdAt: new Date().toISOString(),
+                });
+              }
+            },
+          );
+          setTimeout(() => {
+            resolve({
+              id: Date.now(),
+              conversationId: selectedId,
+              senderId: user?.id ?? 0,
+              body: text,
+              isRead: true,
+              createdAt: new Date().toISOString(),
+            });
+          }, 3000);
+        }).then((sentMessage) => {
+          if (sentMessage) {
+            setMessages((items) => {
+              if (items.some((m) => m.id === sentMessage.id)) return items;
+              return [...items, sentMessage];
+            });
+          }
+        });
+      } else {
+        const message = await teacherMessagingRepository.sendMessage(token, selectedId, { body: text });
+        setMessages((items) => [...items, message]);
+      }
     } catch (cause: unknown) {
       setBody(text);
       setError(cause instanceof Error ? cause.message : "Envoi impossible.");
@@ -76,9 +260,19 @@ export function TeacherMessagesView() {
   return (
     <div className="space-y-5">
       <header>
-        <span className="badge badge-accent text-xs font-bold uppercase tracking-wider">Communication</span>
+        <div className="flex items-center gap-2">
+          <span className="badge badge-accent text-xs font-bold uppercase tracking-wider">Communication</span>
+          <span
+            className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+              wsConnected ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-slate-100 text-slate-500"
+            }`}
+          >
+            <span className={`h-1.5 w-1.5 rounded-full ${wsConnected ? "bg-emerald-500 animate-pulse" : "bg-slate-400"}`} />
+            {wsConnected ? "WebSocket connecté" : "Connexion…"}
+          </span>
+        </div>
         <h1 className="mt-3 font-serif text-3xl font-bold" style={{ color: "var(--ink)" }}>Messages Parents</h1>
-        <p className="mt-2 text-sm" style={{ color: "var(--muted)" }}>Répondez aux parents de vos élèves.</p>
+        <p className="mt-2 text-sm" style={{ color: "var(--muted)" }}>Répondez en direct aux parents de vos élèves.</p>
       </header>
       {error && <p className="rounded-xl bg-rose-50 p-3 text-sm text-rose-700" role="alert">{error}</p>}
       <div className="glass-card grid min-h-[520px] overflow-hidden rounded-3xl md:grid-cols-[minmax(240px,32%)_1fr]">
@@ -103,20 +297,56 @@ export function TeacherMessagesView() {
         <section className="flex min-w-0 flex-col">
           {!selected ? <div className="flex flex-1 items-center justify-center p-8 text-center text-sm" style={{ color: "var(--muted)" }}>Sélectionnez une conversation</div> : (
             <>
-              <div className="border-b border-slate-200 p-4">
-                <h2 className="text-sm font-bold" style={{ color: "var(--ink)" }}>{selected.parentName}</h2>
-                <p className="text-xs text-indigo-600">{selected.studentName} · {selected.subject}</p>
+              <div className="flex items-center justify-between border-b border-slate-200 p-4">
+                <div>
+                  <h2 className="text-sm font-bold" style={{ color: "var(--ink)" }}>{selected.parentName}</h2>
+                  <p className="text-xs text-indigo-600">{selected.studentName} · {selected.subject}</p>
+                </div>
+                <span className="text-[11px] text-slate-400">
+                  {wsConnected ? "⚡ En direct" : ""}
+                </span>
               </div>
               <div ref={threadRef} className="flex-1 space-y-3 overflow-y-auto p-4">
                 {messages.map((message) => {
                   const mine = message.senderId === user?.id;
-                  return <div key={message.id} className={`flex ${mine ? "justify-end" : "justify-start"}`}><div className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm ${mine ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-700"}`}><p className="whitespace-pre-wrap">{message.body}</p><span className="mt-1 block text-right text-[10px] opacity-70">{formatTime(message.createdAt)}</span></div></div>;
+                  return (
+                    <div key={message.id} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
+                      <div className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm ${mine ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-700"}`}>
+                        <p className="whitespace-pre-wrap">{message.body}</p>
+                        <div className={`mt-1 flex items-center justify-end gap-1.5 text-[10px] ${mine ? "text-indigo-100" : "text-slate-400"}`}>
+                          <span>{formatTime(message.createdAt)}</span>
+                          {mine && (
+                            <span title={message.isRead ? "Lu" : "Envoyé"}>
+                              {message.isRead ? "✓✓" : "✓"}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
                 })}
               </div>
+              {isOtherTyping && (
+                <div className="px-4 py-1 text-xs italic text-slate-500 animate-pulse">
+                  Le parent est en train d&apos;écrire…
+                </div>
+              )}
               <form className="border-t border-slate-200 p-3" onSubmit={(event) => { event.preventDefault(); void send(); }}>
                 <div className="flex items-end gap-2">
-                  <textarea value={body} onChange={(event) => setBody(event.target.value)} rows={2} placeholder="Votre réponse..." className="w-full resize-none rounded-xl border border-slate-200 p-3 text-sm" />
-                  <button type="submit" className="btn-primary rounded-xl px-4 py-3 text-sm font-semibold">Envoyer</button>
+                  <textarea
+                    value={body}
+                    onChange={(event) => handleBodyChange(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" && !event.shiftKey) {
+                        event.preventDefault();
+                        void send();
+                      }
+                    }}
+                    rows={2}
+                    placeholder="Votre réponse en direct..."
+                    className="w-full resize-none rounded-xl border border-slate-200 p-3 text-sm"
+                  />
+                  <button type="submit" disabled={!body.trim()} className="btn-primary rounded-xl px-4 py-3 text-sm font-semibold disabled:opacity-50">Envoyer</button>
                 </div>
               </form>
             </>

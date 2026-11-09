@@ -6,6 +6,18 @@ import { useEffect } from "react";
 import { useAuth } from "@/presentation/providers/auth-provider";
 import { displayName } from "@/shared/utils/display-name";
 import { UserType } from "@/domain/enums";
+import {
+  CrownIcon,
+  SettingsIcon,
+  BookOpenIcon,
+  UsersIcon,
+  GraduationCapIcon,
+  ShieldCheckIcon,
+  RulerIcon,
+  VideoCameraIcon,
+  PenEditIcon,
+  FileTextIcon,
+} from "@/presentation/components/ui/icons";
 
 const platformFeatures = [
   {
@@ -129,7 +141,7 @@ export default function HomePage() {
               <span
                 className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wider bg-rose-50 text-rose-700 border border-rose-200"
               >
-                <span>👑</span> Console Superadministrateur
+                <CrownIcon size={14} /> Console Superadministrateur
               </span>
               <h1 className="mt-4 font-serif text-3xl font-bold sm:text-4xl" style={{ color: "var(--ink)" }}>
                 Bienvenue, <span className="gradient-text">{displayName(user)}</span>
@@ -141,22 +153,22 @@ export default function HomePage() {
               <div className="mt-6 flex flex-wrap items-center gap-3">
                 <Link
                   href="/admin"
-                  className="btn-primary text-xs sm:text-sm font-bold shadow-md rounded-xl"
+                  className="btn-primary text-xs sm:text-sm font-bold shadow-md rounded-xl inline-flex items-center gap-2"
                   style={{ background: "linear-gradient(135deg, #e11d48, #4f46e5)" }}
                 >
-                  <span>⚙️</span> Panneau d&apos;Administration
+                  <SettingsIcon size={16} /> Panneau d&apos;Administration
                 </Link>
                 <Link
                   href="/teacher"
-                  className="btn-secondary text-xs sm:text-sm font-semibold rounded-xl"
+                  className="btn-secondary text-xs sm:text-sm font-semibold rounded-xl inline-flex items-center gap-2"
                 >
-                  <span>👨‍🏫</span> Studio Enseignant
+                  <BookOpenIcon size={16} /> Studio Enseignant
                 </Link>
                 <Link
                   href="/courses"
-                  className="btn-secondary text-xs sm:text-sm font-semibold rounded-xl"
+                  className="btn-secondary text-xs sm:text-sm font-semibold rounded-xl inline-flex items-center gap-2"
                 >
-                  <span>📚</span> Explorer tous les cours
+                  <BookOpenIcon size={16} /> Explorer tous les cours
                 </Link>
               </div>
             </div>
@@ -169,8 +181,8 @@ export default function HomePage() {
               className="glass-card group p-6 rounded-3xl transition-all duration-300 hover:-translate-y-1 hover:shadow-lg border"
               style={{ borderColor: "rgba(99, 102, 241, 0.2)" }}
             >
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600 text-xl font-bold">
-                👥
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600 font-bold">
+                <UsersIcon size={24} />
               </div>
               <h3 className="mt-4 font-serif text-lg font-bold" style={{ color: "var(--ink)" }}>
                 Gestion des Utilisateurs
@@ -188,11 +200,11 @@ export default function HomePage() {
               className="glass-card group p-6 rounded-3xl transition-all duration-300 hover:-translate-y-1 hover:shadow-lg border"
               style={{ borderColor: "rgba(168, 85, 247, 0.2)" }}
             >
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-purple-50 text-purple-600 text-xl font-bold">
-                📚
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-purple-50 text-purple-600 font-bold">
+                <BookOpenIcon size={24} />
               </div>
               <h3 className="mt-4 font-serif text-lg font-bold" style={{ color: "var(--ink)" }}>
-                Catalogue des Matières & Filières
+                Catalogue des Matières &amp; Filières
               </h3>
               <p className="mt-1 text-xs leading-relaxed" style={{ color: "var(--muted)" }}>
                 Ajouter, renommer ou supprimer dynamiquement les matières pour chaque filière (2ème Info, 2ème Math, Bac Info, etc.).
@@ -207,8 +219,8 @@ export default function HomePage() {
               className="glass-card group p-6 rounded-3xl transition-all duration-300 hover:-translate-y-1 hover:shadow-lg border"
               style={{ borderColor: "rgba(6, 182, 212, 0.2)" }}
             >
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-cyan-50 text-cyan-600 text-xl font-bold">
-                🎓
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-cyan-50 text-cyan-600 font-bold">
+                <GraduationCapIcon size={24} />
               </div>
               <h3 className="mt-4 font-serif text-lg font-bold" style={{ color: "var(--ink)" }}>
                 Studio Pédagogique
@@ -218,6 +230,120 @@ export default function HomePage() {
               </p>
               <span className="mt-4 inline-flex items-center gap-1 text-xs font-semibold text-cyan-600 group-hover:translate-x-1 transition-transform">
                 Ouvrir le studio →
+              </span>
+            </Link>
+          </div>
+        </div>
+      );
+    }
+
+    // =========================================================================
+    // 2. MODERATOR DASHBOARD HUB
+    // =========================================================================
+    if (user.userType === UserType.MODERATOR) {
+      return (
+        <div className="space-y-8 animate-fade-in-up">
+          {/* Moderator Hero Header */}
+          <div
+            className="glass-card-strong relative overflow-hidden p-6 sm:p-8 rounded-3xl"
+            style={{
+              background: "linear-gradient(135deg, rgba(245, 158, 11, 0.08), rgba(99, 102, 241, 0.06))",
+              border: "1px solid rgba(245, 158, 11, 0.25)",
+            }}
+          >
+            <div className="relative z-10 max-w-3xl">
+              <span
+                className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wider bg-amber-50 text-amber-800 border border-amber-200"
+              >
+                <ShieldCheckIcon size={14} /> Espace Modérateur
+              </span>
+              <h1 className="mt-4 font-serif text-3xl font-bold sm:text-4xl" style={{ color: "var(--ink)" }}>
+                Bienvenue, <span className="gradient-text">{displayName(user)}</span>
+              </h1>
+              <p className="mt-2 text-sm leading-relaxed" style={{ color: "var(--muted)" }}>
+                Espace de modération et d&apos;administration pédagogique. Vous pouvez ajouter et administrer les cours pour des niveaux spécifiques (comme le Bac Informatique, 2ème Informatique, etc.), ainsi qu&apos;encadrer et assigner les élèves à leurs classes et groupes de révision.
+              </p>
+
+              <div className="mt-6 flex flex-wrap items-center gap-3">
+                <Link
+                  href="/admin?tab=courses"
+                  className="btn-primary text-xs sm:text-sm font-bold shadow-md rounded-xl inline-flex items-center gap-2"
+                  style={{ background: "linear-gradient(135deg, #4f46e5, #06b6d4)" }}
+                >
+                  <BookOpenIcon size={16} /> Ajouter &amp; Gérer les Cours
+                </Link>
+                <Link
+                  href="/moderator"
+                  className="btn-secondary text-xs sm:text-sm font-semibold rounded-xl inline-flex items-center gap-2"
+                >
+                  <UsersIcon size={16} /> Modération des Élèves
+                </Link>
+                <Link
+                  href="/courses"
+                  className="btn-secondary text-xs sm:text-sm font-semibold rounded-xl inline-flex items-center gap-2"
+                >
+                  <GraduationCapIcon size={16} /> Catalogue Public
+                </Link>
+              </div>
+            </div>
+          </div>
+
+          {/* Quick Action Cards Grid */}
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            <Link
+              href="/admin?tab=courses"
+              className="glass-card group p-6 rounded-3xl transition-all duration-300 hover:-translate-y-1 hover:shadow-lg border"
+              style={{ borderColor: "rgba(99, 102, 241, 0.2)" }}
+            >
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600 font-bold">
+                <BookOpenIcon size={24} />
+              </div>
+              <h3 className="mt-4 font-serif text-lg font-bold" style={{ color: "var(--ink)" }}>
+                Gestion des Cours par Niveau
+              </h3>
+              <p className="mt-1 text-xs leading-relaxed" style={{ color: "var(--muted)" }}>
+                Publiez directement en base de données des cours, vidéos, exercices et magazines pour chaque filière (ex: Bac Informatique).
+              </p>
+              <span className="mt-4 inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 group-hover:translate-x-1 transition-transform">
+                Accéder aux cours →
+              </span>
+            </Link>
+
+            <Link
+              href="/moderator"
+              className="glass-card group p-6 rounded-3xl transition-all duration-300 hover:-translate-y-1 hover:shadow-lg border"
+              style={{ borderColor: "rgba(245, 158, 11, 0.25)" }}
+            >
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-50 text-amber-600 font-bold">
+                <UsersIcon size={24} />
+              </div>
+              <h3 className="mt-4 font-serif text-lg font-bold" style={{ color: "var(--ink)" }}>
+                Affectation &amp; Groupes Élèves
+              </h3>
+              <p className="mt-1 text-xs leading-relaxed" style={{ color: "var(--muted)" }}>
+                Assigner les élèves aux classes et aux groupes de niveau (DabaDaba, Standard, Excellent, Top).
+              </p>
+              <span className="mt-4 inline-flex items-center gap-1 text-xs font-semibold text-amber-600 group-hover:translate-x-1 transition-transform">
+                Gérer les élèves →
+              </span>
+            </Link>
+
+            <Link
+              href="/admin?tab=subjects"
+              className="glass-card group p-6 rounded-3xl transition-all duration-300 hover:-translate-y-1 hover:shadow-lg border"
+              style={{ borderColor: "rgba(6, 182, 212, 0.2)" }}
+            >
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-cyan-50 text-cyan-600 font-bold">
+                <RulerIcon size={24} />
+              </div>
+              <h3 className="mt-4 font-serif text-lg font-bold" style={{ color: "var(--ink)" }}>
+                Matières Scolaires
+              </h3>
+              <p className="mt-1 text-xs leading-relaxed" style={{ color: "var(--muted)" }}>
+                Consulter et administrer la liste officielle des matières configurées en base de données.
+              </p>
+              <span className="mt-4 inline-flex items-center gap-1 text-xs font-semibold text-cyan-600 group-hover:translate-x-1 transition-transform">
+                Consulter les matières →
               </span>
             </Link>
           </div>
@@ -243,7 +369,7 @@ export default function HomePage() {
               <span
                 className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wider bg-indigo-50 text-indigo-700 border border-indigo-200"
               >
-                <span>👨‍🏫</span> Espace Pédagogique Enseignant
+                <BookOpenIcon size={14} /> Espace Pédagogique Enseignant
               </span>
               <h1 className="mt-4 font-serif text-3xl font-bold sm:text-4xl" style={{ color: "var(--ink)" }}>
                 Bienvenue, Professeur <span className="gradient-text">{displayName(user)}</span>
@@ -255,21 +381,21 @@ export default function HomePage() {
               <div className="mt-6 flex flex-wrap items-center gap-3">
                 <Link
                   href="/teacher"
-                  className="btn-primary text-xs sm:text-sm font-bold shadow-md rounded-xl"
+                  className="btn-primary text-xs sm:text-sm font-bold shadow-md rounded-xl inline-flex items-center gap-2"
                 >
                   <span>+</span> Ajouter une ressource
                 </Link>
                 <Link
                   href="/teacher"
-                  className="btn-secondary text-xs sm:text-sm font-semibold rounded-xl"
+                  className="btn-secondary text-xs sm:text-sm font-semibold rounded-xl inline-flex items-center gap-2"
                 >
-                  <span>🎬</span> Gérer mes leçons
+                  <VideoCameraIcon size={16} /> Gérer mes leçons
                 </Link>
                 <Link
                   href="/courses"
-                  className="btn-secondary text-xs sm:text-sm font-semibold rounded-xl"
+                  className="btn-secondary text-xs sm:text-sm font-semibold rounded-xl inline-flex items-center gap-2"
                 >
-                  <span>📖</span> Consulter les cours publiés
+                  <BookOpenIcon size={16} /> Consulter les cours publiés
                 </Link>
               </div>
             </div>
@@ -278,7 +404,7 @@ export default function HomePage() {
           {/* Teaching Assignment Details */}
           <div className="glass-card p-6 rounded-3xl border" style={{ borderColor: "var(--line)" }}>
             <h3 className="text-xs font-bold uppercase tracking-wider text-indigo-950 flex items-center gap-2">
-              <span>📋</span> Vos Affectations d&apos;Enseignement
+              <FileTextIcon size={16} /> Vos Affectations d&apos;Enseignement
             </h3>
             <p className="mt-1 text-xs" style={{ color: "var(--muted)" }}>
               Ces affectations sont configurées par le Superadministrateur et déterminent les matières et filières dans lesquelles vous pouvez publier.
@@ -324,8 +450,8 @@ export default function HomePage() {
               className="glass-card group p-6 rounded-3xl transition-all duration-300 hover:-translate-y-1 hover:shadow-lg border"
               style={{ borderColor: "rgba(79, 70, 229, 0.2)" }}
             >
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600 text-xl font-bold">
-                ✍️
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600 font-bold">
+                <PenEditIcon size={24} />
               </div>
               <h3 className="mt-4 font-serif text-lg font-bold" style={{ color: "var(--ink)" }}>
                 Studio de Création
@@ -343,8 +469,8 @@ export default function HomePage() {
               className="glass-card group p-6 rounded-3xl transition-all duration-300 hover:-translate-y-1 hover:shadow-lg border"
               style={{ borderColor: "rgba(6, 182, 212, 0.2)" }}
             >
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-cyan-50 text-cyan-600 text-xl font-bold">
-                🎥
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-cyan-50 text-cyan-600 font-bold">
+                <VideoCameraIcon size={24} />
               </div>
               <h3 className="mt-4 font-serif text-lg font-bold" style={{ color: "var(--ink)" }}>
                 Leçons Multimédia
@@ -362,8 +488,8 @@ export default function HomePage() {
               className="glass-card group p-6 rounded-3xl transition-all duration-300 hover:-translate-y-1 hover:shadow-lg border"
               style={{ borderColor: "rgba(168, 85, 247, 0.2)" }}
             >
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-purple-50 text-purple-600 text-xl font-bold">
-                📖
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-purple-50 text-purple-600 font-bold">
+                <BookOpenIcon size={24} />
               </div>
               <h3 className="mt-4 font-serif text-lg font-bold" style={{ color: "var(--ink)" }}>
                 Vue Apprenant
@@ -431,8 +557,15 @@ export default function HomePage() {
           <div className="glass-card p-5 rounded-2xl">
             <p className="text-xs uppercase tracking-wider" style={{ color: "var(--muted)" }}>Classe Scolaire</p>
             <div className="mt-2 flex items-center gap-2">
-              <span className="font-serif text-2xl font-bold text-indigo-600">
-                {user.studentClass ? `🎓 ${user.studentClass}` : "Non assignée"}
+              <span className="font-serif text-2xl font-bold text-indigo-600 inline-flex items-center gap-2">
+                {user.studentClass ? (
+                  <>
+                    <GraduationCapIcon size={20} />
+                    <span>{user.studentClass}</span>
+                  </>
+                ) : (
+                  "Non assignée"
+                )}
               </span>
             </div>
             <p className="mt-1 text-xs text-slate-500">

@@ -12,6 +12,17 @@ import { CourseSection, LessonType, UserType } from "@/domain/enums";
 import { PageLoader } from "@/presentation/components/ui/page-loader";
 import { Button } from "@/presentation/components/ui/button";
 import { formatCourseSection, courseSectionIcon } from "@/shared/labels/course-section";
+import {
+  BookOpenIcon,
+  VideoCameraIcon,
+  FileTextIcon,
+  RadioLiveIcon,
+  PenEditIcon,
+  EyeIcon,
+  PlusCircleIcon,
+  SchoolIcon,
+  GraduationCapIcon,
+} from "@/presentation/components/ui/icons";
 
 export function TeacherStudioView() {
   const { token, user } = useAuth();
@@ -539,7 +550,7 @@ export function TeacherStudioView() {
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <div className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wider bg-indigo-500/10 text-indigo-600 border border-indigo-500/20">
-            <span>🎓</span> Espace Enseignant / Teacher Studio
+            <GraduationCapIcon size={14} /> Espace Enseignant / Teacher Studio
           </div>
           <h1 className="mt-2 font-serif text-3xl sm:text-4xl font-bold" style={{ color: "var(--ink)" }}>
             Mes Ressources & <span className="gradient-text">Cours Pédagogiques</span>
@@ -607,7 +618,7 @@ export function TeacherStudioView() {
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
               <h3 className="text-xs font-bold uppercase tracking-wider text-indigo-950 flex items-center gap-1.5">
-                <span>📚</span> Vos Affectations d&apos;Enseignement
+                <FileTextIcon size={14} /> Vos Affectations d&apos;Enseignement
               </h3>
               <div className="mt-2 flex flex-wrap items-center gap-2">
                 <span className="text-xs font-semibold text-slate-600">Matières autorisées :</span>
@@ -760,8 +771,16 @@ export function TeacherStudioView() {
               <div>
                 {/* Header pills */}
                 <div className="flex items-center justify-between gap-2">
-                  <span className="rounded-full px-2.5 py-0.5 text-[11px] font-bold uppercase font-mono bg-indigo-50 text-indigo-700 border border-indigo-100 flex items-center gap-1">
-                    <span>{courseSectionIcon(c.section)}</span>
+                  <span className="rounded-full px-2.5 py-0.5 text-[11px] font-bold uppercase font-mono bg-indigo-50 text-indigo-700 border border-indigo-100 flex items-center gap-1.5">
+                    {c.section === CourseSection.COURSE ? (
+                      <VideoCameraIcon size={12} />
+                    ) : c.section === CourseSection.EXERCISE ? (
+                      <FileTextIcon size={12} />
+                    ) : c.section === CourseSection.MAGAZINE ? (
+                      <BookOpenIcon size={12} />
+                    ) : (
+                      <RadioLiveIcon size={12} />
+                    )}
                     <span>{formatCourseSection(c.section)}</span>
                   </span>
                   <span className="text-[11px] font-semibold text-slate-500">
@@ -780,27 +799,32 @@ export function TeacherStudioView() {
                 {/* Content formats badges */}
                 <div className="mt-4 flex flex-wrap items-center gap-1.5 text-[11px]">
                   {c.videoFile && (
-                    <span className="rounded-md px-2 py-0.5 bg-indigo-50 text-indigo-700 font-medium">
-                      📹 Vidéo PC
+                    <span className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 bg-indigo-50 text-indigo-700 font-medium">
+                      <VideoCameraIcon size={11} />
+                      <span>Vidéo PC</span>
                     </span>
                   )}
                   {c.youtubeUrl && !c.videoFile && (
-                    <span className="rounded-md px-2 py-0.5 bg-rose-50 text-rose-700 font-medium">
-                      🎬 Vidéo / Direct
+                    <span className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 bg-rose-50 text-rose-700 font-medium">
+                      <VideoCameraIcon size={11} />
+                      <span>Vidéo / Direct</span>
                     </span>
                   )}
                   {c.pdfFile && (
-                    <span className="rounded-md px-2 py-0.5 bg-pink-50 text-pink-700 font-medium">
-                      📄 PDF joint
+                    <span className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 bg-pink-50 text-pink-700 font-medium">
+                      <FileTextIcon size={11} />
+                      <span>PDF joint</span>
                     </span>
                   )}
                   {c.textContent && (
-                    <span className="rounded-md px-2 py-0.5 bg-teal-50 text-teal-700 font-medium">
-                      📝 Notes / Texte
+                    <span className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 bg-teal-50 text-teal-700 font-medium">
+                      <FileTextIcon size={11} />
+                      <span>Notes / Texte</span>
                     </span>
                   )}
-                  <span className="rounded-md px-2 py-0.5 bg-slate-100 text-slate-700 font-bold">
-                    📖 {lessonsCount} {lessonsCount === 1 ? "leçon" : "leçons"}
+                  <span className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 bg-slate-100 text-slate-700 font-bold">
+                    <BookOpenIcon size={11} />
+                    <span>{lessonsCount} {lessonsCount === 1 ? "leçon" : "leçons"}</span>
                   </span>
                 </div>
               </div>
@@ -824,24 +848,27 @@ export function TeacherStudioView() {
                       orderIndex: (c.lessons?.length || 0) + 1,
                     });
                   }}
-                  className="w-full justify-center text-xs font-bold rounded-xl py-2"
+                  className="w-full justify-center text-xs font-bold rounded-xl py-2 flex items-center gap-1.5"
                 >
-                  📚 Gérer les leçons ({lessonsCount})
+                  <BookOpenIcon size={14} />
+                  <span>Gérer les leçons ({lessonsCount})</span>
                 </Button>
 
                 <div className="flex items-center justify-between gap-2 pt-1">
                   <Link
                     href={`/teacher/quizzes?courseId=${c.id}`}
-                    className="inline-flex items-center gap-1 rounded-xl bg-amber-100 px-3 py-2 text-xs font-bold text-amber-800 hover:bg-amber-200"
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-amber-100 px-3 py-2 text-xs font-bold text-amber-800 hover:bg-amber-200"
                   >
-                    📝 Gérer les quiz
+                    <PenEditIcon size={13} />
+                    <span>Gérer les quiz</span>
                   </Link>
                   <Link
                     href={`/courses/view/${c.id}`}
                     target="_blank"
                     className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 hover:text-indigo-800"
                   >
-                    <span>👁️ Aperçu élève</span>
+                    <EyeIcon size={13} />
+                    <span>Aperçu élève</span>
                   </Link>
 
                   <div className="flex items-center gap-2">
@@ -1028,12 +1055,13 @@ export function TeacherStudioView() {
                 </label>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                   {[
-                    { section: CourseSection.COURSE, label: "Cours Vidéo", icon: "🎬", desc: "Vidéo PC / Streaming" },
-                    { section: CourseSection.EXERCISE, label: "Exercice PDF", icon: "✍️", desc: "Série d'exercices" },
-                    { section: CourseSection.MAGAZINE, label: "Magazine PDF", icon: "📑", desc: "Document complet" },
-                    { section: CourseSection.OLDLIVE, label: "Direct", icon: "🔴", desc: "Session Live / Replay" },
+                    { section: CourseSection.COURSE, label: "Cours Vidéo", IconComp: VideoCameraIcon, desc: "Vidéo PC / Streaming" },
+                    { section: CourseSection.EXERCISE, label: "Exercice PDF", IconComp: FileTextIcon, desc: "Série d'exercices" },
+                    { section: CourseSection.MAGAZINE, label: "Magazine PDF", IconComp: BookOpenIcon, desc: "Document complet" },
+                    { section: CourseSection.OLDLIVE, label: "Direct", IconComp: RadioLiveIcon, desc: "Session Live / Replay" },
                   ].map((s) => {
                     const active = courseForm.section === s.section;
+                    const Icon = s.IconComp;
                     return (
                       <button
                         key={s.section}
@@ -1045,7 +1073,7 @@ export function TeacherStudioView() {
                           borderColor: active ? "var(--accent)" : "var(--line)",
                         }}
                       >
-                        <span className="text-xl">{s.icon}</span>
+                        <Icon size={20} className={active ? "text-indigo-600" : "text-slate-500"} />
                         <span className="text-xs font-bold leading-tight" style={{ color: active ? "var(--accent)" : "var(--ink)" }}>
                           {s.label}
                         </span>
@@ -1080,7 +1108,7 @@ export function TeacherStudioView() {
                 <div className="rounded-2xl p-4 bg-indigo-50/60 border border-indigo-200/80 space-y-3">
                   <div className="flex items-center justify-between">
                     <label className="block text-xs font-bold text-indigo-950 flex items-center gap-1.5">
-                      <span>🎬</span> Vidéo du cours depuis votre PC (Recommandé)
+                      <VideoCameraIcon size={14} /> Vidéo du cours depuis votre PC (Recommandé)
                     </label>
                     <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-700 bg-white px-2 py-0.5 rounded-md border border-indigo-200">
                       MP4, WebM, MOV
@@ -1143,7 +1171,7 @@ export function TeacherStudioView() {
                 <div className="rounded-2xl p-4 bg-teal-50/60 border border-teal-200/80 space-y-3">
                   <div className="flex items-center justify-between">
                     <label className="block text-xs font-bold text-teal-950 flex items-center gap-1.5">
-                      <span>✍️</span> Document PDF d&apos;exercice (Série / Énoncé / Corrigé) *
+                      <FileTextIcon size={14} /> Document PDF d&apos;exercice (Série / Énoncé / Corrigé) *
                     </label>
                     <span className="text-[10px] font-bold uppercase tracking-wider text-teal-700 bg-white px-2 py-0.5 rounded-md border border-teal-200">
                       PDF obligatoire
@@ -1176,7 +1204,7 @@ export function TeacherStudioView() {
                 <div className="rounded-2xl p-4 bg-pink-50/60 border border-pink-200/80 space-y-3">
                   <div className="flex items-center justify-between">
                     <label className="block text-xs font-bold text-pink-950 flex items-center gap-1.5">
-                      <span>📑</span> Document Magazine PDF complet *
+                      <BookOpenIcon size={14} /> Document Magazine PDF complet *
                     </label>
                     <span className="text-[10px] font-bold uppercase tracking-wider text-pink-700 bg-white px-2 py-0.5 rounded-md border border-pink-200">
                       Magazine Flipbook
@@ -1209,7 +1237,7 @@ export function TeacherStudioView() {
                 <div className="rounded-2xl p-4 bg-amber-50/70 border border-amber-200 space-y-3">
                   <div className="flex items-center justify-between">
                     <label className="block text-xs font-bold text-amber-950 flex items-center gap-1.5">
-                      <span>🔴</span> Lien direct de la session / streaming *
+                      <RadioLiveIcon size={14} className="text-rose-500" /> Lien direct de la session / streaming *
                     </label>
                     <span className="text-[10px] font-bold uppercase tracking-wider text-amber-800 bg-white px-2 py-0.5 rounded-md border border-amber-300">
                       Direct / Live Stream
@@ -1335,7 +1363,7 @@ export function TeacherStudioView() {
                               {lesson.title}
                             </span>
                             <span className="text-[10px] font-bold uppercase rounded-md px-1.5 py-0.5 bg-slate-100 text-slate-600 font-mono">
-                              {lesson.type === LessonType.VIDEO ? "🎬 Vidéo" : lesson.type === LessonType.PDF ? "📄 PDF" : "📝 Texte"}
+                              {lesson.type === LessonType.VIDEO ? "Vidéo" : lesson.type === LessonType.PDF ? "PDF" : "Texte"}
                             </span>
                           </div>
                           {lesson.description && (
@@ -1439,9 +1467,9 @@ export function TeacherStudioView() {
                       onChange={(e) => setLessonForm({ ...lessonForm, type: e.target.value as LessonType })}
                       className="w-full rounded-xl border bg-white px-3 py-2 text-sm outline-none focus:border-indigo-500 font-semibold"
                     >
-                      <option value={LessonType.VIDEO}>🎬 Vidéo (PC ou YouTube)</option>
-                      <option value={LessonType.TEXT}>📝 Cours Texte</option>
-                      <option value={LessonType.PDF}>📄 Fichier PDF</option>
+                      <option value={LessonType.VIDEO}>Vidéo (PC ou YouTube)</option>
+                      <option value={LessonType.TEXT}>Cours Texte</option>
+                      <option value={LessonType.PDF}>Fichier PDF</option>
                     </select>
                   </div>
                 </div>
@@ -1451,7 +1479,7 @@ export function TeacherStudioView() {
                   <div className="space-y-3">
                     <div className="rounded-xl p-3 bg-indigo-50/70 border border-indigo-100 space-y-2">
                       <label className="block text-xs font-semibold text-slate-800">
-                        📹 Vidéo de la leçon depuis votre PC (Recommandé)
+                        Vidéo de la leçon depuis votre PC (Recommandé)
                       </label>
                       <input
                         type="file"

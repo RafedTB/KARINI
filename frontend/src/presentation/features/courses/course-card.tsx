@@ -8,7 +8,15 @@ import { MembershipType, UserType } from "@/domain/enums";
 import { useAuth } from "@/presentation/providers/auth-provider";
 import { coursesService } from "@/application/services/courses-service";
 import { Button } from "@/presentation/components/ui/button";
-import { formatCourseSection, courseSectionIcon } from "@/shared/labels/course-section";
+import { formatCourseSection } from "@/shared/labels/course-section";
+import {
+  GraduationCapIcon,
+  BookOpenIcon,
+  VideoCameraIcon,
+  FileTextIcon,
+  UsersIcon,
+  RadioLiveIcon,
+} from "@/presentation/components/ui/icons";
 
 type CourseCardProps = {
   course: Course;
@@ -72,15 +80,23 @@ export function CourseCard({ course, token }: CourseCardProps) {
       {/* Top row: badge + ID */}
       <div className="flex items-start justify-between gap-3 pt-1">
         <span
-          className="badge text-xs font-bold px-3 py-1 rounded-full shadow-xs"
+          className="badge text-xs font-bold px-3 py-1 rounded-full shadow-xs inline-flex items-center gap-1.5"
           style={{
             borderColor: `${sectionColor}35`,
             background: `${sectionColor}12`,
             color: sectionColor,
           }}
         >
-          {courseSectionIcon(course.section)}{" "}
-          {formatCourseSection(course.section)}
+          {course.section === "course" ? (
+            <VideoCameraIcon size={12} />
+          ) : course.section === "exercise" ? (
+            <FileTextIcon size={12} />
+          ) : course.section === "magazine" ? (
+            <BookOpenIcon size={12} />
+          ) : (
+            <RadioLiveIcon size={12} />
+          )}
+          <span>{formatCourseSection(course.section)}</span>
         </span>
         <span className="font-mono text-xs font-semibold px-2 py-0.5 rounded-md bg-slate-100 text-slate-500">
           #{String(course.id).padStart(2, "0")}
@@ -101,33 +117,39 @@ export function CourseCard({ course, token }: CourseCardProps) {
       {/* Course format highlights */}
       <div className="mt-4 flex flex-wrap items-center gap-1.5 text-[11px]">
         {course.filiere && (
-          <span className="rounded-lg px-2 py-0.5 font-bold bg-sky-50 text-sky-700 border border-sky-200/60 shadow-2xs">
-            🎓 {course.filiere}
+          <span className="inline-flex items-center gap-1 rounded-lg px-2 py-0.5 font-bold bg-sky-50 text-sky-700 border border-sky-200/60 shadow-2xs">
+            <GraduationCapIcon size={12} />
+            <span>{course.filiere}</span>
           </span>
         )}
         {course.instructor && (
-          <span className="rounded-lg px-2 py-0.5 font-medium bg-slate-100 text-slate-700 border border-slate-200 shadow-2xs">
-            👨‍🏫 {course.instructor.firstname ? `${course.instructor.firstname} ${course.instructor.lastname || ""}` : (course.instructor.username || "Enseignant")}
+          <span className="inline-flex items-center gap-1 rounded-lg px-2 py-0.5 font-medium bg-slate-100 text-slate-700 border border-slate-200 shadow-2xs">
+            <UsersIcon size={12} />
+            <span>{course.instructor.firstname ? `${course.instructor.firstname} ${course.instructor.lastname || ""}` : (course.instructor.username || "Enseignant")}</span>
           </span>
         )}
         {course.lessons && course.lessons.length > 0 && (
-          <span className="rounded-lg px-2 py-0.5 font-bold bg-indigo-50 text-indigo-700 border border-indigo-100 shadow-2xs">
-            📖 {course.lessons.length} {course.lessons.length === 1 ? "leçon" : "leçons"}
+          <span className="inline-flex items-center gap-1 rounded-lg px-2 py-0.5 font-bold bg-indigo-50 text-indigo-700 border border-indigo-100 shadow-2xs">
+            <BookOpenIcon size={12} />
+            <span>{course.lessons.length} {course.lessons.length === 1 ? "leçon" : "leçons"}</span>
           </span>
         )}
         {course.textContent && (
-          <span className="rounded-lg px-2 py-0.5 font-semibold bg-teal-50 text-teal-700 border border-teal-100 shadow-2xs">
-            📝 Cours écrit
+          <span className="inline-flex items-center gap-1 rounded-lg px-2 py-0.5 font-semibold bg-teal-50 text-teal-700 border border-teal-100 shadow-2xs">
+            <FileTextIcon size={12} />
+            <span>Cours écrit</span>
           </span>
         )}
         {(course.videoFile || course.youtubeUrl) && (
-          <span className="rounded-lg px-2 py-0.5 font-semibold bg-rose-50 text-rose-700 border border-rose-100 shadow-2xs">
-            🎬 Vidéo {isFreeStudent ? "🔒" : ""}
+          <span className="inline-flex items-center gap-1 rounded-lg px-2 py-0.5 font-semibold bg-rose-50 text-rose-700 border border-rose-100 shadow-2xs">
+            <VideoCameraIcon size={12} />
+            <span>Vidéo {isFreeStudent ? "(VIP)" : ""}</span>
           </span>
         )}
         {course.pdfFile && (
-          <span className="rounded-lg px-2 py-0.5 font-semibold bg-pink-50 text-pink-700 border border-pink-100 shadow-2xs">
-            📄 PDF {isFreeStudent ? "🔒" : ""}
+          <span className="inline-flex items-center gap-1 rounded-lg px-2 py-0.5 font-semibold bg-pink-50 text-pink-700 border border-pink-100 shadow-2xs">
+            <FileTextIcon size={12} />
+            <span>PDF {isFreeStudent ? "(VIP)" : ""}</span>
           </span>
         )}
       </div>
@@ -161,7 +183,10 @@ export function CourseCard({ course, token }: CourseCardProps) {
               title={isFreeStudent ? "Document réservé aux formules payantes (Silver, Gold, Platinum). Cliquez pour vous abonner." : "Ouvrir le polycopié PDF"}
             >
               {isFreeStudent ? (
-                <span className="text-xs">🔒</span>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                </svg>
               ) : (
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />

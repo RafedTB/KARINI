@@ -11,6 +11,7 @@ import { AppSidebar } from "@/presentation/components/layout/app-sidebar";
 import { SiteFooter } from "@/presentation/components/layout/site-footer";
 import { PageLoader } from "@/presentation/components/ui/page-loader";
 import { UserType } from "@/domain/enums";
+import { getMessagingSocket } from "@/infrastructure/socket/socket-client";
 
 export function AppShell({ children }: { children: ReactNode }) {
   const { user, token, isLoading } = useAuth();
@@ -35,10 +36,29 @@ export function AppShell({ children }: { children: ReactNode }) {
     };
 
     void loadUnreadCount();
-    const interval = window.setInterval(() => void loadUnreadCount(), 15_000);
+
+    const socket = getMessagingSocket(token);
+    if (socket) {
+      const handleLiveUpdate = () => {
+        void loadUnreadCount();
+      };
+
+      socket.on("conversationUpdated", handleLiveUpdate);
+      socket.on("unreadCountUpdated", handleLiveUpdate);
+      socket.on("messagesRead", handleLiveUpdate);
+      socket.on("newMessage", handleLiveUpdate);
+
+      return () => {
+        active = false;
+        socket.off("conversationUpdated", handleLiveUpdate);
+        socket.off("unreadCountUpdated", handleLiveUpdate);
+        socket.off("messagesRead", handleLiveUpdate);
+        socket.off("newMessage", handleLiveUpdate);
+      };
+    }
+
     return () => {
       active = false;
-      window.clearInterval(interval);
     };
   }, [isInstructor, isParent, token]);
 

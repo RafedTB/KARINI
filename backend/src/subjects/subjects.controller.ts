@@ -3,6 +3,8 @@ import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from "@nestjs/swagger"
 import { SubjectsService } from "./subjects.service.js";
 import { CreateSubjectDto } from "./dto/create-subject.dto.js";
 import { UpdateSubjectDto } from "./dto/update-subject.dto.js";
+import { CreateFiliereDto } from "./dto/create-filiere.dto.js";
+import { UpdateFiliereDto } from "./dto/update-filiere.dto.js";
 import { AuthRolesGuard } from "../users/guards/auth-roles.guard.js";
 import { Roles } from "../users/decorators/user-role.decorator.js";
 import { UserType } from "../utils/enum.js";
@@ -20,6 +22,34 @@ export class SubjectsController {
         private readonly subjectsService: SubjectsService,
         private readonly usersService: usersService,
     ) {}
+
+    @Get('filieres/detailed')
+    @Roles(UserType.SUPERADMIN, UserType.MODERATOR)
+    @ApiOperation({ summary: 'Get detailed filières list with subject and course counts' })
+    public getFilieresDetailed() {
+        return this.subjectsService.getAllFilieresDetailed();
+    }
+
+    @Post('filieres')
+    @Roles(UserType.SUPERADMIN, UserType.MODERATOR)
+    @ApiOperation({ summary: 'Add a new filière to the database (Superadmin & Moderator)' })
+    public createFiliere(@Body() dto: CreateFiliereDto) {
+        return this.subjectsService.createFiliere(dto);
+    }
+
+    @Patch('filieres/:id')
+    @Roles(UserType.SUPERADMIN, UserType.MODERATOR)
+    @ApiOperation({ summary: 'Update a filière in the database (Superadmin & Moderator)' })
+    public updateFiliere(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateFiliereDto) {
+        return this.subjectsService.updateFiliere(id, dto);
+    }
+
+    @Delete('filieres/:id')
+    @Roles(UserType.SUPERADMIN, UserType.MODERATOR)
+    @ApiOperation({ summary: 'Delete a filière from the database (Superadmin & Moderator)' })
+    public removeFiliere(@Param('id', ParseIntPipe) id: number) {
+        return this.subjectsService.removeFiliere(id);
+    }
 
     @Get()
     @Roles(UserType.SUPERADMIN, UserType.STUDENT, UserType.INSTRUCTOR, UserType.FINANCE, UserType.MODERATOR)
@@ -72,22 +102,22 @@ export class SubjectsController {
     }
 
     @Post()
-    @Roles(UserType.SUPERADMIN)
-    @ApiOperation({ summary: 'Create a new subject for a filière (Superadmin only)' })
+    @Roles(UserType.SUPERADMIN, UserType.MODERATOR)
+    @ApiOperation({ summary: 'Create a new subject for a filière (Superadmin & Moderator)' })
     public create(@Body() dto: CreateSubjectDto, @currentUser() payload: JWTPayloadType) {
         return this.subjectsService.create(dto, payload.id);
     }
 
     @Patch(':id')
-    @Roles(UserType.SUPERADMIN)
-    @ApiOperation({ summary: 'Update a subject (Superadmin only)' })
+    @Roles(UserType.SUPERADMIN, UserType.MODERATOR)
+    @ApiOperation({ summary: 'Update a subject (Superadmin & Moderator)' })
     public update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateSubjectDto) {
         return this.subjectsService.update(id, dto);
     }
 
     @Delete(':id')
-    @Roles(UserType.SUPERADMIN)
-    @ApiOperation({ summary: 'Delete a subject (Superadmin only)' })
+    @Roles(UserType.SUPERADMIN, UserType.MODERATOR)
+    @ApiOperation({ summary: 'Delete a subject (Superadmin & Moderator)' })
     public remove(@Param('id', ParseIntPipe) id: number) {
         return this.subjectsService.remove(id);
     }

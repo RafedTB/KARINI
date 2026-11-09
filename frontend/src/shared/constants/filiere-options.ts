@@ -90,16 +90,16 @@ export const FILIERE_OPTIONS = [
 ] as const;
 
 export const ICON_OPTIONS = [
-  { value: "informatique", label: "💻 Informatique / Code" },
-  { value: "math", label: "📐 Mathématiques" },
-  { value: "physique", label: "⚡ Physique - Chimie" },
-  { value: "science", label: "🧬 Sciences (SVT)" },
-  { value: "francais", label: "📖 Français" },
-  { value: "anglais", label: "🌍 Anglais" },
-  { value: "arabe", label: "📜 Arabe" },
-  { value: "philosophie", label: "💡 Philosophie" },
-  { value: "economie", label: "📈 Économie & Gestion" },
-  { value: "histoire_geo", label: "🧭 Histoire - Géo" },
+  { value: "informatique", label: "Informatique / Code" },
+  { value: "math", label: "Mathématiques" },
+  { value: "physique", label: "Physique - Chimie" },
+  { value: "science", label: "Sciences (SVT)" },
+  { value: "francais", label: "Français" },
+  { value: "anglais", label: "Anglais" },
+  { value: "arabe", label: "Arabe" },
+  { value: "philosophie", label: "Philosophie" },
+  { value: "economie", label: "Économie & Gestion" },
+  { value: "histoire_geo", label: "Histoire - Géo" },
 ] as const;
 
 export const DEFAULT_FILIERE = "2ème Informatique";

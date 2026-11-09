@@ -95,7 +95,11 @@ export class CoursesService {
                 return targetCFil.toLowerCase() === requestedFiliere.toLowerCase();
             });
         } else if (filiere && filiere !== 'all') {
-            courses = courses.filter((course) => course.filiere === filiere || course.filiere === 'all' || !course.filiere);
+            const reqFil = filiere.toLowerCase().trim();
+            courses = courses.filter((course) => {
+                if (!course.filiere || course.filiere === 'all') return true;
+                return course.filiere.toLowerCase().trim() === reqFil;
+            });
         }
 
         // Section access rule:
@@ -285,7 +289,7 @@ export class CoursesService {
     private async getAccessibleCourse(id: number, userId: number, userType?: UserType | string) {
         const course = await this.courseRepository.findOne({ where: { id } });
         if (!course) throw new NotFoundException('Course content not found');
-        if (userType === UserType.SUPERADMIN) return course;
+        if (userType === UserType.SUPERADMIN || userType === UserType.MODERATOR) return course;
         if (course.createdById !== userId) throw new ForbiddenException('You can only manage your own course content');
         return course;
     }

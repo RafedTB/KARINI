@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useAuth } from "@/presentation/providers/auth-provider";
 import { displayName } from "@/shared/utils/display-name";
 import { MembershipType, UserType } from "@/domain/enums";
+import { BookOpenIcon, CrownIcon, RulerIcon } from "@/presentation/components/ui/icons";
 
 type AppSidebarProps = {
   isOpenMobile?: boolean;
@@ -132,7 +133,7 @@ export function AppSidebar({ isOpenMobile, onCloseMobile, unreadMessageCount = 0
     ...(!isParent ? [{
       href: "/live",
       label: "Sessions Live",
-      badge: isStudent && user.membership !== MembershipType.PLATINUM ? "💎 VIP" : "LIVE",
+      badge: isStudent && user.membership !== MembershipType.PLATINUM ? "VIP" : "LIVE",
       icon: (
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <circle cx="12" cy="12" r="10" />
@@ -166,18 +167,86 @@ export function AppSidebar({ isOpenMobile, onCloseMobile, unreadMessageCount = 0
 
   const subjectQuickLinks = isStudent && isBacInfo
     ? [
-        { label: "Algorithmique Avancée", href: "/courses/algo-bac-info", icon: "💻" },
-        { label: "Bases de Données (SQL)", href: "/courses/bdd-bac-info", icon: "🗄️" },
-        { label: "Mathématiques", href: "/courses/math-bac-info", icon: "📐" },
-        { label: "Physique - Chimie", href: "/courses/physique-bac-info", icon: "⚡" },
-        { label: "Toutes les matières", href: "/courses", icon: "📚" },
+        {
+          label: "Algorithmique Avancée",
+          href: "/courses/algo-bac-info",
+          icon: (
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <polyline points="16 18 22 12 16 6" />
+              <polyline points="8 6 2 12 8 18" />
+            </svg>
+          ),
+        },
+        {
+          label: "Bases de Données (SQL)",
+          href: "/courses/bdd-bac-info",
+          icon: (
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <ellipse cx="12" cy="5" rx="9" ry="3" />
+              <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" />
+              <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
+            </svg>
+          ),
+        },
+        {
+          label: "Mathématiques",
+          href: "/courses/math-bac-info",
+          icon: <RulerIcon size={14} />,
+        },
+        {
+          label: "Physique - Chimie",
+          href: "/courses/physique-bac-info",
+          icon: (
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+            </svg>
+          ),
+        },
+        {
+          label: "Toutes les matières",
+          href: "/courses",
+          icon: <BookOpenIcon size={14} />,
+        },
       ]
     : [
-        { label: "Mathématiques", href: "/courses/math", icon: "📐" },
-        { label: "Physique - Chimie", href: "/courses/physique", icon: "⚡" },
-        { label: "Sciences (SVT)", href: "/courses/science", icon: "🧬" },
-        { label: "Informatique", href: "/courses/informatique", icon: "💻" },
-        { label: "Toutes les matières", href: "/courses", icon: "📚" },
+        {
+          label: "Mathématiques",
+          href: "/courses/math",
+          icon: <RulerIcon size={14} />,
+        },
+        {
+          label: "Physique - Chimie",
+          href: "/courses/physique",
+          icon: (
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+            </svg>
+          ),
+        },
+        {
+          label: "Sciences (SVT)",
+          href: "/courses/science",
+          icon: (
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M10 2v7.31M14 2v7.31M8.5 2h7M14 9.3a6.5 6.5 0 1 1-4 0" />
+            </svg>
+          ),
+        },
+        {
+          label: "Informatique",
+          href: "/courses/informatique",
+          icon: (
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <polyline points="16 18 22 12 16 6" />
+              <polyline points="8 6 2 12 8 18" />
+            </svg>
+          ),
+        },
+        {
+          label: "Toutes les matières",
+          href: "/courses",
+          icon: <BookOpenIcon size={14} />,
+        },
       ];
 
   const isLinkActive = (href: string, exact: boolean) => {
@@ -373,7 +442,7 @@ export function AppSidebar({ isOpenMobile, onCloseMobile, unreadMessageCount = 0
           >
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-indigo-900 flex items-center gap-1.5">
-                <span>👨‍🏫</span> Espace Enseignant
+                <BookOpenIcon size={14} /> Espace Enseignant
               </span>
               <span className="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase bg-indigo-100 text-indigo-700">
                 Studio
@@ -404,7 +473,7 @@ export function AppSidebar({ isOpenMobile, onCloseMobile, unreadMessageCount = 0
           >
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-rose-950 flex items-center gap-1.5">
-                <span>👑</span> Superadmin
+                <CrownIcon size={14} /> Superadmin
               </span>
               <span className="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase bg-rose-100 text-rose-700">
                 Actif

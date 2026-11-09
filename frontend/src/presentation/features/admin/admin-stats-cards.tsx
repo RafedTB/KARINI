@@ -2,6 +2,7 @@ import { UserType } from "@/domain/enums";
 import type { User } from "@/domain/entities/user";
 import type { Subject } from "@/domain/entities/subject";
 import { StatCard } from "@/presentation/components/ui/stat-card";
+import { UsersIcon, BookOpenIcon, ShieldCheckIcon, SchoolIcon } from "@/presentation/components/ui/icons";
 
 type AdminStatsCardsProps = {
   users: User[];
@@ -21,7 +22,7 @@ export function AdminStatsCards({ users, subjects, filieres }: AdminStatsCardsPr
       <StatCard
         label="Utilisateurs Totaux"
         value={users.length}
-        icon="👥"
+        icon={<UsersIcon size={16} />}
         iconBg="rgba(99,102,241,0.1)"
         iconColor="#4f46e5"
         footer={
@@ -42,7 +43,7 @@ export function AdminStatsCards({ users, subjects, filieres }: AdminStatsCardsPr
       <StatCard
         label="Matières Actives"
         value={subjects.length}
-        icon="📚"
+        icon={<BookOpenIcon size={16} />}
         iconBg="rgba(168,85,247,0.1)"
         iconColor="#9333ea"
         valueColor="#9333ea"
@@ -56,7 +57,7 @@ export function AdminStatsCards({ users, subjects, filieres }: AdminStatsCardsPr
       <StatCard
         label="Modérateurs & Parents"
         value={(rolesCount[UserType.MODERATOR] || 0) + (rolesCount[UserType.PARENT] || 0)}
-        icon="🛡️"
+        icon={<ShieldCheckIcon size={16} />}
         iconBg="rgba(245,158,11,0.1)"
         iconColor="#d97706"
         valueColor="#d97706"
@@ -70,7 +71,7 @@ export function AdminStatsCards({ users, subjects, filieres }: AdminStatsCardsPr
       <StatCard
         label="Filières Disponibles"
         value={filieres.length}
-        icon="🎓"
+        icon={<SchoolIcon size={16} />}
         iconBg="rgba(6,182,212,0.1)"
         iconColor="#0891b2"
         valueColor="#0891b2"

@@ -1,6 +1,7 @@
 import {
   subjectsRepository,
   type CreateSubjectData,
+  type CreateFiliereData,
 } from "@/infrastructure/repositories/subjects-repository";
 
 export const subjectsService = {
@@ -10,6 +11,22 @@ export const subjectsService = {
 
   getFilieres(token: string) {
     return subjectsRepository.getFilieres(token);
+  },
+
+  getFilieresDetailed(token: string) {
+    return subjectsRepository.getFilieresDetailed(token);
+  },
+
+  createFiliere(token: string, data: CreateFiliereData) {
+    return subjectsRepository.createFiliere(token, data);
+  },
+
+  updateFiliere(token: string, id: number, data: Partial<CreateFiliereData>) {
+    return subjectsRepository.updateFiliere(token, id, data);
+  },
+
+  deleteFiliere(token: string, id: number) {
+    return subjectsRepository.deleteFiliere(token, id);
   },
 
   getById(token: string, id: number) {

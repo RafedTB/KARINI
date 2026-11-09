@@ -19,7 +19,7 @@ export class MessagingService {
         private readonly userRepository: Repository<User>,
     ) {}
 
-    private async getConversationForParent(parentId: number, conversationId: number) {
+    public async getConversationForParent(parentId: number, conversationId: number) {
         const conversation = await this.conversationRepository.findOne({
             where: { id: conversationId, parentId },
         });
@@ -28,9 +28,23 @@ export class MessagingService {
         return conversation;
     }
 
-    private async getConversationForTeacher(teacherId: number, conversationId: number) {
+    public async getConversationForTeacher(teacherId: number, conversationId: number) {
         const conversation = await this.conversationRepository.findOne({
             where: { id: conversationId, teacherId },
+        });
+        if (!conversation) throw new NotFoundException('Conversation introuvable');
+        return conversation;
+    }
+
+    public async getConversationForUser(userId: number, userType: string, conversationId: number) {
+        if (userType === UserType.PARENT) {
+            return this.getConversationForParent(userId, conversationId);
+        }
+        if (userType === UserType.INSTRUCTOR) {
+            return this.getConversationForTeacher(userId, conversationId);
+        }
+        const conversation = await this.conversationRepository.findOne({
+            where: { id: conversationId },
         });
         if (!conversation) throw new NotFoundException('Conversation introuvable');
         return conversation;

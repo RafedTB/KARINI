@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import type { User } from "@/domain/entities/user";
 import { UserType } from "@/domain/enums";
 import { SearchInput } from "@/presentation/components/ui/search-input";
+import { GraduationCapIcon, AlertCircleIcon } from "@/presentation/components/ui/icons";
 
 type AdminUsersTabProps = {
   users: User[];
@@ -149,8 +150,9 @@ export function AdminUsersTab({
                   </td>
                   <td className="px-5 py-3.5 max-w-xs">
                     {u.userType === UserType.STUDENT && (
-                      <span className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-semibold bg-sky-50 text-sky-700 border border-sky-200">
-                        🎓 {u.studentClass || "Non assignée"}
+                      <span className="inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-xs font-semibold bg-sky-50 text-sky-700 border border-sky-200">
+                        <GraduationCapIcon size={12} />
+                        <span>{u.studentClass || "Non assignée"}</span>
                       </span>
                     )}
                     {u.userType === UserType.INSTRUCTOR && (
@@ -168,8 +170,9 @@ export function AdminUsersTab({
                             ))}
                           </div>
                         ) : (
-                          <span className="block text-[11px] text-amber-600 font-medium">
-                            ⚠️ Aucune matière assignée
+                          <span className="inline-flex items-center gap-1 text-[11px] text-amber-600 font-medium">
+                            <AlertCircleIcon size={12} />
+                            <span>Aucune matière assignée</span>
                           </span>
                         )}
                         {u.teachingClasses && u.teachingClasses.length > 0 && (
