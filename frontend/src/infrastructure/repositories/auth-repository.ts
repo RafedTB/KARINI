@@ -10,6 +10,11 @@ type RegisterResponse = {
   message: string;
 };
 
+type MessageResponse = {
+  message: string;
+  emailSent?: boolean;
+};
+
 export type RegisterPayload = {
   email: string;
   password: string;
@@ -37,6 +42,20 @@ export const authRepository = {
     return apiClient<RegisterResponse>("/api/users/auth/register", {
       method: "POST",
       json: payload,
+    });
+  },
+
+  forgotPassword(email: string) {
+    return apiClient<MessageResponse>("/api/users/forgot-password", {
+      method: "POST",
+      json: { email },
+    });
+  },
+
+  resetPassword(userId: number, resetPasswordToken: string, newPassword: string) {
+    return apiClient<MessageResponse>("/api/users/reset-password", {
+      method: "POST",
+      json: { userId, resetPasswordToken, newPassword },
     });
   },
 

@@ -11,6 +11,7 @@ import { LiveSessionsModule } from './live-sessions/live-sessions.module.js';
 import { ParentModule } from './parent/parent.module.js';
 import { ProgressModule } from './progress/progress.module.js';
 import { QuizzesModule } from './quizzes/quizzes.module.js';
+import { AssignmentsModule } from './assignments/assignments.module.js';
 
 @Module({
   imports: [
@@ -36,6 +37,7 @@ import { QuizzesModule } from './quizzes/quizzes.module.js';
     ParentModule,
     ProgressModule,
     QuizzesModule,
+    AssignmentsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

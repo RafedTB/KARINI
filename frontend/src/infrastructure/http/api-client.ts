@@ -13,7 +13,9 @@ export async function apiClient<T>(path: string, options: RequestOptions = {}): 
   const resolvedBody = json !== undefined ? JSON.stringify(json) : init.body;
   const isStringBody = typeof resolvedBody === "string";
 
-  const response = await fetch(`${env.apiUrl}${path}`, {
+  let response: Response;
+  try {
+    response = await fetch(`${env.apiUrl}${path}`, {
     ...init,
     headers: {
       ...(json !== undefined || isStringBody ? { "Content-Type": "application/json" } : {}),
@@ -21,7 +23,13 @@ export async function apiClient<T>(path: string, options: RequestOptions = {}): 
       ...headers,
     },
     body: resolvedBody,
-  });
+    });
+  } catch {
+    throw new ApiError(
+      `Unable to reach the Karini API at ${env.apiUrl}. Start the backend on port 3000 and try again.`,
+      0,
+    );
+  }
 
   const contentType = response.headers.get("content-type") ?? "";
   const isJson = contentType.includes("application/json");

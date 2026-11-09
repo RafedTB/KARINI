@@ -10,6 +10,7 @@ import { MulterModule } from "@nestjs/platform-express";
 import { diskStorage } from "multer";
 import { AuthGuard } from "./guards/auth.guard.js";
 import { AuthRolesGuard } from "./guards/auth-roles.guard.js";
+import { MailService } from "./mail.service.js";
 
 @Module({
     imports: [
@@ -49,7 +50,7 @@ import { AuthRolesGuard } from "./guards/auth-roles.guard.js";
         })
     ],
     controllers: [UsersController],
-    providers: [usersService, AuthProvider, AuthGuard, AuthRolesGuard],
+    providers: [usersService, AuthProvider, AuthGuard, AuthRolesGuard, MailService],
     exports: [usersService, AuthGuard, AuthRolesGuard, JwtModule]
 })
 export class UsersModule {}

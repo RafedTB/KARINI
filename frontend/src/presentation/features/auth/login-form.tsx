@@ -84,6 +84,12 @@ export function LoginForm() {
           </Button>
         </form>
 
+        <p className="mt-4 text-center text-sm">
+          <Link href="/forgot-password" className="gradient-text font-medium">
+            Forgot your password?
+          </Link>
+        </p>
+
         <div className="section-divider my-6" />
 
         <p className="text-center text-sm" style={{ color: "var(--muted)" }}>

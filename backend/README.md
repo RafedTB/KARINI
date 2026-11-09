@@ -33,6 +33,8 @@ $ npm install
 
 Create a PostgreSQL database named `karini`, then update the local `.env` file with your PostgreSQL username and password. The application reads its database settings from `DB_HOST`, `DB_PORT`, `DB_USERNAME`, `DB_PASSWORD`, and `DB_NAME`. `DB_SYNCHRONIZE=true` is intended for local development only.
 
+Copy `.env.example` to `.env` and set `SMTP_PASS` to your Mailtrap API token. Mailtrap uses `live.smtp.mailtrap.io` on port `587`, with username `api` and STARTTLS. Never commit the token.
+
 ## Compile and run the project
 
 ```bash
@@ -58,6 +60,13 @@ $ npm run test:e2e
 # test coverage
 $ npm run test:cov
 ```
+
+## Assignments
+
+Teachers manage assignments from `/assignments`: they can create coursework linked to
+their courses and grade student submissions. Students can open the same page to see
+deadlines and submit either written answers or files. Assignment tables are created
+automatically when `DB_SYNCHRONIZE=true` is enabled for local development.
 
 ## Deployment
 

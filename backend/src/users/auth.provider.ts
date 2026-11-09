@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from "@nestjs/common";
+import { BadRequestException, Injectable, Logger } from "@nestjs/common";
 import { RegisterDto } from "./dto/register.dto.js";
 import { Repository } from "typeorm";
 import { User } from "./user.entity.js";
@@ -11,13 +11,17 @@ import { randomBytes } from 'node:crypto';
 import { ConfigService } from "@nestjs/config";
 import { ResetPasswordDto } from "./dto/reset-password.dto.js";
 import { UserType } from "../utils/enum.js";
+import { MailService } from "./mail.service.js";
 
 @Injectable()
 export class AuthProvider {
+    private readonly logger = new Logger(AuthProvider.name);
+
     constructor(
         @InjectRepository(User) private readonly userRepository: Repository<User>,
         private readonly jwtService: JwtService,
-        private readonly config: ConfigService
+        private readonly config: ConfigService,
+        private readonly mailService: MailService
     ) {}
 
     /**
@@ -78,9 +82,15 @@ export class AuthProvider {
                 parentUser = await this.userRepository.save(parentUser);
                 parentAccountCreated = true;
 
-                // TODO: integrate mail service when MailModule is available
-                // Send temporary credentials to parent email:
-                // await this.mailService.sendParentAccountCreated(cleanParentEmail, { tempPassword, studentEmail: cleanEmail });
+                await this.trySendEmail(
+                    () => this.mailService.sendParentAccountEmail(
+                        cleanParentEmail,
+                        cleanEmail,
+                        tempPassword,
+                        `${this.config.get<string>("FRONTEND_URL", "http://localhost:5000")}/login`,
+                    ),
+                    "parent account credentials",
+                );
             }
             parentId = parentUser.id;
         }
@@ -117,17 +127,29 @@ export class AuthProvider {
         });
         newUser = await this.userRepository.save(newUser);
 
-        // TODO: integrate mail service when MailModule is available
-        // const link = this.generateLink(newUser.id, newUser.verificationToken!);
-        // await this.mailService.sendVerificationMail(cleanEmail, link);
+        const verificationEmailSent = await this.trySendEmail(
+            () => this.mailService.sendVerificationEmail(
+                cleanEmail,
+                this.generateLink(newUser.id, newUser.verificationToken!),
+            ),
+            "verification",
+        );
 
         if (parentAccountCreated) {
             return {
-                message: `Registration successful! Your student account has been created. A parent account has also been generated for ${parentEmail} (credentials will be sent by email). Please check your email to verify your account.`,
+                message: verificationEmailSent
+                    ? `Registration successful! Your student account has been created. A parent account has also been generated for ${parentEmail}. Please check your email to verify your account.`
+                    : `Registration successful, but the verification email could not be sent. Please configure SMTP or contact support to resend it.`,
+                emailSent: verificationEmailSent,
             };
         }
 
-        return { message: "Registration successful. Please verify your email address." };
+        return {
+            message: verificationEmailSent
+                ? "Registration successful. Please verify your email address."
+                : "Registration successful, but the verification email could not be sent. Please configure SMTP or request a new verification email.",
+            emailSent: verificationEmailSent,
+        };
     }
 
     /**
@@ -148,10 +170,19 @@ export class AuthProvider {
                 await this.userRepository.save(user);
                 verificationToken = user.verificationToken;
             }
-            // TODO: integrate mail service when MailModule is available
-            // const link = this.generateLink(user.id, verificationToken);
-            // await this.mailService.sendVerificationMail(email, link);
-            return { message: "Account not verified. Please check your email for a verification link." };
+            const emailSent = await this.trySendEmail(
+                () => this.mailService.sendVerificationEmail(
+                    email,
+                    this.generateLink(user.id, verificationToken),
+                ),
+                "verification",
+            );
+            return {
+                message: emailSent
+                    ? "Account not verified. Please check your email for a verification link."
+                    : "Account not verified, and the verification email could not be sent. Please configure SMTP or contact support.",
+                emailSent,
+            };
         }
         const accessToken = await this.GenerateJWT({ id: user.id, userType: user.userType });
         return { accessToken };
@@ -165,9 +196,30 @@ export class AuthProvider {
         if (!user) throw new BadRequestException('User with this email does not exist');
         user.resetPasswordToken = randomBytes(32).toString('hex');
         await this.userRepository.save(user);
-        // TODO: integrate mail service when MailModule is available
-        // await this.mailService.sendResetPassword(user.email, resetPasswordLink);
-        return { message: "Reset password email sent to your email address." };
+        const resetLink = `${this.config.get<string>("FRONTEND_URL", "http://localhost:5000")}/reset-password?userId=${user.id}&token=${user.resetPasswordToken}`;
+        const emailSent = await this.trySendEmail(
+            () => this.mailService.sendPasswordResetEmail(user.email, resetLink),
+            "password reset",
+        );
+        return {
+            message: emailSent
+                ? "Reset password email sent to your email address."
+                : "The reset link was created, but the email could not be sent. Please configure SMTP or contact support.",
+            emailSent,
+        };
+    }
+
+    private async trySendEmail(send: () => Promise<unknown>, emailType: string): Promise<boolean> {
+        try {
+            await send();
+            return true;
+        } catch (error) {
+            this.logger.error(
+                `Unable to send ${emailType} email. The account operation will still complete.`,
+                error instanceof Error ? error.stack : String(error),
+            );
+            return false;
+        }
     }
 
     /**
