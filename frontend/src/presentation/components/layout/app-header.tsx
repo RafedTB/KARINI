@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useAuth } from "@/presentation/providers/auth-provider";
 import { displayName } from "@/shared/utils/display-name";
 import { UserType } from "@/domain/enums";
+import { ProfileAvatar } from "@/presentation/components/ui/profile-avatar";
 import {
   BookOpenIcon,
   MessageSquareIcon,
@@ -19,9 +20,9 @@ type AppHeaderProps = {
 
 export function AppHeader({ onToggleMobileNav, unreadMessageCount = 0 }: AppHeaderProps) {
   const pathname = usePathname();
-  const { user, signOut } = useAuth();
+  const { user, token, signOut } = useAuth();
 
-  if (!user) return null;
+  if (!user || !token) return null;
 
   const isStudent = user.userType === UserType.STUDENT;
   const isInstructor = user.userType === UserType.INSTRUCTOR;
@@ -173,18 +174,7 @@ export function AppHeader({ onToggleMobileNav, unreadMessageCount = 0 }: AppHead
           className="hidden items-center gap-2 rounded-xl px-2 py-1 transition-colors hover:bg-black/5 md:flex"
           title="Ouvrir mon profil"
         >
-          <div
-            className="flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold text-white shadow-xs"
-            style={{
-              background: isSuperadmin
-                ? "linear-gradient(135deg, #e11d48, #4f46e5)"
-                : isInstructor
-                ? "linear-gradient(135deg, #4f46e5, #06b6d4)"
-                : "linear-gradient(135deg, var(--gradient-start), var(--gradient-end))",
-            }}
-          >
-            {displayName(user).charAt(0).toUpperCase()}
-          </div>
+          <ProfileAvatar user={user} token={token} className="h-8 w-8 rounded-full text-xs shadow-xs" initials={displayName(user).charAt(0).toUpperCase()} gradient={isSuperadmin ? "linear-gradient(135deg, #e11d48, #4f46e5)" : isInstructor ? "linear-gradient(135deg, #4f46e5, #06b6d4)" : undefined} />
           <span className="text-sm font-medium" style={{ color: "var(--ink-soft)" }}>
             {displayName(user)}
           </span>

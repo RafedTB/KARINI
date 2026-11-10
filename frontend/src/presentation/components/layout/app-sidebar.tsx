@@ -6,6 +6,7 @@ import { useAuth } from "@/presentation/providers/auth-provider";
 import { displayName } from "@/shared/utils/display-name";
 import { MembershipType, UserType } from "@/domain/enums";
 import { BookOpenIcon, CrownIcon } from "@/presentation/components/ui/icons";
+import { ProfileAvatar } from "@/presentation/components/ui/profile-avatar";
 
 type AppSidebarProps = {
   isOpenMobile?: boolean;
@@ -15,9 +16,9 @@ type AppSidebarProps = {
 
 export function AppSidebar({ isOpenMobile, onCloseMobile, unreadMessageCount = 0 }: AppSidebarProps) {
   const pathname = usePathname();
-  const { user, signOut } = useAuth();
+  const { user, token, signOut } = useAuth();
 
-  if (!user) return null;
+  if (!user || !token) return null;
 
   const isSuperadmin = user.userType === UserType.SUPERADMIN;
   const isInstructor = user.userType === UserType.INSTRUCTOR;
@@ -397,14 +398,7 @@ export function AppSidebar({ isOpenMobile, onCloseMobile, unreadMessageCount = 0
             className="flex min-w-0 flex-1 items-center gap-3 overflow-hidden rounded-xl p-1 transition-colors hover:bg-black/5"
             title="Ouvrir mon profil"
           >
-            <div
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white shadow-xs"
-              style={{
-                background: "linear-gradient(135deg, var(--gradient-start), var(--gradient-end))",
-              }}
-            >
-              {displayName(user).charAt(0).toUpperCase()}
-            </div>
+            <ProfileAvatar user={user} token={token} className="h-9 w-9 shrink-0 rounded-full text-xs shadow-xs" initials={displayName(user).charAt(0).toUpperCase()} />
             <div className="min-w-0 flex-1">
               <p className="truncate text-xs font-semibold" style={{ color: "var(--ink)" }}>
                 {displayName(user)}
