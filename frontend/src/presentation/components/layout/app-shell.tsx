@@ -16,6 +16,7 @@ import { getMessagingSocket } from "@/infrastructure/socket/socket-client";
 export function AppShell({ children }: { children: ReactNode }) {
   const { user, token, isLoading } = useAuth();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [unreadMessageCount, setUnreadMessageCount] = useState(0);
   const isParent = user?.userType === UserType.PARENT;
   const isInstructor = user?.userType === UserType.INSTRUCTOR;
@@ -102,11 +103,13 @@ export function AppShell({ children }: { children: ReactNode }) {
       <AppSidebar
         isOpenMobile={mobileNavOpen}
         onCloseMobile={() => setMobileNavOpen(false)}
+        collapsed={sidebarCollapsed}
+        onToggleCollapsed={() => setSidebarCollapsed((collapsed) => !collapsed)}
         unreadMessageCount={unreadMessageCount}
       />
 
       {/* Main content wrapper (offset by sidebar on desktop) */}
-      <div className="flex min-h-screen flex-col md:pl-64 lg:pl-72">
+      <div className={`flex min-h-screen flex-col transition-[padding] duration-300 ${sidebarCollapsed ? "" : "md:pl-64 lg:pl-72"}`}>
         {/* Header on the top */}
         <AppHeader
           onToggleMobileNav={() => setMobileNavOpen(true)}
@@ -114,7 +117,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         />
 
         {/* Dashboard / Learning Content */}
-        <main className="relative flex-1 px-4 py-8 sm:px-6 md:px-10 max-w-7xl w-full">
+        <main className={`relative flex-1 w-full px-4 py-8 sm:px-6 md:px-10 ${sidebarCollapsed ? "max-w-none" : "max-w-7xl"}`}>
           {children}
         </main>
 

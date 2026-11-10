@@ -11,10 +11,12 @@ import { ProfileAvatar } from "@/presentation/components/ui/profile-avatar";
 type AppSidebarProps = {
   isOpenMobile?: boolean;
   onCloseMobile?: () => void;
+  collapsed?: boolean;
+  onToggleCollapsed?: () => void;
   unreadMessageCount?: number;
 };
 
-export function AppSidebar({ isOpenMobile, onCloseMobile, unreadMessageCount = 0 }: AppSidebarProps) {
+export function AppSidebar({ isOpenMobile, onCloseMobile, collapsed = false, onToggleCollapsed, unreadMessageCount = 0 }: AppSidebarProps) {
   const pathname = usePathname();
   const { user, token, signOut } = useAuth();
 
@@ -216,6 +218,21 @@ export function AppSidebar({ isOpenMobile, onCloseMobile, unreadMessageCount = 0
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M18 6L6 18M6 6l12 12" />
+              </svg>
+            </button>
+          )}
+          {onToggleCollapsed && (
+            <button
+              type="button"
+              onClick={onToggleCollapsed}
+              className="hidden h-8 w-8 items-center justify-center rounded-lg hover:bg-black/5 md:flex"
+              aria-label="Masquer la barre latérale"
+              title="Masquer la barre latérale"
+              style={{ color: "var(--muted)" }}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M15 6l-6 6 6 6" />
+                <path d="M19 6l-6 6 6 6" />
               </svg>
             </button>
           )}
@@ -431,7 +448,7 @@ export function AppSidebar({ isOpenMobile, onCloseMobile, unreadMessageCount = 0
     <>
       {/* Desktop Sidebar (Left side) */}
       <aside
-        className="hidden md:flex md:w-64 lg:w-72 md:flex-col md:fixed md:inset-y-0 md:left-0 z-40 border-r"
+        className={`hidden md:flex md:w-64 lg:w-72 md:flex-col md:fixed md:inset-y-0 md:left-0 z-40 border-r transition-transform duration-300 ease-in-out ${collapsed ? "-translate-x-full" : "translate-x-0"}`}
         style={{
           background: "var(--glass-strong)",
           backdropFilter: "blur(20px) saturate(1.4)",
@@ -441,6 +458,19 @@ export function AppSidebar({ isOpenMobile, onCloseMobile, unreadMessageCount = 0
       >
         {sidebarContent}
       </aside>
+      {collapsed && (
+        <button
+          type="button"
+          onClick={onToggleCollapsed}
+          className="fixed left-0 top-1/2 z-40 hidden h-12 w-7 -translate-y-1/2 items-center justify-center rounded-r-xl border border-l-0 bg-white/90 text-slate-500 shadow-sm backdrop-blur transition-all hover:w-9 hover:bg-indigo-50 hover:text-indigo-600 md:flex"
+          aria-label="Afficher la barre latérale"
+          title="Afficher la barre latérale"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <path strokeLinecap="round" strokeLinejoin="round" d="m9 6 6 6-6 6" />
+          </svg>
+        </button>
+      )}
 
       {/* Mobile Drawer Backdrop */}
       {isOpenMobile && (
