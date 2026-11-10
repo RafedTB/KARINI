@@ -5,10 +5,17 @@ export type Assignment = {
   dueDate: string;
   maxScore: number;
   subject?: string | null;
+  targetClass: string;
   instructionsFileName?: string | null;
   instructionsOriginalFileName?: string | null;
   courseId: number;
   course?: { id: number; title: string };
+  teacher?: {
+    id: number;
+    username?: string | null;
+    firstname?: string | null;
+    lastname?: string | null;
+  } | null;
   createdById?: number;
   createdAt: string;
   updatedAt?: string;

@@ -1,5 +1,5 @@
 import type { User } from "@/domain/entities/user";
-import { apiClient } from "@/infrastructure/http/api-client";
+import { apiClient, apiClientBlob } from "@/infrastructure/http/api-client";
 
 type LoginResponse = {
   accessToken?: string;
@@ -67,5 +67,31 @@ export const authRepository = {
 
   getCurrentUser(token: string) {
     return apiClient<User>("/api/users/current-user", { token });
+  },
+
+  updateCurrentUser(token: string, data: Record<string, unknown>) {
+    return apiClient<User>("/api/users", { token, method: "PUT", json: data });
+  },
+
+  changePassword(token: string, currentPassword: string, password: string) {
+    return apiClient<User>("/api/users", {
+      token,
+      method: "PUT",
+      json: { currentPassword, password },
+    });
+  },
+
+  uploadProfileImage(token: string, file: File) {
+    const formData = new FormData();
+    formData.append("user-image", file);
+    return apiClient<User>("/api/users/upload-profile-image", {
+      token,
+      method: "POST",
+      body: formData,
+    });
+  },
+
+  getProfileImage(token: string, filename: string) {
+    return apiClientBlob(`/api/users/images/${encodeURIComponent(filename)}`, token);
   },
 };

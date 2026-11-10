@@ -1,13 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
+import Link from "next/link";
 import { useAuth } from "@/presentation/providers/auth-provider";
 import { RequireRole } from "@/presentation/components/auth/require-role";
 import { Button } from "@/presentation/components/ui/button";
 import { PageLoader } from "@/presentation/components/ui/page-loader";
 import { UserType } from "@/domain/enums";
 import type { Assignment, AssignmentSubmission } from "@/domain/entities/assignment";
-import type { Course } from "@/domain/entities/course";
 import { assignmentsRepository } from "@/infrastructure/repositories/assignments-repository";
 import { coursesRepository } from "@/infrastructure/repositories/courses-repository";
 import { EyeIcon, FileTextIcon, PaperclipIcon } from "@/presentation/components/ui/icons";
@@ -25,12 +25,72 @@ function studentName(student?: AssignmentSubmission["student"]) {
   return [student?.firstname, student?.lastname].filter(Boolean).join(" ") || student?.username || "Élève";
 }
 
+function teacherName(teacher?: Assignment["teacher"]) {
+  return [teacher?.firstname, teacher?.lastname].filter(Boolean).join(" ") || teacher?.username || "Enseignant";
+}
+
 export function AssignmentsView() {
   const { token, user } = useAuth();
   const isTeacher = user?.userType === UserType.INSTRUCTOR || user?.userType === UserType.SUPERADMIN;
 
   if (!user || !token) return <PageLoader label="Chargement des devoirs…" />;
-  if (isTeacher) return <TeacherAssignments token={token} />;
+  if (isTeacher) return <TeacherAssignments token={token} teacherClasses={user.teachingClasses ?? []} />;
+  if (String(user.membership).toLowerCase() !== "platinum") {
+    return (
+      <div className="animate-fade-in-up mx-auto max-w-4xl py-8">
+        <div
+          className="glass-card-strong relative overflow-hidden rounded-3xl p-8 text-center sm:p-12"
+          style={{
+            background: "linear-gradient(135deg, rgba(37, 99, 235, 0.08), rgba(99, 102, 241, 0.12), rgba(217, 119, 6, 0.05))",
+            border: "1.5px solid rgba(37, 99, 235, 0.3)",
+            boxShadow: "0 20px 40px -15px rgba(37, 99, 235, 0.25)",
+          }}
+        >
+          <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-3xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-4xl text-white shadow-lg shadow-blue-500/30">
+            💎
+          </div>
+          <div className="mt-6 inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-100/80 px-4 py-1.5 text-xs font-bold uppercase tracking-widest text-blue-700">
+            ★ Fonctionnalité VIP Karini
+          </div>
+          <h1 className="mt-4 font-serif text-3xl font-bold text-slate-900 sm:text-4xl md:text-5xl">
+            Devoirs &amp; travaux <br />
+            <span className="gradient-text">Réservés aux Membres Platinum</span>
+          </h1>
+          <p className="mx-auto mt-4 max-w-2xl text-sm leading-relaxed text-slate-600 sm:text-base">
+            Recevez les devoirs de votre classe, envoyez vos travaux et obtenez les retours de vos enseignants.
+            Cette fonctionnalité est une exclusivité de la formule <strong>Platinum</strong>.
+          </p>
+          <div className="mt-6 inline-flex items-center gap-3 rounded-2xl border border-slate-200 bg-white/80 px-5 py-2.5 text-xs shadow-xs">
+            <span className="text-slate-500">Votre formule actuelle :</span>
+            <span className="font-bold uppercase tracking-wide text-slate-800">{user.membership || "Standard"}</span>
+            <span className="text-slate-400">•</span>
+            <span className="font-semibold text-indigo-600">{user.credits} crédits disponibles</span>
+          </div>
+          <div className="mt-10 grid gap-4 text-left sm:grid-cols-3">
+            {[
+              ["📚", "Devoirs de votre classe", "Ne voyez que les travaux déposés pour votre classe."],
+              ["📤", "Rendu en ligne", "Envoyez votre réponse et votre PDF directement."],
+              ["💬", "Retour personnalisé", "Consultez vos notes et les commentaires du professeur."],
+            ].map(([icon, title, description]) => (
+              <div key={title} className="rounded-2xl border border-slate-200/70 bg-white/70 p-4 shadow-xs">
+                <span className="text-2xl">{icon}</span>
+                <h3 className="mt-2 text-sm font-bold text-slate-800">{title}</h3>
+                <p className="mt-1 text-xs text-slate-500">{description}</p>
+              </div>
+            ))}
+          </div>
+          <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
+            <Link href="/membership" className="btn-primary w-full rounded-2xl px-8 py-3.5 text-sm font-bold shadow-lg shadow-indigo-500/25 transition-transform hover:scale-105 sm:w-auto">
+              Passer à la formule Platinum 💎
+            </Link>
+            <Link href="/courses" className="btn-secondary w-full rounded-2xl px-6 py-3.5 text-sm font-semibold sm:w-auto">
+              Retourner aux cours
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
   return (
     <RequireRole role={UserType.STUDENT}>
       <StudentAssignments token={token} />
@@ -64,11 +124,12 @@ function AssignmentHeader({ teacher }: { teacher: boolean }) {
   );
 }
 
-function TeacherAssignments({ token }: { token: string }) {
+function TeacherAssignments({ token, teacherClasses }: { token: string; teacherClasses: string[] }) {
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [subjects, setSubjects] = useState<string[]>([]);
   const [submissions, setSubmissions] = useState<Record<number, AssignmentSubmission[]>>({});
-  const [form, setForm] = useState({ title: "", description: "", dueDate: "", maxScore: "20", subject: "" });
+  const [form, setForm] = useState({ title: "", description: "", dueDate: "", maxScore: "20", subject: "", targetClass: "" });
+  const [classes, setClasses] = useState<string[]>([]);
   const [instructionsFile, setInstructionsFile] = useState<File>();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -83,6 +144,13 @@ function TeacherAssignments({ token }: { token: string }) {
     setSubjects(Array.from(new Set(nextCourses
       .map((course) => course.subject)
       .filter((subject): subject is string => Boolean(subject)))).sort());
+    setClasses(Array.from(new Set([
+      ...teacherClasses,
+      ...nextCourses
+        .map((course) => course.filiere?.trim())
+        .filter((studentClass): studentClass is string => Boolean(studentClass))
+        .filter((studentClass) => studentClass.toLowerCase() !== "all"),
+    ])).sort());
   };
 
   useEffect(() => {
@@ -99,8 +167,9 @@ function TeacherAssignments({ token }: { token: string }) {
         dueDate: new Date(form.dueDate).toISOString(),
         maxScore: Number(form.maxScore),
         subject: form.subject,
+        targetClass: form.targetClass,
       }, instructionsFile);
-      setForm({ title: "", description: "", dueDate: "", maxScore: "20", subject: "" });
+      setForm({ title: "", description: "", dueDate: "", maxScore: "20", subject: "", targetClass: "" });
       setInstructionsFile(undefined);
       await load();
     } catch (err) {
@@ -134,6 +203,10 @@ function TeacherAssignments({ token }: { token: string }) {
           <select required value={form.subject} onChange={(e) => setForm({ ...form, subject: e.target.value })} className="input-field">
             <option value="">Choisir une matière</option>
             {subjects.map((subject) => <option key={subject} value={subject}>{formatSubject(subject)}</option>)}
+          </select>
+          <select required value={form.targetClass} onChange={(e) => setForm({ ...form, targetClass: e.target.value })} className="input-field">
+            <option value="">Choisir une classe</option>
+            {classes.map((studentClass) => <option key={studentClass} value={studentClass}>{studentClass}</option>)}
           </select>
           <textarea placeholder="Consignes (facultatif)" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="input-field min-h-24 md:col-span-2" />
           <label className="text-sm" style={{ color: "var(--muted)" }}>Date limite<input required type="datetime-local" value={form.dueDate} onChange={(e) => setForm({ ...form, dueDate: e.target.value })} className="input-field mt-1 w-full" /></label>
@@ -202,6 +275,8 @@ function StudentAssignments({ token }: { token: string }) {
   const [file, setFile] = useState<File>();
   const [error, setError] = useState("");
   const [sending, setSending] = useState(false);
+  const [subjectFilter, setSubjectFilter] = useState("all");
+  const [teacherFilter, setTeacherFilter] = useState("all");
 
   useEffect(() => {
     Promise.all([assignmentsRepository.list(token), assignmentsRepository.listMySubmissions(token)])
@@ -210,6 +285,23 @@ function StudentAssignments({ token }: { token: string }) {
   }, [token]);
 
   const submissionsByAssignment = useMemo(() => new Map(submissions.map((submission) => [submission.assignmentId, submission])), [submissions]);
+  const subjects = useMemo(() => Array.from(new Set(
+    assignments
+      .map((assignment) => assignment.subject)
+      .filter((subject): subject is string => Boolean(subject)),
+  )).sort(), [assignments]);
+  const teachers = useMemo(() => {
+    const values = assignments.map((assignment) => ({
+      id: assignment.teacher?.id,
+      name: teacherName(assignment.teacher),
+    }));
+    return Array.from(new Map(values.filter((teacher) => teacher.id).map((teacher) => [teacher.id, teacher])).values())
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [assignments]);
+  const filteredAssignments = useMemo(() => assignments.filter((assignment) => (
+    (subjectFilter === "all" || assignment.subject === subjectFilter)
+    && (teacherFilter === "all" || String(assignment.teacher?.id) === teacherFilter)
+  )), [assignments, subjectFilter, teacherFilter]);
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     if (!selected) return;
@@ -228,7 +320,17 @@ function StudentAssignments({ token }: { token: string }) {
     <AssignmentHeader teacher={false} />
     {error && <p className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</p>}
     <section className="space-y-4">
-      {assignments.length === 0 ? <EmptyState text="Aucun devoir disponible." /> : assignments.map((assignment) => {
+      {assignments.length > 0 && <div className="grid gap-3 rounded-2xl border p-4 sm:grid-cols-2" style={{ background: "var(--paper-card)", borderColor: "var(--line)" }}>
+        <select value={subjectFilter} onChange={(event) => setSubjectFilter(event.target.value)} className="input-field">
+          <option value="all">Toutes les matières</option>
+          {subjects.map((subject) => <option key={subject} value={subject}>{formatSubject(subject)}</option>)}
+        </select>
+        <select value={teacherFilter} onChange={(event) => setTeacherFilter(event.target.value)} className="input-field">
+          <option value="all">Tous les enseignants</option>
+          {teachers.map((teacher) => <option key={teacher.id} value={teacher.id}>{teacher.name}</option>)}
+        </select>
+      </div>}
+      {assignments.length === 0 ? <EmptyState text="Aucun devoir disponible." /> : filteredAssignments.length === 0 ? <EmptyState text="Aucun devoir ne correspond à ces filtres." /> : filteredAssignments.map((assignment) => {
         const submission = submissionsByAssignment.get(assignment.id);
         return <AssignmentCard key={assignment.id} assignment={assignment}>
           <div className="flex flex-wrap items-center gap-3">

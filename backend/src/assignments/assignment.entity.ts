@@ -29,6 +29,9 @@ export class Assignment {
     @Column({ type: "varchar", length: 100, nullable: true })
     subject?: string | null;
 
+    @Column({ type: "varchar", length: 100, nullable: true })
+    targetClass?: string | null;
+
     @Column({ type: "integer", nullable: true })
     courseId?: number | null;
 

@@ -168,7 +168,11 @@ export function AppHeader({ onToggleMobileNav, unreadMessageCount = 0 }: AppHead
         )}
 
         {/* User display */}
-        <div className="hidden items-center gap-2 md:flex">
+        <Link
+          href="/profile"
+          className="hidden items-center gap-2 rounded-xl px-2 py-1 transition-colors hover:bg-black/5 md:flex"
+          title="Ouvrir mon profil"
+        >
           <div
             className="flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold text-white shadow-xs"
             style={{
@@ -184,7 +188,7 @@ export function AppHeader({ onToggleMobileNav, unreadMessageCount = 0 }: AppHead
           <span className="text-sm font-medium" style={{ color: "var(--ink-soft)" }}>
             {displayName(user)}
           </span>
-        </div>
+        </Link>
 
         {/* Sign out button */}
         <button

@@ -66,8 +66,15 @@ export class AssignmentsController {
 
     @Get(":id/instructions-file")
     @Roles(UserType.STUDENT, UserType.INSTRUCTOR, UserType.SUPERADMIN)
-    async instructionsFile(@Param("id", ParseIntPipe) id: number, @Res() response: Response) {
-        return response.sendFile(await this.assignmentsService.getInstructionsFile(id), { root: getAssignmentsUploadsDir() });
+    async instructionsFile(
+        @currentUser() payload: JWTPayloadType,
+        @Param("id", ParseIntPipe) id: number,
+        @Res() response: Response,
+    ) {
+        return response.sendFile(
+            await this.assignmentsService.getInstructionsFile(id, payload.id, payload.userType),
+            { root: getAssignmentsUploadsDir() },
+        );
     }
 
     @Post(":id/submissions")

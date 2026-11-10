@@ -45,7 +45,7 @@ import { MailService } from "./mail.service.js";
                 }
             },
             limits: {
-                fileSize: 2 * 1024 * 1024, // 2MB limit
+                fileSize: 5 * 1024 * 1024,
             },
         })
     ],

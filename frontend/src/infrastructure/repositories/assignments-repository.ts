@@ -8,6 +8,7 @@ export type CreateAssignmentInput = {
   dueDate: string;
   maxScore: number;
   subject: string;
+  targetClass: string;
 };
 
 export const assignmentsRepository = {
@@ -22,6 +23,7 @@ export const assignmentsRepository = {
     formData.append("dueDate", input.dueDate);
     formData.append("maxScore", String(input.maxScore));
     formData.append("subject", input.subject);
+    formData.append("targetClass", input.targetClass);
     if (instructionsFile) formData.append("instructionsFile", instructionsFile);
 
     const response = await fetch(`${env.apiUrl}/api/assignments`, {

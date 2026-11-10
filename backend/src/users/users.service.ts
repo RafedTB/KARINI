@@ -12,6 +12,7 @@ import { join } from "node:path";
 import { existsSync, unlinkSync } from "node:fs";
 import { ResetPasswordDto } from "./dto/reset-password.dto.js";
 import { getPlatinumExpirationDate } from "../memberships/memberships.service.js";
+import * as bcrypt from "bcryptjs";
 
 @Injectable()
 export class usersService {
@@ -77,13 +78,18 @@ export class usersService {
      * @returns the updated user
      */
     public async updateUser(id: number, updateUserDto: UpdateUserDto) {
-        const { password, username } = updateUserDto;
+        const { password, currentPassword, ...profile } = updateUserDto;
         const user = await this.userRepository.findOne({ where: { id } });
         if (!user) throw new NotFoundException('User not found');
-        user.username = username ?? user.username;
         if (password) {
+            if (!currentPassword || !(await bcrypt.compare(currentPassword, user.password))) {
+                throw new BadRequestException("Le mot de passe actuel est incorrect");
+            }
             user.password = await this.authProvider.HashPassword(password);
         }
+        Object.assign(user, Object.fromEntries(
+            Object.entries(profile).map(([key, value]) => [key, typeof value === "string" ? value.trim() : value]),
+        ));
         return this.userRepository.save(user);
     }
 

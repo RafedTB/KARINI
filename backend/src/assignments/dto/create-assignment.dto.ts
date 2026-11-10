@@ -22,4 +22,8 @@ export class CreateAssignmentDto {
     @IsString()
     @IsNotEmpty()
     subject!: string;
+
+    @IsString()
+    @IsNotEmpty()
+    targetClass!: string;
 }

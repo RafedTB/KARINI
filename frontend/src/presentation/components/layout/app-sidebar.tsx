@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { useAuth } from "@/presentation/providers/auth-provider";
 import { displayName } from "@/shared/utils/display-name";
 import { MembershipType, UserType } from "@/domain/enums";
-import { BookOpenIcon, CrownIcon, RulerIcon } from "@/presentation/components/ui/icons";
+import { BookOpenIcon, CrownIcon } from "@/presentation/components/ui/icons";
 
 type AppSidebarProps = {
   isOpenMobile?: boolean;
@@ -134,6 +134,7 @@ export function AppSidebar({ isOpenMobile, onCloseMobile, unreadMessageCount = 0
       ? [{
           href: "/assignments",
           label: isInstructor || isSuperadmin ? "Devoirs & Rendus" : "Mes Devoirs",
+          badge: isStudent && String(user.membership).toLowerCase() !== MembershipType.PLATINUM ? "VIP" : undefined,
           icon: (
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M4 4h16v16H4z" />
@@ -171,96 +172,6 @@ export function AppSidebar({ isOpenMobile, onCloseMobile, unreadMessageCount = 0
         ]
       : []),
   ];
-
-  const isBacInfo = Boolean(
-    user.studentClass &&
-      (/bac.*info/i.test(user.studentClass) ||
-        user.studentClass.toLowerCase() === "bac informatique")
-  );
-
-  const subjectQuickLinks = isStudent && isBacInfo
-    ? [
-        {
-          label: "Algorithmique Avancée",
-          href: "/courses/algo-bac-info",
-          icon: (
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <polyline points="16 18 22 12 16 6" />
-              <polyline points="8 6 2 12 8 18" />
-            </svg>
-          ),
-        },
-        {
-          label: "Bases de Données (SQL)",
-          href: "/courses/bdd-bac-info",
-          icon: (
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <ellipse cx="12" cy="5" rx="9" ry="3" />
-              <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" />
-              <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
-            </svg>
-          ),
-        },
-        {
-          label: "Mathématiques",
-          href: "/courses/math-bac-info",
-          icon: <RulerIcon size={14} />,
-        },
-        {
-          label: "Physique - Chimie",
-          href: "/courses/physique-bac-info",
-          icon: (
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
-            </svg>
-          ),
-        },
-        {
-          label: "Toutes les matières",
-          href: "/courses",
-          icon: <BookOpenIcon size={14} />,
-        },
-      ]
-    : [
-        {
-          label: "Mathématiques",
-          href: "/courses/math",
-          icon: <RulerIcon size={14} />,
-        },
-        {
-          label: "Physique - Chimie",
-          href: "/courses/physique",
-          icon: (
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
-            </svg>
-          ),
-        },
-        {
-          label: "Sciences (SVT)",
-          href: "/courses/science",
-          icon: (
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M10 2v7.31M14 2v7.31M8.5 2h7M14 9.3a6.5 6.5 0 1 1-4 0" />
-            </svg>
-          ),
-        },
-        {
-          label: "Informatique",
-          href: "/courses/informatique",
-          icon: (
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <polyline points="16 18 22 12 16 6" />
-              <polyline points="8 6 2 12 8 18" />
-            </svg>
-          ),
-        },
-        {
-          label: "Toutes les matières",
-          href: "/courses",
-          icon: <BookOpenIcon size={14} />,
-        },
-      ];
 
   const isLinkActive = (href: string, exact: boolean) => {
     if (exact) return pathname === href;
@@ -374,35 +285,6 @@ export function AppSidebar({ isOpenMobile, onCloseMobile, unreadMessageCount = 0
           </nav>
         </div>
 
-        {/* Quick learning sections */}
-        {!isParent && (
-          <div className="mt-6">
-            <p className="px-3 text-[11px] font-semibold uppercase tracking-wider" style={{ color: "var(--muted)" }}>
-              {isStudent && isBacInfo ? "Matières (Bac Info)" : "Matières"}
-            </p>
-            <div className="mt-2 space-y-0.5">
-              {subjectQuickLinks.map((sub) => {
-                const active = pathname === sub.href;
-                return (
-                  <Link
-                    key={sub.href}
-                    href={sub.href}
-                    onClick={onCloseMobile}
-                    className="flex items-center gap-2.5 rounded-lg px-3.5 py-1.5 text-xs transition-colors hover:bg-black/5 hover:text-slate-900"
-                    style={{
-                      color: active ? "var(--ink)" : "var(--muted)",
-                      fontWeight: active ? 600 : 400,
-                    }}
-                  >
-                    <span>{sub.icon}</span>
-                    <span>{sub.label}</span>
-                  </Link>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
         {/* Role-specific bottom card */}
         {isStudent && (
           <div
@@ -509,7 +391,12 @@ export function AppSidebar({ isOpenMobile, onCloseMobile, unreadMessageCount = 0
       {/* Bottom user card */}
       <div className="mt-6 pt-4 border-t" style={{ borderColor: "var(--line)" }}>
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3 overflow-hidden">
+          <Link
+            href="/profile"
+            onClick={onCloseMobile}
+            className="flex min-w-0 flex-1 items-center gap-3 overflow-hidden rounded-xl p-1 transition-colors hover:bg-black/5"
+            title="Ouvrir mon profil"
+          >
             <div
               className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white shadow-xs"
               style={{
@@ -526,7 +413,7 @@ export function AppSidebar({ isOpenMobile, onCloseMobile, unreadMessageCount = 0
                 {user.email}
               </p>
             </div>
-          </div>
+          </Link>
 
           <button
             type="button"

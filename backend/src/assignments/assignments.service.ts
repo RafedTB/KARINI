@@ -3,7 +3,7 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { Course } from "../courses/course.entity.js";
 import { User } from "../users/user.entity.js";
-import { UserType } from "../utils/enum.js";
+import { MembershipType, UserType } from "../utils/enum.js";
 import { Assignment } from "./assignment.entity.js";
 import { AssignmentSubmission } from "./assignment-submission.entity.js";
 import { CreateAssignmentDto } from "./dto/create-assignment.dto.js";
@@ -34,24 +34,59 @@ export class AssignmentsService {
         }
     }
 
+    private async getEligibleStudent(studentId: number) {
+        const student = await this.userRepository.findOne({ where: { id: studentId } });
+        if (!student || student.userType !== UserType.STUDENT) {
+            throw new ForbiddenException("Cette fonctionnalité est réservée aux élèves Platinum");
+        }
+        if (
+            student.membership !== MembershipType.PLATINUM ||
+            (student.membershipExpiresAt && new Date(student.membershipExpiresAt).getTime() <= Date.now())
+        ) {
+            throw new ForbiddenException("Cette fonctionnalité est réservée aux élèves Platinum");
+        }
+        return student;
+    }
+
+    private ensureStudentCanAccess(assignment: Assignment, student: User) {
+        if (!student.studentClass || !assignment.targetClass || student.studentClass.trim().toLowerCase() !== assignment.targetClass.trim().toLowerCase()) {
+            throw new ForbiddenException("Ce devoir n'est pas destiné à votre classe");
+        }
+    }
+
     public async list(userId: number, userType: string) {
+        const student = userType === UserType.STUDENT ? await this.getEligibleStudent(userId) : null;
         const where = userType === UserType.INSTRUCTOR ? { createdById: userId } : undefined;
         const assignments = await this.assignmentRepository.find({
             where,
-            relations: { course: true },
+            relations: { course: true, createdBy: true },
             order: { dueDate: "ASC" },
         });
 
         if (userType !== UserType.STUDENT) return assignments;
 
-        return assignments.map((assignment) => {
-            const { createdById: _createdById, ...safeAssignment } = assignment;
-            return safeAssignment;
-        });
+        return assignments
+            .filter((assignment) => assignment.targetClass?.trim().toLowerCase() === student!.studentClass!.trim().toLowerCase())
+            .map((assignment) => {
+                const { createdById: _createdById, createdBy, ...safeAssignment } = assignment;
+                return {
+                    ...safeAssignment,
+                    teacher: createdBy ? {
+                        id: createdBy.id,
+                        username: createdBy.username,
+                        firstname: createdBy.firstname,
+                        lastname: createdBy.lastname,
+                    } : null,
+                };
+            });
     }
 
     public async create(userId: number, userType: string, dto: CreateAssignmentDto, file?: { filename: string; originalname: string }) {
         const subject = dto.subject.trim().toLowerCase();
+        const targetClass = dto.targetClass.trim();
+        const teacher = userType === UserType.INSTRUCTOR
+            ? await this.userRepository.findOne({ where: { id: userId } })
+            : null;
         const subjectCourse = await this.courseRepository.findOne({
             where: userType === UserType.INSTRUCTOR
                 ? { subject, createdById: userId }
@@ -61,6 +96,13 @@ export class AssignmentsService {
         if (!subjectCourse) {
             throw new ForbiddenException("Vous pouvez uniquement créer un devoir pour une matière de vos cours");
         }
+        const assignedClasses = teacher?.teachingClasses ?? [];
+        const classIsAllowed = assignedClasses.length === 0
+            || assignedClasses.some((value) => value.trim().toLowerCase() === targetClass.toLowerCase())
+            || (subjectCourse.filiere && subjectCourse.filiere.trim().toLowerCase() === targetClass.toLowerCase());
+        if (userType === UserType.INSTRUCTOR && !classIsAllowed) {
+            throw new ForbiddenException("Vous pouvez uniquement créer un devoir pour une classe qui vous est attribuée");
+        }
 
         return this.assignmentRepository.save(this.assignmentRepository.create({
             title: dto.title.trim(),
@@ -68,6 +110,7 @@ export class AssignmentsService {
             dueDate: new Date(dto.dueDate),
             maxScore: dto.maxScore,
             subject,
+            targetClass,
             courseId: subjectCourse.id,
             createdById: userId,
             instructionsFileName: file?.filename ?? null,
@@ -75,8 +118,12 @@ export class AssignmentsService {
         }));
     }
 
-    public async getInstructionsFile(id: number) {
+    public async getInstructionsFile(id: number, userId?: number, userType?: string) {
         const assignment = await this.getAssignment(id);
+        if (userType === UserType.STUDENT) {
+            const student = await this.getEligibleStudent(userId!);
+            this.ensureStudentCanAccess(assignment, student);
+        }
         if (!assignment.instructionsFileName) throw new NotFoundException("Aucun PDF de consignes pour ce devoir");
         return assignment.instructionsFileName;
     }
@@ -95,6 +142,18 @@ export class AssignmentsService {
             if (!subjectCourse) throw new BadRequestException("Matière invalide");
             assignment.subject = subject;
             assignment.courseId = subjectCourse.id;
+        }
+        if (dto.targetClass !== undefined) {
+            const targetClass = dto.targetClass.trim();
+            const teacher = userType === UserType.INSTRUCTOR
+                ? await this.userRepository.findOne({ where: { id: userId } })
+                : null;
+            if (userType === UserType.INSTRUCTOR && (!teacher?.teachingClasses?.some(
+                (value) => value.trim().toLowerCase() === targetClass.toLowerCase(),
+            ))) {
+                throw new BadRequestException("Classe invalide");
+            }
+            assignment.targetClass = targetClass;
         }
         Object.assign(assignment, {
             ...(dto.title === undefined ? {} : { title: dto.title.trim() }),
@@ -118,7 +177,9 @@ export class AssignmentsService {
         answerText: string | undefined,
         file?: { filename: string; originalname: string },
     ) {
-        await this.getAssignment(assignmentId);
+        const assignment = await this.getAssignment(assignmentId);
+        const student = await this.getEligibleStudent(studentId);
+        this.ensureStudentCanAccess(assignment, student);
         const trimmedAnswer = answerText?.trim() || null;
         if (!trimmedAnswer && !file) throw new BadRequestException("Ajoutez une réponse ou un fichier");
 
@@ -138,8 +199,9 @@ export class AssignmentsService {
     }
 
     public async listMySubmissions(studentId: number) {
+        const student = await this.getEligibleStudent(studentId);
         return this.submissionRepository.find({
-            where: { studentId },
+            where: { studentId, assignment: { targetClass: student.studentClass!.trim() } },
             relations: { assignment: true },
             order: { submittedAt: "DESC" },
         });
