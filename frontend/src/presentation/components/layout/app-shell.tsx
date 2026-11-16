@@ -10,6 +10,7 @@ import { AppHeader } from "@/presentation/components/layout/app-header";
 import { AppSidebar } from "@/presentation/components/layout/app-sidebar";
 import { SiteFooter } from "@/presentation/components/layout/site-footer";
 import { PageLoader } from "@/presentation/components/ui/page-loader";
+import { AiChatWidget } from "@/presentation/components/ai/ai-chat-widget";
 import { UserType } from "@/domain/enums";
 import { getMessagingSocket } from "@/infrastructure/socket/socket-client";
 
@@ -89,6 +90,9 @@ export function AppShell({ children }: { children: ReactNode }) {
 
         {/* Public Footer */}
         <SiteFooter />
+
+        {/* Floating Karini AI Assistant */}
+        <AiChatWidget />
       </div>
     );
   }
@@ -133,6 +137,9 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
         </footer>
       </div>
+
+      {/* Floating Karini AI Assistant */}
+      <AiChatWidget />
     </div>
   );
 }
