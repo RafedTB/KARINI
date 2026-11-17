@@ -1,68 +1,103 @@
-import os
 import json
+import os
 import urllib.request
-from http.server import HTTPServer, BaseHTTPRequestHandler
+
 import torch
-from transformers import AutoModelForCausalLM, AutoTokenizer
+from flask import Flask, jsonify, request
 from peft import PeftModel
+from transformers import AutoModelForCausalLM, AutoTokenizer
 
-PORT = 5000
-BASE_MODEL_ID = "Qwen/Qwen2.5-0.5B-Instruct"
-ADAPTER_DIR = os.path.join(os.path.dirname(__file__), "final-karini-model")
-BACKEND_PRICES_URL = os.environ.get("KARINI_API_URL", "http://localhost:3000/api/memberships/prices")
-
-print(f"--> Initializing Karini Enhanced AI Server on port {PORT}...")
-
-device = "cuda" if torch.cuda.is_available() else "cpu"
-dtype = torch.float16 if torch.cuda.is_available() else torch.float32
-
-# Load tokenizer and model
-print(f"--> Loading tokenizer and model ({BASE_MODEL_ID}) on {device}...")
-tokenizer = AutoTokenizer.from_pretrained(
-    ADAPTER_DIR if os.path.exists(ADAPTER_DIR) else BASE_MODEL_ID
+PORT = int(os.environ.get("AI_PORT", "5000"))
+BASE_MODEL_ID = os.environ.get("AI_BASE_MODEL_ID", "Qwen/Qwen2.5-0.5B-Instruct")
+ADAPTER_DIR = os.environ.get(
+    "AI_ADAPTER_DIR",
+    os.path.join(os.path.dirname(__file__), "final-karini-model"),
 )
-if tokenizer.pad_token is None:
-    tokenizer.pad_token = tokenizer.eos_token
-
-base_model = AutoModelForCausalLM.from_pretrained(
-    BASE_MODEL_ID,
-    dtype=dtype,
-    device_map="auto" if device == "cuda" else None,
-    low_cpu_mem_usage=True,
+BACKEND_PRICES_URL = os.environ.get(
+    "KARINI_API_URL",
+    "http://localhost:3000/api/memberships/prices",
 )
+ALLOWED_ORIGINS = os.environ.get("AI_ALLOWED_ORIGINS", "*")
+API_KEY = os.environ.get("AI_API_KEY", "")
+MAX_MESSAGE_LENGTH = int(os.environ.get("AI_MAX_MESSAGE_LENGTH", "4000"))
 
-if os.path.exists(ADAPTER_DIR):
-    print("--> Found fine-tuned Karini model! Loading enhanced adapter...")
-    model = PeftModel.from_pretrained(base_model, ADAPTER_DIR)
-else:
-    print("--> Running base model with Karini knowledge.")
-    model = base_model
 
-model.eval()
-print(f"--> Karini AI Server ready at http://localhost:{PORT}!")
+class AIRuntime:
+    def __init__(self):
+        self.tokenizer = None
+        self.model = None
+        self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        self.dtype = torch.float16 if torch.cuda.is_available() else torch.float32
+
+    def load(self):
+        if self.model is not None:
+            return
+
+        print(f"--> Loading tokenizer and model ({BASE_MODEL_ID}) on {self.device}...")
+        self.tokenizer = AutoTokenizer.from_pretrained(
+            ADAPTER_DIR if os.path.exists(ADAPTER_DIR) else BASE_MODEL_ID
+        )
+        if self.tokenizer.pad_token is None:
+            self.tokenizer.pad_token = self.tokenizer.eos_token
+
+        base_model = AutoModelForCausalLM.from_pretrained(
+            BASE_MODEL_ID,
+            dtype=self.dtype,
+            device_map="auto" if self.device == "cuda" else None,
+            low_cpu_mem_usage=True,
+        )
+
+        if os.path.exists(ADAPTER_DIR):
+            print("--> Found fine-tuned Karini model! Loading enhanced adapter...")
+            self.model = PeftModel.from_pretrained(base_model, ADAPTER_DIR)
+        else:
+            print("--> Running base model with Karini knowledge.")
+            self.model = base_model
+
+        self.model.eval()
+
+    def generate(self, prompt):
+        self.load()
+        inputs = self.tokenizer(prompt, return_tensors="pt").to(self.model.device)
+        with torch.no_grad():
+            outputs = self.model.generate(
+                **inputs,
+                max_new_tokens=300,
+                temperature=0.5,
+                top_p=0.85,
+                repetition_penalty=1.15,
+                do_sample=True,
+                pad_token_id=self.tokenizer.eos_token_id,
+            )
+        return self.tokenizer.decode(
+            outputs[0][inputs.input_ids.shape[1]:],
+            skip_special_tokens=True,
+        ).strip()
+
+
+runtime = AIRuntime()
+
 
 def fetch_live_plans():
-    """Fetches real-time membership pricing from NestJS / PostgreSQL backend."""
     try:
         req = urllib.request.Request(
             BACKEND_PRICES_URL,
-            headers={"User-Agent": "Karini-AI/1.0", "Accept": "application/json"}
+            headers={"User-Agent": "Karini-AI/1.0", "Accept": "application/json"},
         )
-        with urllib.request.urlopen(req, timeout=1.5) as resp:
-            data = json.loads(resp.read().decode("utf-8"))
-            if isinstance(data, list) and len(data) > 0:
+        with urllib.request.urlopen(req, timeout=1.5) as response:
+            data = json.loads(response.read().decode("utf-8"))
+            if isinstance(data, list) and data:
                 plans = {}
-                for p in data:
-                    name = str(p.get("membership", "")).lower()
+                for plan in data:
+                    name = str(plan.get("membership", "")).lower()
                     plans[name] = {
-                        "credits": p.get("priceCredits", 0),
-                        "duration": p.get("duration", "monthly"),
+                        "credits": plan.get("priceCredits", 0),
+                        "duration": plan.get("duration", "monthly"),
                     }
                 return plans
     except Exception:
         pass
 
-    # Default official database schema
     return {
         "default": {"credits": 0, "duration": "monthly"},
         "standard": {"credits": 0, "duration": "monthly"},
@@ -71,204 +106,114 @@ def fetch_live_plans():
         "platinum": {"credits": 500, "duration": "yearly"},
     }
 
-def get_direct_price_answer(user_msg: str, plans: dict) -> str | None:
-    """Answers specific price queries with 100% precision from the database."""
+
+def get_direct_price_answer(user_msg, plans):
     msg = user_msg.lower().strip()
-
-    is_price_query = any(k in msg for k in [
-        "prix", "tarif", "combien", "cout", "coût", "bkaddeh", "chounia",
-        "forfait", "abonnement", "membership"
-    ])
-
-    if not is_price_query:
+    price_terms = (
+        "prix", "tarif", "combien", "cout", "coût", "bkaddeh",
+        "chounia", "forfait", "abonnement", "membership",
+    )
+    if not any(term in msg for term in price_terms):
         return None
 
-    silver_cr = plans.get("silver", {}).get("credits", 100)
-    gold_cr = plans.get("gold", {}).get("credits", 250)
-    plat_cr = plans.get("platinum", {}).get("credits", 500)
+    silver = plans.get("silver", {}).get("credits", 100)
+    gold = plans.get("gold", {}).get("credits", 250)
+    platinum = plans.get("platinum", {}).get("credits", 500)
 
-    # Specific queries for Gold
-    if "gold" in msg and not ("silver" in msg or "platinum" in msg or "tous" in msg or "les" in msg):
-        return (
-            f"⭐ **Formule Gold : {gold_cr} crédits / mois** (validité 30 jours).\n\n"
-            f"Ce forfait comprend l'accès complet à tous les cours vidéo, exercices avec corrigés, "
-            f"téléchargement illimité des magazines PDF, ainsi que l'exclusivité totale des **Archives Live (replays des cours en direct)**."
-        )
+    if "gold" in msg and not any(word in msg for word in ("silver", "platinum", "tous", "les")):
+        return f"⭐ **Formule Gold : {gold} crédits / mois** (validité 30 jours)."
+    if "platinum" in msg and not any(word in msg for word in ("silver", "gold", "tous")):
+        return f"💎 **Formule Platinum : {platinum} crédits / an**."
+    if "silver" in msg and not any(word in msg for word in ("gold", "platinum", "tous")):
+        return f"🥈 **Formule Silver : {silver} crédits / mois** (validité 30 jours)."
+    if any(word in msg for word in ("standard", "gratuit", "free")):
+        return "📚 **Formule Standard : 0 crédit (Gratuit)**."
 
-    # Specific queries for Platinum
-    if "platinum" in msg and not ("silver" in msg or "gold" in msg or "tous" in msg):
-        return (
-            f"💎 **Formule Platinum : {plat_cr} crédits / an**.\n\n"
-            f"Il s'agit d'une souscription annuelle scolaire valable jusqu'au **15 juin** (fin des épreuves du Baccalauréat). "
-            f"Elle inclut l'accès direct en temps réel à toutes les **Sessions Live avec les enseignants** (micro ouvert et chat), "
-            f"tous les cours vidéo, exercices, magazines PDF et certificats officiels."
-        )
-
-    # Specific queries for Silver
-    if "silver" in msg and not ("gold" in msg or "platinum" in msg or "tous" in msg):
-        return (
-            f"🥈 **Formule Silver : {silver_cr} crédits / mois** (validité 30 jours).\n\n"
-            f"Elle comprend l'accès complet aux cours vidéo structurés, séries d'exercices d'entraînement avec corrigés détaillés, "
-            f"et téléchargement des magazines PDF."
-        )
-
-    # Specific queries for Standard
-    if any(k in msg for k in ["standard", "gratuit", "free"]):
-        return (
-            "📚 **Formule Standard : 0 crédit (Gratuit)**.\n\n"
-            "Cette formule est activée automatiquement dès votre inscription. "
-            "Elle vous donne un accès de base aux cours ouverts, exercices d'entraînement simples, "
-            "magazines publics et suivi de progression personnel."
-        )
-
-    # General all-prices query
     return (
         "Voici les tarifs officiels des formules d'abonnement sur Karini :\n\n"
-        f"• 📚 **Standard** : **0 crédit** (Gratuit, inclus d'office dès l'inscription)\n"
-        f"• 🥈 **Silver** : **{silver_cr} crédits / mois** (Cours vidéo, exercices & corrigés, magazines PDF)\n"
-        f"• ⭐ **Gold** : **{gold_cr} crédits / mois** (Tout Silver + Archives Live / Replays illimités)\n"
-        f"• 💎 **Platinum** : **{plat_cr} crédits / an** (Souscription annuelle jusqu'au 15 juin avec Sessions Live directes avec les professeurs)\n\n"
-        "Vous pouvez activer ou renouveler votre formule directement depuis la page **Membership** avec votre solde de crédits."
+        f"• 📚 **Standard** : **0 crédit**\n"
+        f"• 🥈 **Silver** : **{silver} crédits / mois**\n"
+        f"• ⭐ **Gold** : **{gold} crédits / mois**\n"
+        f"• 💎 **Platinum** : **{platinum} crédits / an**"
     )
 
-class KariniAIHandler(BaseHTTPRequestHandler):
-    def _send_cors_headers(self):
-        self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
 
-    def do_OPTIONS(self):
-        self.send_response(200)
-        self._send_cors_headers()
-        self.end_headers()
+def build_prompt(user_message, history):
+    system_prompt = (
+        "Tu es Karini, un assistant IA pédagogique et bienveillant pour la plateforme éducative "
+        "Karini (système éducatif tunisien de la 7ème Année de Base jusqu'au Baccalauréat)."
+    )
+    prompt = f"<|im_start|>system\n{system_prompt}<|im_end|>\n"
+    if isinstance(history, list):
+        for turn in history[-4:]:
+            role = turn.get("sender", "user")
+            text = turn.get("text", "")
+            if role == "user":
+                prompt += f"<|im_start|>user\n{text}<|im_end|>\n"
+            elif role == "bot":
+                prompt += f"<|im_start|>assistant\n{text}<|im_end|>\n"
+    prompt += f"<|im_start|>user\n{user_message}<|im_end|>\n<|im_start|>assistant\n"
+    return prompt
 
-    def do_GET(self):
-        if self.path == "/health":
-            self.send_response(200)
-            self._send_cors_headers()
-            self.send_header("Content-Type", "application/json")
-            self.end_headers()
-            status = {
-                "status": "ready",
-                "device": device,
-                "has_adapter": os.path.exists(ADAPTER_DIR),
-            }
-            self.wfile.write(json.dumps(status).encode("utf-8"))
-        else:
-            self.send_response(404)
-            self.end_headers()
 
-    def do_POST(self):
-        if self.path == "/chat":
-            content_length = int(self.headers.get("Content-Length", 0))
-            post_data = self.rfile.read(content_length)
+def create_app(load_model=True):
+    app = Flask(__name__)
+    app.config["MAX_MESSAGE_LENGTH"] = MAX_MESSAGE_LENGTH
 
-            try:
-                body = json.loads(post_data.decode("utf-8"))
-                user_message = body.get("message", "").strip()
-                history = body.get("history", [])
+    if load_model:
+        runtime.load()
 
-                if not user_message:
-                    self.send_response(400)
-                    self._send_cors_headers()
-                    self.send_header("Content-Type", "application/json")
-                    self.end_headers()
-                    self.wfile.write(json.dumps({"error": "Empty message"}).encode("utf-8"))
-                    return
+    @app.after_request
+    def add_cors_headers(response):
+        response.headers["Access-Control-Allow-Origin"] = ALLOWED_ORIGINS
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-API-Key"
+        return response
 
-                # Fetch real-time database prices
-                live_plans = fetch_live_plans()
+    @app.route("/health")
+    def health():
+        return jsonify({
+            "status": "ready",
+            "device": runtime.device,
+            "has_adapter": os.path.exists(ADAPTER_DIR),
+        })
 
-                # Fast direct response for specific price queries
-                direct_answer = get_direct_price_answer(user_message, live_plans)
-                if direct_answer:
-                    self.send_response(200)
-                    self._send_cors_headers()
-                    self.send_header("Content-Type", "application/json; charset=utf-8")
-                    self.end_headers()
-                    payload = json.dumps({"reply": direct_answer}, ensure_ascii=False)
-                    self.wfile.write(payload.encode("utf-8"))
-                    return
+    @app.route("/chat", methods=["POST", "OPTIONS"])
+    def chat():
+        if API_KEY and request.headers.get("X-API-Key") != API_KEY:
+            return jsonify({"error": "Unauthorized"}), 401
+        if request.method == "OPTIONS":
+            return "", 200
 
-                # Otherwise generate with LLM using full context + conversation history
-                gold_cr = live_plans.get("gold", {}).get("credits", 250)
-                plat_cr = live_plans.get("platinum", {}).get("credits", 500)
-                silver_cr = live_plans.get("silver", {}).get("credits", 100)
+        body = request.get_json(silent=True)
+        if not isinstance(body, dict):
+            return jsonify({"error": "Request body must be JSON"}), 400
 
-                system_prompt = (
-                    "Tu es Karini, un assistant IA pédagogique et bienveillant pour la plateforme éducative Karini "
-                    "(système éducatif tunisien de la 7ème Année de Base jusqu'au Baccalauréat).\n\n"
-                    "Faits certifiés de la plateforme :\n"
-                    f"- Formule Standard : Gratuite (0 crédit)\n"
-                    f"- Formule Silver : {silver_cr} crédits / mois (cours vidéo, exercices avec corrigés, magazines)\n"
-                    f"- Formule Gold : {gold_cr} crédits / mois (replays & Archives Live)\n"
-                    f"- Formule Platinum : {plat_cr} crédits / an (valable jusqu'au 15 juin pour le Bac, avec direct Live)\n"
-                    "- Inscription : mineurs (-18 ans) nécessitent email parent (compte parent créé automatiquement). "
-                    "Majeurs (+18 ans) nécessitent leur CIN.\n"
-                    "- Filières : 2ème Info, 2ème Sciences, 2ème Éco, 2ème Lettres, Bac Info (Python, BD SQL), "
-                    "Bac Math, Bac Sciences, Bac Technique, Bac Éco & Gestion.\n"
-                    "- Outils : Video Studio (playlist à gauche + lecteur vidéo à droite), Exercices avec corrigés, "
-                    "Magazines PDF téléchargeables, Quizzes avec meilleur score conservé, Devoirs à remettre en ligne.\n\n"
-                    "Réponds avec clarté, concision et structure dans la langue de l'élève (Français, Arabe ou Derja)."
-                )
+        message = body.get("message")
+        if not isinstance(message, str) or not message.strip():
+            return jsonify({"error": "Empty message"}), 400
+        if len(message) > app.config["MAX_MESSAGE_LENGTH"]:
+            return jsonify({"error": "Message is too long"}), 413
 
-                # Construct prompt with optional conversation history (last 3 turns)
-                prompt = f"<|im_start|>system\n{system_prompt}<|im_end|>\n"
+        live_plans = fetch_live_plans()
+        direct_answer = get_direct_price_answer(message, live_plans)
+        if direct_answer:
+            return jsonify({"reply": direct_answer})
 
-                if isinstance(history, list) and len(history) > 0:
-                    for turn in history[-4:]:
-                        role = turn.get("sender", "user")
-                        text = turn.get("text", "")
-                        if role == "user":
-                            prompt += f"<|im_start|>user\n{text}<|im_end|>\n"
-                        elif role == "bot":
-                            prompt += f"<|im_start|>assistant\n{text}<|im_end|>\n"
+        try:
+            reply = runtime.generate(build_prompt(message, body.get("history", [])))
+        except Exception:
+            return jsonify({"error": "AI model is temporarily unavailable"}), 500
+        return jsonify({"reply": reply})
 
-                prompt += f"<|im_start|>user\n{user_message}<|im_end|>\n<|im_start|>assistant\n"
+    return app
 
-                inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
 
-                with torch.no_grad():
-                    outputs = model.generate(
-                        **inputs,
-                        max_new_tokens=300,
-                        temperature=0.5,
-                        top_p=0.85,
-                        repetition_penalty=1.15,
-                        do_sample=True,
-                        pad_token_id=tokenizer.eos_token_id,
-                    )
+app = create_app(load_model=False)
 
-                response = tokenizer.decode(
-                    outputs[0][inputs.input_ids.shape[1]:], skip_special_tokens=True
-                ).strip()
-
-                self.send_response(200)
-                self._send_cors_headers()
-                self.send_header("Content-Type", "application/json; charset=utf-8")
-                self.end_headers()
-                payload = json.dumps({"reply": response}, ensure_ascii=False)
-                self.wfile.write(payload.encode("utf-8"))
-
-            except Exception as e:
-                self.send_response(500)
-                self._send_cors_headers()
-                self.send_header("Content-Type", "application/json")
-                self.end_headers()
-                self.wfile.write(json.dumps({"error": str(e)}).encode("utf-8"))
-        else:
-            self.send_response(404)
-            self.end_headers()
-
-def run():
-    server_address = ("", PORT)
-    httpd = HTTPServer(server_address, KariniAIHandler)
-    print(f"🚀 Karini Enhanced AI API listening on http://localhost:{PORT}")
-    try:
-        httpd.serve_forever()
-    except KeyboardInterrupt:
-        print("\nStopping server...")
-        httpd.server_close()
 
 if __name__ == "__main__":
-    run()
+    print(f"--> Initializing Karini Enhanced AI Server on port {PORT}...")
+    app = create_app(load_model=True)
+    print(f"--> Karini AI Server ready at http://localhost:{PORT}!")
+    app.run(host="0.0.0.0", port=PORT)
